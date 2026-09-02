@@ -1,0 +1,133 @@
+Title,Module,Category,Estimate,Milestone,Requirement,DoneWhen
+Repository setup: tooling linting formatting and CI,Infrastructure,Feature,5,M1,NFR-7.2,CI runs on every PR; lint and format enforced; README gets a dev running locally in under 30 minutes
+Database schema and migrations for all 29 tables,Infrastructure,Feature,14,M1,Schema v2.0,All tables created via migration; composite FK on courses to levels enforced; money columns are integer minor units
+Seed reference data for boards levels and subjects,Infrastructure,Feature,3,M1,FR-3.4,Cambridge and Edexcel seeded with their levels; subjects table populated and extensible
+Staging environment and deployment pipeline,Infrastructure,Feature,6,M1,NFR-7.2,Merge to main deploys to staging automatically; environment config externalised; no secrets in repo
+Production environment provisioning,Infrastructure,Feature,3,M1,NFR-2.2,Production server provisioned; daily database backup configured; restore tested once
+Design tokens and base component library,Infrastructure,Feature,10,M1,Design Spec 2,Colour typography and spacing tokens defined; button input badge and table primitives built; both density variants working
+Platform settings table and admin editor,Infrastructure,Feature,3,M1,Schema 11,Completion threshold order expiry and dispute window editable by admin without a deploy
+Error handling logging and monitoring baseline,Infrastructure,Feature,4,M1,NFR-7.3,Failed payment enrollment or email diagnosable from logs without database inspection
+User model roles and multi-role support,Auth,Feature,6,M1,FR-1.1 FR-1.2,One account can hold Admin and Teacher; role modelled as assignable set not a column
+Student registration with email verification,Auth,Feature,7,M1,FR-1.3 FR-1.4,Registration captures guardian name email phone; verification required before paid enrollment
+Login logout and session handling,Auth,Feature,4,M1,FR-1.3,Sessions expire appropriately; logout clears session server-side
+Password reset flow,Auth,Feature,4,M1,FR-1.3,Reset token single-use and time-limited; old sessions invalidated on reset
+Server-side authorisation middleware,Auth,Feature,6,M1,NFR-3.3 NFR-3.4,Every request authorised server-side; teacher scoping enforced at data layer not route layer
+Admin account creation and account status management,Auth,Feature,3,M1,FR-1.6 FR-1.7,Admin can create admin accounts and suspend or reactivate any account with audit entry
+Multi-factor authentication for admin accounts,Auth,Feature,4,M1,NFR-3.7,MFA available and enforceable on accounts holding the Admin role
+Rate limiting on authentication and public endpoints,Auth,Feature,3,M1,NFR-3.7,Login registration application submission and search rate limited
+Public teacher application form,Teacher Onboarding,Feature,6,M1,FR-2.1 FR-2.5,Unauthenticated submission; CV upload with type and size limits; captcha protection
+CV upload storage and retrieval,Teacher Onboarding,Feature,4,M1,FR-2.1,CV stored in object storage not on the app server; admin can download
+Admin application review queue,Teacher Onboarding,Feature,6,M1,FR-2.2,Admin lists applications downloads CV and marks under review rejected or hired with timestamp
+Admin teacher account creation and application linking,Teacher Onboarding,Feature,4,M1,FR-2.3 FR-2.4,Account created manually; can be linked to originating application
+Teacher suspension and deactivation,Teacher Onboarding,Feature,4,M1,FR-2.6 FR-2.7,Suspension halts new enrollments; deactivation blocked while committed courses remain
+Application retention and purge,Teacher Onboarding,Feature,2,M1,FR-2.9,Unsuccessful applications purgeable after the configured retention period
+Course model with syllabus metadata,Courses,Feature,8,M1,FR-3.2 FR-3.4,Board level subject and syllabus area stored as reference data; composite FK prevents board level mismatch
+Course state machine and transitions,Courses,Feature,6,M1,FR-3.6,Draft to Pending to Published to Archived; invalid transitions rejected; is_archived not duplicated
+Teacher course authoring interface,Courses,Feature,12,M1,FR-3.1,Teacher creates edits and archives own courses; hard delete blocked where enrollments exist
+Sections and lessons CRUD with ordering,Courses,Feature,10,M1,FR-3.5,Sections and lessons ordered; reordering and moving a lesson between sections supported
+Admin course review and approval queue,Courses,Feature,8,M1,FR-3.7 FR-3.8,Admin approves or rejects; unpublish records a reason and notifies the teacher
+Admin pricing and commission entry,Courses,Feature,7,M1,FR-3.10 FR-3.11 FR-3.13,Price and commission required before publish; who set them and when is recorded
+Teacher proposed commission on submission,Courses,Feature,3,M1,FR-3.9,Teacher may propose a rate; proposal is advisory and stored alongside the admin decision
+Post-publication price and commission changes,Courses,Feature,4,M1,FR-3.12,Changes apply to subsequent sales only; existing orders retain snapshot values
+Course enrollment open close toggle,Courses,Feature,3,M1,FR-3.16,Toggle independent of publication status; existing students unaffected
+Progression mode and audience type fields,Courses,Feature,2,M1,FR-3.17,Free or sequential progression stored; student versus teacher PD audience distinguished
+Course demo upload and display,Courses,Feature,5,M1,FR-3.15,Every course carries a demo visible before enrollment; reuses the video asset abstraction
+Video asset provider abstraction,Content,Feature,6,M1,FR-4.2,Provider and provider video id stored; single resolver service; switching host is one adapter
+Bunny Stream integration and upload flow,Content,Feature,8,M1,FR-4.2,Video uploaded to provider; duration captured; processing state handled
+Embedded player with restricted surface,Content,Feature,6,M1,FR-4.3 FR-4.4,Player exposes no other content from the same account; embedding domain-restricted
+PDF and file resource upload,Content,Feature,5,M1,FR-4.1,Resources attached to lessons; stored in object storage; size limits enforced
+Enrollment-gated resource access,Content,Feature,5,M1,FR-4.5,Resources served only to users with an active enrollment; access checked server-side
+Course catalogue listing page,Catalogue,Feature,8,M2,FR-6.1,Published courses listed; subject is the primary browse axis; unpublished and PD courses excluded
+Search across course and teacher fields,Catalogue,Feature,8,M2,FR-6.1,Search covers title description subject board level syllabus area and teacher name
+Filtering by subject board level pacing and price,Catalogue,Feature,7,M2,FR-6.2,Filters combine correctly; free-only filter works; filter state reflected in the URL
+Course detail page with demo,Catalogue,Feature,7,M2,FR-6.5,Demo description syllabus coverage pricing and teacher shown before enrollment
+Result ordering with no paid promotion,Catalogue,Feature,3,M2,FR-6.4,Default ordering follows a stated non-commercial criterion
+Catalogue responsive layout,Catalogue,Feature,2,M2,NFR-6.1,Catalogue and course detail usable at 380px
+Enrollment model and access control,Enrollment,Feature,8,M2,FR-6.8 FR-6.9,One enrollment per student per course enforced; source and grant timestamp recorded
+Free course direct enrollment,Enrollment,Feature,4,M2,FR-6.6,Any registered user enrols in a free course without payment
+Paid enrollment granted on payment confirmation,Enrollment,Feature,5,M2,FR-6.7,Enrollment created only on admin confirmation; grant is idempotent
+Admin manual enrollment grant,Enrollment,Feature,5,M2,FR-6.14,Admin grants against offline payment recording channel and reason
+Teacher enrollment management for own courses,Enrollment,Feature,6,M2,FR-6.11 FR-6.12,Teacher sees and manages own course enrollments only; cross-teacher access impossible
+Enrollment expiry handling,Enrollment,Feature,4,M2,FR-6.10,Nullable expiry supported; expired enrollment blocks access with a clear message
+Student dashboard with enrolled courses,Enrollment,Feature,7,M2,FR-9.3,Student sees enrolled courses with completion percentage
+Course player layout and lesson outline,Enrollment,Feature,6,M2,Design Spec 3,Outline shows section grouping and lesson states; drawer on mobile; current lesson auto-scrolled
+Cart supporting multiple teachers,Orders,Feature,7,M2,FR-7.1,Courses from different teachers in one cart; totals computed correctly
+Order creation with payment reference,Orders,Feature,7,M2,FR-7.2,Unique payment reference generated; bank details amount currency and reference displayed
+Order line items with frozen snapshots,Orders,Feature,6,M2,FR-7.3,Price commission rate commission amount and net teacher earning stored at purchase
+Order lifecycle state machine,Orders,Feature,6,M2,FR-7.12,Pending Proof Confirmed Rejected Lapsed Refunded; every transition timestamped and attributed
+Student proof of payment submission,Orders,Feature,7,M2,FR-7.4,Transaction id required; optional file upload; multiple proofs per order supported
+Duplicate transaction id detection,Orders,Feature,4,M2,FR-7.5,Warns when a transaction id exists on another order; does not block resubmission
+Pending order status screen for students,Orders,Feature,5,M2,FR-7.13,Student sees order status and what is expected of them next
+Order expiry job,Orders,Feature,4,M2,FR-7.9,Pending orders lapse after the configured window; student notified
+Receipt generation on confirmation,Orders,Feature,4,M2,FR-7.10,Receipt issued on confirmation not at checkout
+Admin payment verification queue,Verification,Feature,10,M2,FR-7.6 FR-12.2,Queue lists pending orders with waiting time duplicate warnings and amount mismatches
+Payment confirmation with amount and value date,Verification,Feature,7,M2,FR-7.6 FR-7.7,Amount received and value date required; enrollment granted; audit entry written
+Payment rejection with reason,Verification,Feature,4,M2,FR-7.6,Reason required; student notified with the reason
+Amount mismatch handling,Verification,Feature,5,M2,FR-7.8,Difference computed and displayed; confirm anyway request top-up or reject
+Verification queue metrics and oldest waiting,Verification,Feature,4,M2,NFR-2.4,Oldest waiting order surfaced against the published turnaround
+Quiz model and teacher quiz builder,Assessment,Feature,12,M2,FR-5.1,Teacher creates edits and deletes quizzes within own courses
+Multiple choice question type,Assessment,Feature,8,M2,FR-5.2,Auto-graded; options stored and rendered; correct answer hidden from client
+Numeric answer question type with tolerance,Assessment,Feature,8,M2,FR-5.3,Tolerance and unit configurable; grading handles both
+Notation rendering in questions and options,Assessment,Feature,8,M2,FR-5.4,Mathematical and scientific notation renders inline; legible at 380px
+Diagram and image support in questions,Assessment,Feature,5,M2,FR-5.4,Images uploaded and displayed within questions
+Quiz timer enforced server-side,Assessment,Feature,6,M2,FR-5.5,Time limit enforced against absolute time not the client clock
+Attempt limits and attempt recording,Assessment,Feature,7,M2,FR-5.5 FR-5.6,Max attempts enforced; every attempt recorded with per-question responses and score
+Quiz taking interface,Assessment,Feature,10,M2,FR-5.1,Question navigation answer entry and submission; usable at 380px
+Answer and explanation release configuration,Assessment,Feature,4,M2,FR-5.7,Teacher configures whether and when answers are revealed
+Quiz checkpoint gating,Assessment,Feature,2,M2,FR-5.8 FR-5.9,Checkpoint blocks subsequent lessons until the pass condition is met
+Teacher ledger append-only model,Ledger,Feature,8,M3,FR-8.1 NFR-8.1,Entries never updated or deleted; corrections are compensating entries
+Balance derived from ledger entries,Ledger,Feature,5,M3,FR-8.2,Balance computed as a sum; no stored balance column anywhere
+Earning entries created on payment confirmation,Ledger,Feature,5,M3,FR-8.1,Confirmed order items create earning entries net of commission
+Pending versus confirmed sales separation,Ledger,Feature,4,M3,FR-8.3,Teacher sees unverified sales separately from earned balance
+Refund recording and enrollment revocation,Ledger,Feature,7,M3,FR-7.14,Refund records amount date transaction id and authoriser; enrollment revoked; ledger adjusted
+Manual balance adjustments,Ledger,Feature,4,M3,FR-8.10,Admin records adjustment with amount reason and authorising user
+Teacher earnings dashboard,Ledger,Feature,8,M3,FR-8.4,Teacher views own sales commission balance and payout history
+Payout recording,Payouts,Feature,7,M3,FR-8.5,Amount date transaction id and covered sales captured; ledger entry created
+Payout notification to teacher,Payouts,Feature,3,M3,FR-8.6,Teacher notified with amount transaction id date and itemised coverage
+Seven day dispute window and auto-accept job,Payouts,Feature,6,M3,FR-8.7 FR-8.9,Payout accepted after seven days; job skips disputed payouts
+Teacher raises payout concern,Payouts,Feature,5,M3,FR-8.7,Concern can be raised within seven days; blocked afterwards
+Admin resolves payout concern,Payouts,Feature,5,M3,FR-8.8,Concern stays open until resolved; no time limit on resolution; outcome recorded
+Lesson completion recording,Progress,Feature,6,M3,FR-9.1,Completion recorded per student per lesson with completion source
+Video watch position tracking,Progress,Feature,7,M3,FR-9.1,Last and maximum position stored; resume playback works
+Automatic video completion at threshold,Progress,Feature,4,M3,Schema 12,Completion auto-recorded at the configured threshold measured against maximum position
+Manual mark complete override,Progress,Feature,3,M3,Schema 12,Student can mark a lesson complete manually; source recorded as manual
+Course completion percentage,Progress,Feature,4,M3,FR-9.2,Derived from completed lessons over total; shown on player and dashboard
+Teacher view of student progress,Progress,Feature,5,M3,FR-9.4,Teacher sees progress and quiz results for own courses only
+Sequential unlock rule implementation,Progression,Feature,6,M3,FR-3.18 FR-3.19,Lesson unlocks when all preceding lessons complete; derived not stored
+Locked lesson messaging by cause,Progression,Feature,4,M3,FSD 3.11,Distinct messages for uncleared checkpoint versus preceding lesson incomplete
+Teacher public profile editor,Profiles,Feature,7,M3,FR-11.1 FR-11.2 FR-11.3,Bio photo qualifications social links and face-to-face locations editable by the teacher
+Public teacher profile page,Profiles,Feature,7,M3,FR-11.4,Profile lists published courses; indexable by search engines
+Admin profile moderation,Profiles,Feature,3,M3,FR-11.5,Admin can edit or unpublish any teacher profile
+Teacher profile responsive layout,Profiles,Feature,3,M3,NFR-6.1,Profile usable at 380px
+Admin dashboard and navigation shell,Admin,Feature,8,M3,FR-12.1,Compact density register; queue counts visible in navigation
+Admin user and account management,Admin,Feature,8,M3,FR-12.1,Admin manages users teachers courses enrollments orders and payouts
+Admin financial summary by period,Admin,Feature,10,M3,FR-12.3,Confirmed sales commission retained refunds payouts and outstanding liability per period
+Per-teacher account statement view,Admin,Feature,7,M3,FR-12.4,Sales commission refunds adjustments payouts and current balance for any teacher
+Open concerns view with ageing,Admin,Feature,4,M3,FR-12.5,Open payout concerns listed with age so none is left unresolved
+Audit log implementation,Admin,Feature,10,M3,FR-12.6,Actor action target timestamp and reason recorded for every listed sensitive action
+Audit log viewer with filtering,Admin,Feature,5,M3,FR-12.6,Admin can search and filter the audit log by actor action and entity
+Role switching for dual-role accounts,Admin,Feature,3,M3,FR-1.2,Explicit labelled switch between Admin and Teacher context; never silent
+Transactional email service integration,Email,Feature,6,M3,FR-13.1,Provider integrated; domain authentication SPF DKIM and DMARC configured before first send
+Email templates for account and course events,Email,Feature,7,M3,FR-13.1,Registration verification password reset teacher account created and course approval outcome
+Email templates for order and payment events,Email,Feature,8,M3,FR-13.1,Order created proof received confirmed rejected lapsed receipt and enrollment granted
+Payout notification email template,Email,Feature,4,M3,FR-13.1,Payout recorded email with itemised coverage
+Cross-browser and responsive testing,Testing,Feature,14,M3,NFR-6.1 NFR-6.2,All screens verified at 380px and desktop on current major browsers
+Money path test coverage,Testing,Feature,16,M3,NFR-8.1,Order confirmation commission calculation ledger and payout covered by tests
+Access control and teacher scoping tests,Testing,Feature,10,M3,NFR-3.4,Cross-teacher data access attempts fail; unauthorised access blocked server-side
+Defect resolution and hardening,Testing,Bug,20,M3,All,Defects raised during testing resolved and verified
+Security review against a current checklist,Testing,Feature,8,M3,NFR-3.6,Injection XSS CSRF and broken access control reviewed and addressed
+Backup and restore verification,Testing,Feature,4,M3,NFR-2.2,Backup taken and a full restore performed successfully on staging
+Production deployment,Deployment,Feature,8,M3,NFR-7.2,Application deployed to production with externalised configuration
+Deployment and schema documentation,Deployment,Feature,7,M3,NFR-7.4,Deployment steps and database schema documented
+Administrator user guide,Deployment,Feature,7,M3,NFR-7.4,Guide covers verification payouts course approval and user management
+Client walkthrough and handover,Deployment,Feature,3,M3,NFR-7.4,Client walked through the admin panel and able to operate it unaided
+Confirm enrollment duration perpetual or time-limited,Enrollment,Blocked-Client,0,M1,SRS Q-2,Client has answered; expires_at semantics fixed
+Confirm course granularity syllabus unit or topic,Courses,Blocked-Client,0,M1,SRS Q-3,Client has answered; catalogue structure fixed
+Confirm receiving bank account and currency,Orders,Blocked-Client,0,M2,SRS Q-10,Bank details currency and whether one account serves both markets confirmed
+Confirm pending order expiry window,Orders,Blocked-Client,0,M2,SRS Q-12,Window agreed and set in platform settings
+Confirm refund window and who bears the cost,Ledger,Blocked-Client,0,M3,SRS Q-13,Refund policy agreed and documented
+Confirm payout cycle and minimum threshold,Payouts,Blocked-Client,0,M3,SRS Q-14,Cycle threshold and method agreed
+Confirm verification turnaround commitment,Verification,Blocked-Client,0,M2,SRS Q-18,Turnaround agreed and published to students
+Confirm quiz checkpoint pass condition,Assessment,Blocked-Client,0,M2,SRS Q-5,Pass threshold and failure behaviour agreed
+Confirm video completion threshold,Progress,Blocked-Client,0,M3,SRS Q-5,Threshold agreed and set in platform settings
+Confirm two country views meaning,Catalogue,Blocked-Client,0,M1,SRS Q-1,Presentation pricing or catalogue difference clarified
