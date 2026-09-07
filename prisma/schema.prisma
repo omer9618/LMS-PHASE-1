@@ -1,0 +1,731 @@
+// LMS Phase 1 — Prisma schema
+// Matches Database Schema v2.0 exactly: 29 tables, snake_case columns,
+// and only the constraints and indexes listed in section 14 of that document.
+//
+// Conventions from section 2:
+//   - Primary keys are UUID, consistently, named id.
+//   - Money is integer minor units in *_minor columns, never float.
+//   - Commission rates are basis points (_bps), integer.
+//   - Timestamps are UTC (timestamptz).
+//   - Financial and audit rows are never deleted.
+//   - Enums are database enums.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  REJECTED
+  HIRED
+}
+
+enum CourseStatus {
+  DRAFT
+  PENDING_APPROVAL
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+}
+
+enum ProgressionMode {
+  FREE
+  SEQUENTIAL
+}
+
+enum AudienceType {
+  STUDENT
+  TEACHER_PD
+}
+
+enum LessonType {
+  VIDEO
+  PDF
+  TEXT
+  QUIZ
+}
+
+enum VideoProvider {
+  BUNNY
+  YOUTUBE
+  SELF_HOSTED
+}
+
+enum VideoStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum QuestionType {
+  MCQ
+  NUMERIC
+}
+
+enum RevealAnswers {
+  NEVER
+  AFTER_ATTEMPT
+  AFTER_PASS
+  AFTER_FINAL_ATTEMPT
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum EnrollmentSource {
+  PURCHASE
+  FREE
+  ADMIN_GRANT
+}
+
+enum OrderStatus {
+  PENDING
+  PROOF_SUBMITTED
+  VERIFIED
+  REJECTED
+  LAPSED
+  REFUNDED
+}
+
+enum VerificationOutcome {
+  CONFIRMED
+  REJECTED
+}
+
+enum MismatchAction {
+  CONFIRM_ANYWAY
+  REQUEST_TOP_UP
+  REJECT
+}
+
+// The document specifies rejection_reason as an enum but does not list its
+// values. These come from FSD section 4.8. Confirm before migrating.
+enum RejectionReason {
+  NO_PAYMENT_RECEIVED
+  AMOUNT_SHORT
+  INVALID_TRANSACTION_ID
+  DUPLICATE_TRANSACTION
+  OTHER
+}
+
+enum LedgerEntryType {
+  EARNING
+  PAYOUT
+  REFUND
+  ADJUSTMENT
+}
+
+enum PayoutStatus {
+  PENDING
+  ACCEPTED
+  DISPUTED
+  RESOLVED
+}
+
+enum DisputeStatus {
+  OPEN
+  RESOLVED
+}
+
+enum CompletionSource {
+  AUTO
+  MANUAL
+  QUIZ
+}
+
+// ─────────────────────────────────────────────────────────────
+// 3. Domain 1 — Users and access
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id              String     @id @default(uuid())
+  email           String     @unique @db.Citext
+  passwordHash    String     @map("password_hash")
+  isEmailVerified Boolean    @default(false) @map("is_email_verified")
+  guardianName    String?    @map("guardian_name")
+  guardianEmail   String?    @map("guardian_email")
+  guardianPhone   String?    @map("guardian_phone")
+  status          UserStatus @default(ACTIVE)
+  createdAt       DateTime   @default(now()) @map("created_at")
+  lastLoginAt     DateTime?  @map("last_login_at")
+
+  roles                UserRole[]
+  teacherProfile       TeacherProfile?
+  applications         TeacherApplication[]  @relation("ApplicationUser")
+  reviewedApplications TeacherApplication[]  @relation("ApplicationReviewer")
+  courses              Course[]              @relation("CourseTeacher")
+  pricedCourses        Course[]              @relation("CoursePricedBy")
+  enrollments          Enrollment[]          @relation("EnrollmentStudent")
+  grantedEnrollments   Enrollment[]          @relation("EnrollmentGrantedBy")
+  orders               Order[]
+  orderItems           OrderItem[]           @relation("OrderItemTeacher")
+  verifications        PaymentVerification[]
+  refundsAuthorised    Refund[]
+  ledgerEntries        TeacherLedger[]       @relation("LedgerTeacher")
+  ledgerCreated        TeacherLedger[]       @relation("LedgerCreatedBy")
+  payouts              Payout[]              @relation("PayoutTeacher")
+  payoutsRecorded      Payout[]              @relation("PayoutRecordedBy")
+  disputes             PayoutDispute[]       @relation("DisputeTeacher")
+  disputesResolved     PayoutDispute[]       @relation("DisputeResolvedBy")
+  quizAttempts         QuizAttempt[]
+  lessonProgress       LessonProgress[]
+  videoProgress        VideoWatchProgress[]
+  auditEntries         AuditLog[]
+  settingsUpdated      PlatformSetting[]
+
+  @@map("users")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  role      Role
+  grantedAt DateTime @default(now()) @map("granted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@map("user_roles")
+}
+
+model TeacherProfile {
+  userId         String  @id @map("user_id")
+  bio            String?
+  photoUrl       String? @map("photo_url")
+  qualifications String?
+  socialLinks    Json?   @map("social_links")
+  f2fLocations   Json?   @map("f2f_locations")
+  isPublished    Boolean @default(false) @map("is_published")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("teacher_profiles")
+}
+
+model TeacherApplication {
+  id             String            @id @default(uuid())
+  userId         String?           @map("user_id")
+  applicantName  String            @map("applicant_name")
+  applicantEmail String            @map("applicant_email")
+  applicantPhone String?           @map("applicant_phone")
+  subjects       String?
+  cvUrl          String            @map("cv_url")
+  status         ApplicationStatus @default(SUBMITTED)
+  reviewedById   String?           @map("reviewed_by")
+  reviewedAt     DateTime?         @map("reviewed_at")
+  reviewNotes    String?           @map("review_notes")
+  purgeAfter     DateTime?         @map("purge_after") @db.Date
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  user       User? @relation("ApplicationUser", fields: [userId], references: [id])
+  reviewedBy User? @relation("ApplicationReviewer", fields: [reviewedById], references: [id])
+
+  @@map("teacher_applications")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 4. Domain 2 — Curriculum reference data
+// ─────────────────────────────────────────────────────────────
+
+model Board {
+  id       String  @id @default(uuid())
+  name     String
+  code     String?
+  isActive Boolean @default(true) @map("is_active")
+
+  levels  Level[]
+  courses Course[]
+
+  @@map("boards")
+}
+
+model Level {
+  id         String  @id @default(uuid())
+  boardId    String  @map("board_id")
+  name       String
+  orderIndex Int     @map("order_index")
+  isActive   Boolean @default(true) @map("is_active")
+
+  board   Board    @relation(fields: [boardId], references: [id])
+  courses Course[]
+
+  // Exists solely so courses can carry a composite foreign key.
+  @@unique([id, boardId])
+  @@map("levels")
+}
+
+model Subject {
+  id       String  @id @default(uuid())
+  name     String
+  isActive Boolean @default(true) @map("is_active")
+
+  courses Course[]
+
+  @@map("subjects")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 5. Domain 3 — Courses and content
+// ─────────────────────────────────────────────────────────────
+
+model Course {
+  id                 String          @id @default(uuid())
+  teacherId          String          @map("teacher_id")
+  boardId            String          @map("board_id")
+  levelId            String          @map("level_id")
+  subjectId          String          @map("subject_id")
+  syllabusArea       String?         @map("syllabus_area")
+  title              String
+  description        String?
+  demoVideoAssetId   String?         @map("demo_video_asset_id")
+  priceMinor         BigInt?         @map("price_minor")
+  currency           String?         @db.Char(3)
+  commissionRateBps  Int?            @map("commission_rate_bps")
+  teacherProposedBps Int?            @map("teacher_proposed_bps")
+  pricedById         String?         @map("priced_by")
+  pricedAt           DateTime?       @map("priced_at")
+  isFree             Boolean         @default(false) @map("is_free")
+  status             CourseStatus    @default(DRAFT)
+  progressionMode    ProgressionMode @default(FREE) @map("progression_mode")
+  audienceType       AudienceType    @default(STUDENT) @map("audience_type")
+  isEnrollmentOpen   Boolean         @default(true) @map("is_enrollment_open")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  publishedAt        DateTime?       @map("published_at")
+  archivedAt         DateTime?       @map("archived_at")
+
+  teacher        User        @relation("CourseTeacher", fields: [teacherId], references: [id])
+  board          Board       @relation(fields: [boardId], references: [id])
+  subject        Subject     @relation(fields: [subjectId], references: [id])
+  pricedBy       User?       @relation("CoursePricedBy", fields: [pricedById], references: [id])
+  demoVideoAsset VideoAsset? @relation("CourseDemo", fields: [demoVideoAssetId], references: [id])
+
+  // Composite FK — a course cannot carry a level belonging to another board.
+  level Level @relation(fields: [levelId, boardId], references: [id, boardId])
+
+  sections    Section[]
+  enrollments Enrollment[]
+  orderItems  OrderItem[]
+
+  @@index([boardId, levelId, subjectId, status])
+  @@map("courses")
+}
+
+model Section {
+  id         String @id @default(uuid())
+  courseId   String @map("course_id")
+  title      String
+  orderIndex Int    @map("order_index")
+
+  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@map("sections")
+}
+
+model Lesson {
+  id            String     @id @default(uuid())
+  sectionId     String     @map("section_id")
+  title         String
+  type          LessonType
+  orderIndex    Int        @map("order_index")
+  videoAssetId  String?    @map("video_asset_id")
+  bodyText      String?    @map("body_text")
+  isFreePreview Boolean    @default(false) @map("is_free_preview")
+  createdAt     DateTime   @default(now()) @map("created_at")
+
+  section    Section     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  videoAsset VideoAsset? @relation("LessonVideo", fields: [videoAssetId], references: [id])
+
+  quiz          Quiz?
+  resources     LessonResource[]
+  progress      LessonProgress[]
+  videoProgress VideoWatchProgress[]
+
+  @@map("lessons")
+}
+
+model VideoAsset {
+  id              String        @id @default(uuid())
+  provider        VideoProvider
+  providerVideoId String        @map("provider_video_id")
+  durationSeconds Int?          @map("duration_seconds")
+  status          VideoStatus   @default(PROCESSING)
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  lessons     Lesson[] @relation("LessonVideo")
+  courseDemos Course[] @relation("CourseDemo")
+
+  @@map("video_assets")
+}
+
+model LessonResource {
+  id            String @id @default(uuid())
+  lessonId      String @map("lesson_id")
+  fileUrl       String @map("file_url")
+  fileName      String @map("file_name")
+  fileSizeBytes Int?   @map("file_size_bytes")
+  orderIndex    Int    @map("order_index")
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("lesson_resources")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 6. Domain 4 — Assessment
+// ─────────────────────────────────────────────────────────────
+
+model Quiz {
+  id               String        @id @default(uuid())
+  lessonId         String        @unique @map("lesson_id")
+  timeLimitSeconds Int?          @map("time_limit_seconds")
+  maxAttempts      Int?          @map("max_attempts")
+  isBreakpoint     Boolean       @default(false) @map("is_breakpoint")
+  passingScorePct  Int?          @map("passing_score_pct")
+  revealAnswers    RevealAnswers @default(AFTER_ATTEMPT) @map("reveal_answers")
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  lesson    Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  questions Question[]
+  attempts  QuizAttempt[]
+
+  @@map("quizzes")
+}
+
+model Question {
+  id               String       @id @default(uuid())
+  quizId           String       @map("quiz_id")
+  type             QuestionType
+  contentText      String       @map("content_text")
+  contentImageUrl  String?      @map("content_image_url")
+  options          Json?
+  correctAnswer    String       @map("correct_answer")
+  numericTolerance Decimal?     @map("numeric_tolerance") @db.Decimal(18, 6)
+  numericUnit      String?      @map("numeric_unit")
+  marks            Int          @default(1)
+  explanation      String?
+  orderIndex       Int          @map("order_index")
+
+  quiz      Quiz               @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  responses QuestionResponse[]
+
+  @@map("questions")
+}
+
+model QuizAttempt {
+  id            String    @id @default(uuid())
+  studentId     String    @map("student_id")
+  quizId        String    @map("quiz_id")
+  attemptNumber Int       @map("attempt_number")
+  scorePct      Int?      @map("score_pct")
+  isPassed      Boolean?  @map("is_passed")
+  startedAt     DateTime  @default(now()) @map("started_at")
+  submittedAt   DateTime? @map("submitted_at")
+
+  student   User               @relation(fields: [studentId], references: [id])
+  quiz      Quiz               @relation(fields: [quizId], references: [id])
+  responses QuestionResponse[]
+
+  @@unique([studentId, quizId, attemptNumber])
+  @@map("quiz_attempts")
+}
+
+model QuestionResponse {
+  id            String   @id @default(uuid())
+  attemptId     String   @map("attempt_id")
+  questionId    String   @map("question_id")
+  studentAnswer String?  @map("student_answer")
+  isCorrect     Boolean? @map("is_correct")
+  marksAwarded  Int?     @map("marks_awarded")
+
+  attempt  QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question    @relation(fields: [questionId], references: [id])
+
+  @@map("question_responses")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 7. Domain 5 — Enrollment
+// ─────────────────────────────────────────────────────────────
+
+model Enrollment {
+  id             String           @id @default(uuid())
+  studentId      String           @map("student_id")
+  courseId       String           @map("course_id")
+  orderItemId    String?          @map("order_item_id")
+  status         EnrollmentStatus @default(ACTIVE)
+  source         EnrollmentSource
+  paymentChannel String?          @map("payment_channel")
+  grantedById    String?          @map("granted_by")
+  grantedAt      DateTime         @default(now()) @map("granted_at")
+  expiresAt      DateTime?        @map("expires_at")
+  revokedAt      DateTime?        @map("revoked_at")
+
+  student   User       @relation("EnrollmentStudent", fields: [studentId], references: [id])
+  course    Course     @relation(fields: [courseId], references: [id])
+  grantedBy User?      @relation("EnrollmentGrantedBy", fields: [grantedById], references: [id])
+  orderItem OrderItem? @relation(fields: [orderItemId], references: [id])
+
+  @@unique([studentId, courseId])
+  @@map("enrollments")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 8. Domain 6 — Orders and payment
+// ─────────────────────────────────────────────────────────────
+
+model Order {
+  id               String      @id @default(uuid())
+  studentId        String      @map("student_id")
+  paymentReference String      @unique @map("payment_reference")
+  totalMinor       BigInt      @map("total_minor")
+  currency         String      @db.Char(3)
+  status           OrderStatus @default(PENDING)
+  expiresAt        DateTime?   @map("expires_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  verifiedAt       DateTime?   @map("verified_at")
+
+  student       User                  @relation(fields: [studentId], references: [id])
+  items         OrderItem[]
+  proofs        PaymentProof[]
+  verifications PaymentVerification[]
+  refunds       Refund[]
+
+  @@index([status, expiresAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                String @id @default(uuid())
+  orderId           String @map("order_id")
+  courseId          String @map("course_id")
+  teacherId         String @map("teacher_id")
+  priceMinor        BigInt @map("price_minor")
+  commissionRateBps Int    @map("commission_rate_bps")
+  commissionMinor   BigInt @map("commission_minor")
+  netTeacherMinor   BigInt @map("net_teacher_minor")
+
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  course  Course @relation(fields: [courseId], references: [id])
+  teacher User   @relation("OrderItemTeacher", fields: [teacherId], references: [id])
+
+  enrollments   Enrollment[]
+  ledgerEntries TeacherLedger[]
+
+  @@unique([orderId, courseId])
+  @@map("order_items")
+}
+
+model PaymentProof {
+  id                 String   @id @default(uuid())
+  orderId            String   @map("order_id")
+  transactionId      String   @map("transaction_id")
+  proofFileUrl       String?  @map("proof_file_url")
+  amountClaimedMinor BigInt?  @map("amount_claimed_minor")
+  submittedAt        DateTime @default(now()) @map("submitted_at")
+
+  order         Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  verifications PaymentVerification[]
+
+  // Indexed, deliberately not unique — warn on duplicates, do not block.
+  @@index([transactionId])
+  @@map("payment_proofs")
+}
+
+model PaymentVerification {
+  id                  String              @id @default(uuid())
+  orderId             String              @map("order_id")
+  proofId             String?             @map("proof_id")
+  outcome             VerificationOutcome
+  amountReceivedMinor BigInt?             @map("amount_received_minor")
+  valueDate           DateTime?           @map("value_date") @db.Date
+  mismatchAction      MismatchAction?     @map("mismatch_action")
+  rejectionReason     RejectionReason?    @map("rejection_reason")
+  notes               String?
+  verifiedById        String              @map("verified_by")
+  verifiedAt          DateTime            @default(now()) @map("verified_at")
+
+  order      Order         @relation(fields: [orderId], references: [id])
+  proof      PaymentProof? @relation(fields: [proofId], references: [id])
+  verifiedBy User          @relation(fields: [verifiedById], references: [id])
+
+  @@map("payment_verifications")
+}
+
+model Refund {
+  id             String    @id @default(uuid())
+  orderId        String    @map("order_id")
+  amountMinor    BigInt    @map("amount_minor")
+  reason         String?
+  transactionId  String?   @map("transaction_id")
+  transferDate   DateTime? @map("transfer_date") @db.Date
+  authorisedById String    @map("authorised_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  order         Order           @relation(fields: [orderId], references: [id])
+  authorisedBy  User            @relation(fields: [authorisedById], references: [id])
+  ledgerEntries TeacherLedger[]
+
+  @@map("refunds")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 9. Domain 7 — Financial ledger
+// ─────────────────────────────────────────────────────────────
+
+// Append-only. Balance = SUM(amount_minor). No stored balance column.
+model TeacherLedger {
+  id          String          @id @default(uuid())
+  teacherId   String          @map("teacher_id")
+  type        LedgerEntryType
+  amountMinor BigInt          @map("amount_minor")
+  currency    String          @db.Char(3)
+  orderItemId String?         @map("order_item_id")
+  payoutId    String?         @map("payout_id")
+  refundId    String?         @map("refund_id")
+  description String?
+  createdById String?         @map("created_by")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  teacher   User       @relation("LedgerTeacher", fields: [teacherId], references: [id])
+  createdBy User?      @relation("LedgerCreatedBy", fields: [createdById], references: [id])
+  orderItem OrderItem? @relation(fields: [orderItemId], references: [id])
+  payout    Payout?    @relation(fields: [payoutId], references: [id])
+  refund    Refund?    @relation(fields: [refundId], references: [id])
+
+  disputeAdjustments PayoutDispute[] @relation("DisputeAdjustment")
+
+  @@index([teacherId, createdAt])
+  @@map("teacher_ledger")
+}
+
+model Payout {
+  id              String       @id @default(uuid())
+  teacherId       String       @map("teacher_id")
+  amountMinor     BigInt       @map("amount_minor")
+  method          String?
+  transactionId   String?      @map("transaction_id")
+  periodStart     DateTime?    @map("period_start") @db.Date
+  periodEnd       DateTime?    @map("period_end") @db.Date
+  status          PayoutStatus @default(PENDING)
+  recordedById    String       @map("recorded_by")
+  recordedAt      DateTime     @default(now()) @map("recorded_at")
+  transferDate    DateTime?    @map("transfer_date") @db.Date
+  disputeDeadline DateTime     @map("dispute_deadline")
+  acceptedAt      DateTime?    @map("accepted_at")
+
+  teacher    User @relation("PayoutTeacher", fields: [teacherId], references: [id])
+  recordedBy User @relation("PayoutRecordedBy", fields: [recordedById], references: [id])
+
+  disputes      PayoutDispute[]
+  ledgerEntries TeacherLedger[]
+
+  @@index([status, disputeDeadline])
+  @@map("payouts")
+}
+
+model PayoutDispute {
+  id                 String        @id @default(uuid())
+  payoutId           String        @map("payout_id")
+  teacherId          String        @map("teacher_id")
+  reason             String
+  status             DisputeStatus @default(OPEN)
+  resolutionNotes    String?       @map("resolution_notes")
+  adjustmentLedgerId String?       @map("adjustment_ledger_id")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  resolvedById       String?       @map("resolved_by")
+  resolvedAt         DateTime?     @map("resolved_at")
+
+  payout           Payout         @relation(fields: [payoutId], references: [id])
+  teacher          User           @relation("DisputeTeacher", fields: [teacherId], references: [id])
+  resolvedBy       User?          @relation("DisputeResolvedBy", fields: [resolvedById], references: [id])
+  adjustmentLedger TeacherLedger? @relation("DisputeAdjustment", fields: [adjustmentLedgerId], references: [id])
+
+  @@map("payout_disputes")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 10. Domain 8 — Progress
+// ─────────────────────────────────────────────────────────────
+
+model LessonProgress {
+  id               String           @id @default(uuid())
+  studentId        String           @map("student_id")
+  lessonId         String           @map("lesson_id")
+  completedAt      DateTime         @default(now()) @map("completed_at")
+  completionSource CompletionSource @map("completion_source")
+
+  student User   @relation(fields: [studentId], references: [id])
+  lesson  Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, lessonId])
+  @@map("lesson_progress")
+}
+
+model VideoWatchProgress {
+  studentId           String   @map("student_id")
+  lessonId            String   @map("lesson_id")
+  lastPositionSeconds Int      @default(0) @map("last_position_seconds")
+  maxPositionSeconds  Int      @default(0) @map("max_position_seconds")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  student User   @relation(fields: [studentId], references: [id])
+  lesson  Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, lessonId])
+  @@map("video_watch_progress")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 11. Domain 9 — Platform
+// ─────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String?  @map("actor_user_id")
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id")
+  details     Json?
+  ipAddress   String?  @map("ip_address")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorUserId], references: [id])
+
+  @@map("audit_log")
+}
+
+model PlatformSetting {
+  key         String   @id
+  value       String
+  updatedById String?  @map("updated_by")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  updatedBy User? @relation(fields: [updatedById], references: [id])
+
+  @@map("platform_settings")
+}
