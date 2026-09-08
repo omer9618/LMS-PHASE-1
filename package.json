@@ -25,7 +25,9 @@
   "homepage": "https://github.com/omer9618/LMS-PHASE-1#readme",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/bcrypt": "^6.0.0",
     "@types/node": "^26.5.0",
+    "@types/pg": "^8.23.1",
     "@typescript-eslint/eslint-plugin": "^8.70.0",
     "@typescript-eslint/parser": "^8.70.0",
     "eslint": "^10.10.0",
@@ -38,12 +40,16 @@
     "typescript-eslint": "^8.70.0"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
-    "dotenv": "^17.4.2"
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.4.2",
+    "pg": "^8.23.0"
   },
   "allowScripts": {
     "@prisma/engines@7.10.0": true,
     "prisma@7.10.0": true,
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "bcrypt@6.0.0": true
   }
 }
