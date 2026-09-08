@@ -43,8 +43,7 @@ async function main() {
     { boardName: 'Cambridge', name: 'O Level', orderIndex: 2 },
     { boardName: 'Cambridge', name: 'A Level', orderIndex: 3 },
     { boardName: 'Edexcel', name: 'IGCSE', orderIndex: 1 },
-    { boardName: 'Edexcel', name: 'O Level', orderIndex: 2 },
-    { boardName: 'Edexcel', name: 'A Level', orderIndex: 3 },
+    { boardName: 'Edexcel', name: 'A Level', orderIndex: 2 },
   ];
 
   for (const levelData of levelsToCreate) {
@@ -65,6 +64,16 @@ async function main() {
       console.log(`  - Created Level: ${levelData.name} for ${levelData.boardName}`);
     } else {
       console.log(`  - Level exists: ${levelData.name} for ${levelData.boardName}`);
+    }
+  }
+
+  // Clean up Edexcel O Level if it was accidentally seeded before
+  if (createdBoards['Edexcel']) {
+    const deletedOLevel = await prisma.level.deleteMany({
+      where: { boardId: createdBoards['Edexcel'].id, name: 'O Level' }
+    });
+    if (deletedOLevel.count > 0) {
+      console.log('  - Cleaned up removed level: O Level for Edexcel');
     }
   }
 
@@ -112,6 +121,27 @@ async function main() {
     'Accounting (9706)',
     'Business (9609)',
     'Computer Science (9618)',
+
+    // Edexcel IGCSE
+    'Mathematics A (4MA1)',
+    'Physics (4PH1)',
+    'Chemistry (4CH1)',
+    'Biology (4BI1)',
+    'English Language A (4EA1)',
+    'Economics (4EC1)',
+    'Accounting (4AC1)',
+    'Business (4BS1)',
+    'Computer Science (4CP0)',
+
+    // Edexcel A Level (IAL)
+    'Mathematics (YMA01)',
+    'Physics (YPH11)',
+    'Chemistry (YCH11)',
+    'Biology (YBI11)',
+    'Economics (YEC11)',
+    'Accounting (YAC11)',
+    'Business (YBS11)',
+    'Information Technology (YIT11)',
   ];
 
   for (const subjectName of subjects) {
