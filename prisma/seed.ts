@@ -71,17 +71,47 @@ async function main() {
   // ─────────────────────────────────────────────────────────────
   // 2. Subjects
   // ─────────────────────────────────────────────────────────────
-  console.log('Seeding Subjects...');
+  console.log('Seeding Subjects (with Syllabus Codes)...');
+  
+  // Clean up any old generic subjects from previous seeds
+  await prisma.subject.deleteMany({
+    where: {
+      name: { in: ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English Language', 'Economics', 'Accounting', 'Business Studies', 'Computer Science'] }
+    }
+  });
+
   const subjects = [
-    'Mathematics',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'English Language',
-    'Economics',
-    'Accounting',
-    'Business Studies',
-    'Computer Science',
+    // Cambridge O Level
+    'Mathematics (4024)',
+    'Physics (5054)',
+    'Chemistry (5070)',
+    'Biology (5090)',
+    'English Language (1123)',
+    'Economics (2281)',
+    'Accounting (7707)',
+    'Business Studies (7115)',
+    'Computer Science (2210)',
+
+    // Cambridge IGCSE
+    'Mathematics (0580)',
+    'Physics (0625)',
+    'Chemistry (0620)',
+    'Biology (0610)',
+    'English Language (0500)',
+    'Economics (0455)',
+    'Accounting (0452)',
+    'Business Studies (0450)',
+    'Computer Science (0478)',
+
+    // Cambridge A Level
+    'Mathematics (9709)',
+    'Physics (9702)',
+    'Chemistry (9701)',
+    'Biology (9700)',
+    'Economics (9708)',
+    'Accounting (9706)',
+    'Business (9609)',
+    'Computer Science (9618)',
   ];
 
   for (const subjectName of subjects) {
