@@ -4,7 +4,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log('Start seeding...');
-  
+
   // TODO: Add reference data:
   // - Boards and levels
   // - Subjects

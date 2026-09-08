@@ -4,15 +4,15 @@ The schema matches **Database Schema v2.0** exactly. Every column name, type, nu
 
 ## Verification results
 
-| Check | Result |
-|---|---|
-| Tables | 29 of 29, none missing, none extra |
-| Column names | Every column in every table matches the document |
-| Documented constraints and indexes (§14) | All 13 present |
-| `payment_proofs.transaction_id` | Indexed, **not** unique — correct |
-| Composite FK `courses (level_id, board_id) → levels` | Present |
-| Undocumented indexes | None |
-| Prisma validate | Passes on 7.10.0 |
+| Check                                                | Result                                           |
+| ---------------------------------------------------- | ------------------------------------------------ |
+| Tables                                               | 29 of 29, none missing, none extra               |
+| Column names                                         | Every column in every table matches the document |
+| Documented constraints and indexes (§14)             | All 13 present                                   |
+| `payment_proofs.transaction_id`                      | Indexed, **not** unique — correct                |
+| Composite FK `courses (level_id, board_id) → levels` | Present                                          |
+| Undocumented indexes                                 | None                                             |
+| Prisma validate                                      | Passes on 7.10.0                                 |
 
 Column names are snake_case in the database, matching the document. Prisma field names are camelCase with `@map` on every field — that is Prisma's convention and does not change the database.
 
@@ -30,16 +30,16 @@ npm install @prisma/client
 `url` is no longer permitted inside `datasource`. It lives in `prisma.config.ts` at the project root:
 
 ```ts
-import { defineConfig, env } from "prisma/config";
+import { defineConfig, env } from 'prisma/config';
 
 export default defineConfig({
-  schema: "prisma/schema.prisma",
+  schema: 'prisma/schema.prisma',
   migrations: {
-    path: "prisma/migrations",
-    seed: "tsx prisma/seed.ts",
+    path: 'prisma/migrations',
+    seed: 'tsx prisma/seed.ts',
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    url: env('DATABASE_URL'),
   },
 });
 ```
@@ -168,10 +168,10 @@ Payment confirmation writes the verification, updates the order, grants enrollme
 
 ```ts
 await prisma.$transaction(async (tx) => {
-  await tx.paymentVerification.create({ /* ... */ });
-  await tx.order.update({ /* ... */ });
-  await tx.enrollment.createMany({ /* ... */ });
-  await tx.teacherLedger.createMany({ /* ... */ });
+  await tx.paymentVerification.create({/* ... */});
+  await tx.order.update({/* ... */});
+  await tx.enrollment.createMany({/* ... */});
+  await tx.teacherLedger.createMany({/* ... */});
 });
 ```
 
@@ -203,16 +203,16 @@ npx prisma db seed
 
 The following were **not** added, because the document does not specify them. Each may be worth adding later, as a documented change rather than a silent one:
 
-| Not added | Would give |
-|---|---|
-| `boards.name` unique | Prevents duplicate board names |
-| `subjects.name` unique | Prevents duplicate subjects |
-| `levels (board_id, name)` unique | Prevents duplicate level names within a board |
-| `sections (course_id, order_index)` unique | Prevents two sections claiming the same position |
-| `lessons (section_id, order_index)` unique | Same, for lessons |
-| `video_assets (provider, provider_video_id)` unique | Prevents the same remote video registered twice |
-| `question_responses (attempt_id, question_id)` unique | One response per question per attempt |
-| `teacher_profiles.created_at` / `updated_at` | Audit of profile edits |
-| `payouts.currency` | Consistency with `teacher_ledger`, which has currency |
+| Not added                                             | Would give                                            |
+| ----------------------------------------------------- | ----------------------------------------------------- |
+| `boards.name` unique                                  | Prevents duplicate board names                        |
+| `subjects.name` unique                                | Prevents duplicate subjects                           |
+| `levels (board_id, name)` unique                      | Prevents duplicate level names within a board         |
+| `sections (course_id, order_index)` unique            | Prevents two sections claiming the same position      |
+| `lessons (section_id, order_index)` unique            | Same, for lessons                                     |
+| `video_assets (provider, provider_video_id)` unique   | Prevents the same remote video registered twice       |
+| `question_responses (attempt_id, question_id)` unique | One response per question per attempt                 |
+| `teacher_profiles.created_at` / `updated_at`          | Audit of profile edits                                |
+| `payouts.currency`                                    | Consistency with `teacher_ledger`, which has currency |
 
 The last two were in an earlier draft of this schema and have been removed to match the document exactly.

@@ -2,10 +2,10 @@
 
 ## Files
 
-| File | Purpose |
-|---|---|
-| `phase1_backlog.csv` | 132 tickets covering every Phase 1 module |
-| `import_backlog.py` | Creates the issues, labels, milestones and project fields |
+| File                 | Purpose                                                   |
+| -------------------- | --------------------------------------------------------- |
+| `phase1_backlog.csv` | 132 tickets covering every Phase 1 module                 |
+| `import_backlog.py`  | Creates the issues, labels, milestones and project fields |
 
 ## Before you run it
 
@@ -52,7 +52,7 @@ It takes roughly ten minutes for 132 items — there is a deliberate pause betwe
 
 - **8 labels** — Feature, Bug, Tech Debt, Blocked-Client, Phase-2, month-1, month-2, month-3
 - **3 milestones** — M1 Content Platform, M2 Purchase Loop, M3 Feature Complete
-- **132 issues**, each with a body containing the requirement reference, estimate, module and a *Done when* checklist
+- **132 issues**, each with a body containing the requirement reference, estimate, module and a _Done when_ checklist
 - Each issue added to the project with Requirement, Estimate, Module and Category populated
 
 Everything lands in **Backlog**. Nothing is moved to Ready automatically — that is a decision for your planning session.
@@ -74,12 +74,12 @@ The CSV is the source of truth and is meant to be edited. Useful adjustments:
 
 Column meanings:
 
-| Column | Notes |
-|---|---|
-| Title | Issue title |
-| Module | Must match a Module option on the project exactly |
-| Category | Must match a Category option exactly |
-| Estimate | Hours, integer |
-| Milestone | M1, M2 or M3 |
-| Requirement | FSD or SRS reference |
-| DoneWhen | Semicolon-separated; each becomes a checklist item |
+| Column      | Notes                                              |
+| ----------- | -------------------------------------------------- |
+| Title       | Issue title                                        |
+| Module      | Must match a Module option on the project exactly  |
+| Category    | Must match a Category option exactly               |
+| Estimate    | Hours, integer                                     |
+| Milestone   | M1, M2 or M3                                       |
+| Requirement | FSD or SRS reference                               |
+| DoneWhen    | Semicolon-separated; each becomes a checklist item |
