@@ -1,17 +1,146 @@
-import { PrismaClient } from '@prisma/client';
+import 'dotenv/config';
+import { PrismaClient, Role, UserStatus } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
+import bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient();
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log('Start seeding...');
+  console.log('🌱 Start seeding...');
 
-  // TODO: Add reference data:
-  // - Boards and levels
-  // - Subjects
-  // - Platform settings (video completion threshold, etc.)
-  // - A first admin user
+  // ─────────────────────────────────────────────────────────────
+  // 1. Boards
+  const boardsToCreate = [
+    { name: 'Cambridge', code: 'CAM' },
+    { name: 'Edexcel', code: 'EDX' }
+  ];
+  
+  const createdBoards: Record<string, any> = {};
 
-  console.log('Seeding finished.');
+  for (const boardData of boardsToCreate) {
+    let board = await prisma.board.findFirst({ where: { name: boardData.name } });
+    if (!board) {
+      board = await prisma.board.create({
+        data: {
+          name: boardData.name,
+          code: boardData.code,
+          isActive: true,
+        }
+      });
+      console.log(`  - Created Board: ${boardData.name}`);
+    } else {
+      console.log(`  - Board exists: ${boardData.name}`);
+    }
+    createdBoards[boardData.name] = board;
+  }
+
+  // 2. Levels per board
+  const levelsToCreate = [
+    { boardName: 'Cambridge', name: 'IGCSE', orderIndex: 1 },
+    { boardName: 'Cambridge', name: 'O Level', orderIndex: 2 },
+    { boardName: 'Cambridge', name: 'A Level', orderIndex: 3 },
+    { boardName: 'Edexcel', name: 'IGCSE', orderIndex: 1 },
+    { boardName: 'Edexcel', name: 'O Level', orderIndex: 2 },
+    { boardName: 'Edexcel', name: 'A Level', orderIndex: 3 },
+  ];
+
+  for (const levelData of levelsToCreate) {
+    const board = createdBoards[levelData.boardName];
+    const existingLevel = await prisma.level.findFirst({
+      where: { boardId: board.id, name: levelData.name }
+    });
+
+    if (!existingLevel) {
+      await prisma.level.create({
+        data: {
+          boardId: board.id,
+          name: levelData.name,
+          orderIndex: levelData.orderIndex,
+          isActive: true,
+        }
+      });
+      console.log(`  - Created Level: ${levelData.name} for ${levelData.boardName}`);
+    } else {
+      console.log(`  - Level exists: ${levelData.name} for ${levelData.boardName}`);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 2. Subjects
+  // ─────────────────────────────────────────────────────────────
+  console.log('Seeding Subjects...');
+  const subjects = [
+    'Mathematics',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'English Language',
+    'Economics',
+    'Accounting',
+    'Business Studies',
+    'Computer Science',
+  ];
+
+  for (const subjectName of subjects) {
+    const existingSubject = await prisma.subject.findFirst({ where: { name: subjectName } });
+    if (!existingSubject) {
+      await prisma.subject.create({
+        data: { name: subjectName, isActive: true }
+      });
+      console.log(`  - Created Subject: ${subjectName}`);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 3. Platform Settings
+  // ─────────────────────────────────────────────────────────────
+  console.log('Seeding Platform Settings...');
+  const settings = [
+    { key: 'VIDEO_COMPLETION_THRESHOLD_PCT', value: '90' },
+    { key: 'ORDER_EXPIRY_WINDOW_HOURS', value: '48' },
+    { key: 'PAYOUT_DISPUTE_WINDOW_DAYS', value: '7' },
+  ];
+
+  for (const setting of settings) {
+    await prisma.platformSetting.upsert({
+      where: { key: setting.key },
+      update: { value: setting.value },
+      create: { key: setting.key, value: setting.value },
+    });
+    console.log(`  - Setting: ${setting.key} = ${setting.value}`);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 4. Admin User
+  // ─────────────────────────────────────────────────────────────
+  console.log('Seeding Admin User...');
+  const adminEmail = 'admin@lms.local';
+  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+
+  if (!existingAdmin) {
+    const passwordHash = await bcrypt.hash('AdminPassword123!', 10);
+    const adminUser = await prisma.user.create({
+      data: {
+        email: adminEmail,
+        passwordHash,
+        isEmailVerified: true,
+        status: 'ACTIVE',
+        roles: {
+          create: {
+            role: 'ADMIN',
+          }
+        }
+      }
+    });
+    console.log(`  - Created Admin User: ${adminEmail} (password: AdminPassword123!)`);
+  } else {
+    console.log(`  - Admin user already exists: ${adminEmail}`);
+  }
+
+  console.log('✅ Seeding finished.');
 }
 
 main()
