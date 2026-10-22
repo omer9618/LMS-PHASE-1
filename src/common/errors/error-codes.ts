@@ -19,6 +19,11 @@ export enum ErrorCode {
 
   // Auth
   INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
+
+  // Courses
+  INVALID_STATE_TRANSITION = 'INVALID_STATE_TRANSITION',
+  PUBLISH_GUARD_FAILED = 'PUBLISH_GUARD_FAILED',
+  COURSE_NOT_PRICEABLE = 'COURSE_NOT_PRICEABLE',
 }
 
 export interface ErrorDefinition {
@@ -40,6 +45,18 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
   [ErrorCode.SERVICE_UNAVAILABLE]: { status: 503, message: 'Service unavailable' },
   [ErrorCode.INTERNAL]: { status: 500, message: 'Internal server error' },
   [ErrorCode.INVALID_CREDENTIALS]: { status: 401, message: 'Invalid email or password' },
+  [ErrorCode.INVALID_STATE_TRANSITION]: {
+    status: 409,
+    message: 'This action is not allowed in the current state',
+  },
+  [ErrorCode.PUBLISH_GUARD_FAILED]: {
+    status: 422,
+    message: 'A course must be free, or have both a price and a commission, before it is published',
+  },
+  [ErrorCode.COURSE_NOT_PRICEABLE]: {
+    status: 409,
+    message: 'Pricing can only be set while a course is awaiting approval',
+  },
 };
 
 export function isErrorCode(value: string): value is ErrorCode {
