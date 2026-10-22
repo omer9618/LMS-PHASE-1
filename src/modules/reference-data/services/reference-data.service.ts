@@ -8,6 +8,9 @@ import {
   SubjectRecord,
 } from '../dao/reference-data.dao';
 
+/** What reference endpoints return. Controllers import them from here, never from the DAO. */
+export type { BoardRecord, LevelRecord, SubjectRecord };
+
 export interface CourseClassification {
   boardId: string;
   levelId: string;

@@ -1,9 +1,13 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { Public } from '../../../common/decorators/public.decorator';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
-import type { BoardRecord, LevelRecord, SubjectRecord } from '../dao/reference-data.dao';
 import { BoardParams, boardParamsSchema } from '../schemas/reference-data.schema';
-import { ReferenceDataService } from '../services/reference-data.service';
+import {
+  BoardRecord,
+  LevelRecord,
+  ReferenceDataService,
+  SubjectRecord,
+} from '../services/reference-data.service';
 
 /** Public, read-only lists for the course form. No admin CRUD here: that is not a ticket. */
 @Public()
