@@ -52,19 +52,15 @@ Most tutorials still show the old syntax. If you copy one, `prisma validate` wil
 DATABASE_URL="postgresql://user:password@localhost:5432/lms?schema=public"
 ```
 
-## 3. Enable the citext extension first
+## 3. The citext extension
 
-The document specifies `users.email` as **citext** (case-insensitive text). Prisma expresses this with `@db.Citext`, but the extension must exist in the database before the migration runs.
+The document specifies `users.email` as **citext** (case-insensitive text). Prisma expresses this with `@db.Citext`, and the extension must exist before `init` runs.
 
-Connect to the database and run:
+This is handled by the migration `20260907000000_enable_citext`, dated before `init` so it is applied first on a fresh database. The schema declares the extension (`extensions = [citext]`, `postgresqlExtensions` preview feature) so Prisma does not report drift.
 
-```sql
-CREATE EXTENSION IF NOT EXISTS citext;
-```
+Databases that already applied `init` (with the extension enabled by hand, as this section used to instruct) simply apply the new migration as a no-op — `CREATE EXTENSION IF NOT EXISTS`. `init` itself was not edited.
 
-If you skip this, the first migration fails with `type "citext" does not exist`.
-
-To have Prisma manage it instead, add the `postgresqlExtensions` preview feature to the generator block and declare the extension on the datasource. Enabling it by hand once is simpler.
+`citext` is a trusted extension, so the database owner can create it; no superuser is needed.
 
 ## 4. First migration
 

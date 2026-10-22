@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient, Role, UserStatus } from '@prisma/client';
+import { PrismaClient, type Board } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
@@ -15,10 +15,10 @@ async function main() {
   // 1. Boards
   const boardsToCreate = [
     { name: 'Cambridge', code: 'CAM' },
-    { name: 'Edexcel', code: 'EDX' }
+    { name: 'Edexcel', code: 'EDX' },
   ];
-  
-  const createdBoards: Record<string, any> = {};
+
+  const createdBoards: Record<string, Board> = {};
 
   for (const boardData of boardsToCreate) {
     let board = await prisma.board.findFirst({ where: { name: boardData.name } });
@@ -28,7 +28,7 @@ async function main() {
           name: boardData.name,
           code: boardData.code,
           isActive: true,
-        }
+        },
       });
       console.log(`  - Created Board: ${boardData.name}`);
     } else {
@@ -49,7 +49,7 @@ async function main() {
   for (const levelData of levelsToCreate) {
     const board = createdBoards[levelData.boardName];
     const existingLevel = await prisma.level.findFirst({
-      where: { boardId: board.id, name: levelData.name }
+      where: { boardId: board.id, name: levelData.name },
     });
 
     if (!existingLevel) {
@@ -59,7 +59,7 @@ async function main() {
           name: levelData.name,
           orderIndex: levelData.orderIndex,
           isActive: true,
-        }
+        },
       });
       console.log(`  - Created Level: ${levelData.name} for ${levelData.boardName}`);
     } else {
@@ -70,7 +70,7 @@ async function main() {
   // Clean up Edexcel O Level if it was accidentally seeded before
   if (createdBoards['Edexcel']) {
     const deletedOLevel = await prisma.level.deleteMany({
-      where: { boardId: createdBoards['Edexcel'].id, name: 'O Level' }
+      where: { boardId: createdBoards['Edexcel'].id, name: 'O Level' },
     });
     if (deletedOLevel.count > 0) {
       console.log('  - Cleaned up removed level: O Level for Edexcel');
@@ -81,12 +81,24 @@ async function main() {
   // 2. Subjects
   // ─────────────────────────────────────────────────────────────
   console.log('Seeding Subjects (with Syllabus Codes)...');
-  
+
   // Clean up any old generic subjects from previous seeds
   await prisma.subject.deleteMany({
     where: {
-      name: { in: ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English Language', 'Economics', 'Accounting', 'Business Studies', 'Computer Science'] }
-    }
+      name: {
+        in: [
+          'Mathematics',
+          'Physics',
+          'Chemistry',
+          'Biology',
+          'English Language',
+          'Economics',
+          'Accounting',
+          'Business Studies',
+          'Computer Science',
+        ],
+      },
+    },
   });
 
   const subjects = [
@@ -148,7 +160,7 @@ async function main() {
     const existingSubject = await prisma.subject.findFirst({ where: { name: subjectName } });
     if (!existingSubject) {
       await prisma.subject.create({
-        data: { name: subjectName, isActive: true }
+        data: { name: subjectName, isActive: true },
       });
       console.log(`  - Created Subject: ${subjectName}`);
     }
@@ -182,7 +194,7 @@ async function main() {
 
   if (!existingAdmin) {
     const passwordHash = await bcrypt.hash('AdminPassword123!', 10);
-    const adminUser = await prisma.user.create({
+    await prisma.user.create({
       data: {
         email: adminEmail,
         passwordHash,
@@ -191,9 +203,9 @@ async function main() {
         roles: {
           create: {
             role: 'ADMIN',
-          }
-        }
-      }
+          },
+        },
+      },
     });
     console.log(`  - Created Admin User: ${adminEmail} (password: AdminPassword123!)`);
   } else {

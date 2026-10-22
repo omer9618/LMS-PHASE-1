@@ -23,6 +23,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The Prisma client is generated code, not committed. Typecheck needs it.
+      # prisma.config.ts resolves DATABASE_URL at load time; generate never connects.
+      - name: Generate Prisma client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
       - name: Check code formatting
         run: npm run format:check
 
