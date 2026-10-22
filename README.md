@@ -57,6 +57,23 @@ curl http://localhost:3000/health
 # {"success":true,"data":{"status":"ok","database":"up"}}
 ```
 
+## Dev accounts (seeded, development only)
+
+| Email                 | Role    | Password (default)    | Override with           |
+| --------------------- | ------- | --------------------- | ----------------------- |
+| `admin@lms.local`     | ADMIN   | `AdminPassword123!`   | `SEED_ADMIN_PASSWORD`   |
+| `teacher.a@lms.local` | TEACHER | `TeacherPassword123!` | `SEED_TEACHER_PASSWORD` |
+| `teacher.b@lms.local` | TEACHER | `TeacherPassword123!` | `SEED_TEACHER_PASSWORD` |
+
+With `NODE_ENV=production` the seed refuses to run without `SEED_ADMIN_PASSWORD` and creates no teachers. The seed never changes an existing user's password.
+
+Log in (the session is an HTTP-only cookie):
+
+```bash
+curl -i -c cookies.txt -H 'content-type: application/json'   -d '{"email":"teacher.a@lms.local","password":"TeacherPassword123!"}'   http://localhost:3000/auth/login
+curl -b cookies.txt http://localhost:3000/auth/me
+```
+
 ## Scripts
 
 | Script                                        | What it does                                                                                                                           |
