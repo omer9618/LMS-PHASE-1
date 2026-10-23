@@ -17,6 +17,9 @@ jobs:
           POSTGRES_USER: lms
           POSTGRES_PASSWORD: lms_ci_password
           POSTGRES_DB: lms_test
+          # Non-UTC server default, like our dev machines, so timestamp handling is really exercised.
+          TZ: Asia/Karachi
+          PGTZ: Asia/Karachi
         ports:
           - 5432:5432
         options: >-

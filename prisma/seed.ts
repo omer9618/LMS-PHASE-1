@@ -1,10 +1,12 @@
 import 'dotenv/config';
 import { PrismaClient, Role, UserStatus, type Board } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
+import { createPgPool } from '../src/prisma/pg-pool';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
+// Same connection setup as the app (UTC session time zone; see createPgPool).
+const pool = createPgPool(process.env.DATABASE_URL);
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
