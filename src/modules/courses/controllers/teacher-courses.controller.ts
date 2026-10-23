@@ -14,7 +14,7 @@ import {
   SubmitCourseInput,
   submitCourseSchema,
 } from '../schemas/course.schema';
-import { CourseRecord, CourseService } from '../services/course.service';
+import { CourseView, CourseService } from '../services/course.service';
 
 /** A teacher's own courses. Scoping to the caller happens in the service/DAO, not here. */
 @Roles([Role.TEACHER])
@@ -26,7 +26,7 @@ export class TeacherCoursesController {
   create(
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(createCourseSchema)) body: CreateCourseInput,
-  ): Promise<CourseRecord> {
+  ): Promise<CourseView> {
     return this.courseService.createCourse(user, body);
   }
 
@@ -34,7 +34,7 @@ export class TeacherCoursesController {
   list(
     @CurrentUser() user: AuthUser,
     @Query(new ZodValidationPipe(listMyCoursesQuerySchema)) query: ListMyCoursesQuery,
-  ): Promise<CourseRecord[]> {
+  ): Promise<CourseView[]> {
     return this.courseService.listMyCourses(user, query);
   }
 
@@ -42,7 +42,7 @@ export class TeacherCoursesController {
   get(
     @CurrentUser() user: AuthUser,
     @Param(new ZodValidationPipe(courseIdParamsSchema)) params: CourseIdParams,
-  ): Promise<CourseRecord> {
+  ): Promise<CourseView> {
     return this.courseService.getMyCourse(user, params.courseId);
   }
 
@@ -52,7 +52,7 @@ export class TeacherCoursesController {
     @CurrentUser() user: AuthUser,
     @Param(new ZodValidationPipe(courseIdParamsSchema)) params: CourseIdParams,
     @Body(new ZodValidationPipe(submitCourseSchema)) body: SubmitCourseInput,
-  ): Promise<CourseRecord> {
+  ): Promise<CourseView> {
     return this.courseService.submitCourse(user, params.courseId, body);
   }
 }

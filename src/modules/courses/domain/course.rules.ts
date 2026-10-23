@@ -14,9 +14,9 @@ export type CourseStatusValue =
 export type CourseAction = 'SUBMIT' | 'APPROVE' | 'REJECT';
 
 /**
- * The only transitions implemented in this phase. Deliberately absent, pending decisions:
- * - REJECTED -> DRAFT / PENDING_APPROVAL (can a teacher fix and resubmit?)
- * - PUBLISHED -> ARCHIVED, unpublish (#26, #28)
+ * The transitions implemented in this phase.
+ * - REJECTED is final: a teacher cannot edit and resubmit a rejected course (decided 2026-10-23).
+ * - PUBLISHED -> ARCHIVED and unpublish belong to #26 / #28 and are not built yet.
  */
 export const COURSE_TRANSITIONS: Readonly<
   Record<CourseAction, { from: CourseStatusValue; to: CourseStatusValue }>

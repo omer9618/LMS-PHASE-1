@@ -26,8 +26,11 @@ import type {
   SubmitCourseInput,
 } from '../schemas/course.schema';
 
-/** What course endpoints return. Controllers import it from here, never from the DAO. */
-export type { CourseRecord };
+/**
+ * What course endpoints return. Controllers import it from here, never from the DAO.
+ * `rejectionReason` is set when the course is REJECTED (#28); teachers read it to see why.
+ */
+export type CourseView = CourseRecord & { rejectionReason: string | null };
 
 /** audit_log.action values written by this service. */
 export const COURSE_AUDIT_ACTIONS = {
@@ -49,10 +52,10 @@ export class CourseService {
   // ── Teacher ───────────────────────────────────────────────────────
 
   /** #24: a teacher creates a course in DRAFT, owned by them. */
-  async createCourse(user: AuthUser, input: CreateCourseInput): Promise<CourseRecord> {
+  async createCourse(user: AuthUser, input: CreateCourseInput): Promise<CourseView> {
     const scope = teacherScope(user);
     await this.referenceData.assertValidClassification(input);
-    return this.courseDao.createCourse(scope, {
+    const course = await this.courseDao.createCourse(scope, {
       boardId: input.boardId,
       levelId: input.levelId,
       subjectId: input.subjectId,
@@ -61,18 +64,20 @@ export class CourseService {
       description: input.description ?? null,
       status: CourseStatus.DRAFT,
     });
+    return this.toView(course);
   }
 
-  async listMyCourses(user: AuthUser, query: ListMyCoursesQuery): Promise<CourseRecord[]> {
-    return this.courseDao.getCoursesBy(
+  async listMyCourses(user: AuthUser, query: ListMyCoursesQuery): Promise<CourseView[]> {
+    const courses = await this.courseDao.getCoursesBy(
       teacherScope(user),
       query.status ? { status: query.status } : {},
       query,
     );
+    return this.toViews(courses);
   }
 
-  async getMyCourse(user: AuthUser, courseId: string): Promise<CourseRecord> {
-    return this.loadCourse(teacherScope(user), courseId);
+  async getMyCourse(user: AuthUser, courseId: string): Promise<CourseView> {
+    return this.toView(await this.loadCourse(teacherScope(user), courseId));
   }
 
   /** #25: DRAFT -> PENDING_APPROVAL, optionally with a proposed commission (#30). */
@@ -80,14 +85,15 @@ export class CourseService {
     user: AuthUser,
     courseId: string,
     input: SubmitCourseInput,
-  ): Promise<CourseRecord> {
+  ): Promise<CourseView> {
     const scope = teacherScope(user);
     const course = await this.loadCourse(scope, courseId);
     const decision = decideSubmission(course, input.teacherProposedBps);
 
-    return this.applyTransition(scope, course, 'SUBMIT', decision, user.id, {
+    const updated = await this.applyTransition(scope, course, 'SUBMIT', decision, user.id, {
       teacherProposedBps: decision.teacherProposedBps ?? null,
     });
+    return this.toView(updated);
   }
 
   // ── Admin ─────────────────────────────────────────────────────────
@@ -96,27 +102,27 @@ export class CourseService {
   async listCoursesForReview(
     admin: AuthUser,
     query: ListCoursesForReviewQuery,
-  ): Promise<CourseRecord[]> {
-    return this.courseDao.getCoursesBy(adminScope(admin), { status: query.status }, query, {
-      createdAt: 'asc',
-    });
+  ): Promise<CourseView[]> {
+    const courses = await this.courseDao.getCoursesBy(
+      adminScope(admin),
+      { status: query.status },
+      query,
+      { createdAt: 'asc' },
+    );
+    return this.toViews(courses);
   }
 
-  async getCourseForReview(admin: AuthUser, courseId: string): Promise<CourseRecord> {
-    return this.loadCourse(adminScope(admin), courseId);
+  async getCourseForReview(admin: AuthUser, courseId: string): Promise<CourseView> {
+    return this.toView(await this.loadCourse(adminScope(admin), courseId));
   }
 
   /** #29: price + commission (or free), recording who set them and when. */
-  async setPricing(
-    admin: AuthUser,
-    courseId: string,
-    input: SetPricingInput,
-  ): Promise<CourseRecord> {
+  async setPricing(admin: AuthUser, courseId: string, input: SetPricingInput): Promise<CourseView> {
     const scope = adminScope(admin);
     const course = await this.loadCourse(scope, courseId);
     const pricing = decidePricing(course, input, admin.id, new Date());
 
-    return this.transactions.run(async (tx) => {
+    const priced = await this.transactions.run(async (tx) => {
       const updated = await this.courseDao.updateCourse(
         scope,
         { id: course.id, expectedStatus: course.status },
@@ -142,30 +148,35 @@ export class CourseService {
       );
       return updated;
     });
+    return this.toView(priced);
   }
 
   /** #28/#25: PENDING_APPROVAL -> PUBLISHED, only if the publish guard passes (#29). */
-  async approveCourse(admin: AuthUser, courseId: string): Promise<CourseRecord> {
+  async approveCourse(admin: AuthUser, courseId: string): Promise<CourseView> {
     const scope = adminScope(admin);
     const course = await this.loadCourse(scope, courseId);
     const decision = decideApproval(course, new Date());
 
-    return this.applyTransition(scope, course, 'APPROVE', decision, admin.id, {
+    const updated = await this.applyTransition(scope, course, 'APPROVE', decision, admin.id, {
       publishedAt: decision.publishedAt,
     });
+    return this.toView(updated);
   }
 
-  /** #28: PENDING_APPROVAL -> REJECTED. The reason goes to audit_log (no column on courses). */
+  /**
+   * #28: PENDING_APPROVAL -> REJECTED, which is final (no resubmission). The reason is stored in
+   * audit_log (courses has no reason column) and returned to the teacher as `rejectionReason`.
+   */
   async rejectCourse(
     admin: AuthUser,
     courseId: string,
     input: RejectCourseInput,
-  ): Promise<CourseRecord> {
+  ): Promise<CourseView> {
     const scope = adminScope(admin);
     const course = await this.loadCourse(scope, courseId);
     const decision = decideRejection(course, input.reason);
 
-    return this.applyTransition(
+    const updated = await this.applyTransition(
       scope,
       course,
       'REJECT',
@@ -176,9 +187,45 @@ export class CourseService {
         reason: decision.reason,
       },
     );
+    return { ...updated, rejectionReason: decision.reason };
   }
 
   // ── Internals ─────────────────────────────────────────────────────
+
+  private async toView(course: CourseRecord): Promise<CourseView> {
+    const [view] = await this.toViews([course]);
+    return view;
+  }
+
+  /**
+   * Attaches rejection reasons. Courses here were already loaded through the caller's scope, so
+   * the audit lookup is restricted to ids the caller may see. One query, and only if any course
+   * is REJECTED.
+   */
+  private async toViews(courses: CourseRecord[]): Promise<CourseView[]> {
+    const rejectedIds = courses.filter((c) => c.status === CourseStatus.REJECTED).map((c) => c.id);
+    const reasons = new Map<string, string>();
+
+    if (rejectedIds.length > 0) {
+      const entries = await this.auditLogDao.getAuditEntriesBy({
+        entityType: 'course',
+        action: COURSE_AUDIT_ACTIONS.REJECT,
+        entityId: { in: rejectedIds },
+      });
+      // Newest first: if a course were ever rejected twice, the latest reason wins.
+      for (const entry of entries) {
+        const reason = (entry.details as { reason?: unknown } | null)?.reason;
+        if (entry.entityId && typeof reason === 'string' && !reasons.has(entry.entityId)) {
+          reasons.set(entry.entityId, reason);
+        }
+      }
+    }
+
+    return courses.map((course) => ({
+      ...course,
+      rejectionReason: reasons.get(course.id) ?? null,
+    }));
+  }
 
   /** Not-found and not-yours look identical, so other teachers' course ids are not revealed. */
   private async loadCourse(scope: TeacherScope, courseId: string): Promise<CourseRecord> {

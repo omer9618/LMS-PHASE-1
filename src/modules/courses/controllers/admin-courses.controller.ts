@@ -14,7 +14,7 @@ import {
   SetPricingInput,
   setPricingSchema,
 } from '../schemas/course.schema';
-import { CourseRecord, CourseService } from '../services/course.service';
+import { CourseView, CourseService } from '../services/course.service';
 
 /** Admin review queue (#28) and pricing (#29). */
 @Roles([Role.ADMIN])
@@ -26,7 +26,7 @@ export class AdminCoursesController {
   list(
     @CurrentUser() admin: AuthUser,
     @Query(new ZodValidationPipe(listCoursesForReviewQuerySchema)) query: ListCoursesForReviewQuery,
-  ): Promise<CourseRecord[]> {
+  ): Promise<CourseView[]> {
     return this.courseService.listCoursesForReview(admin, query);
   }
 
@@ -34,7 +34,7 @@ export class AdminCoursesController {
   get(
     @CurrentUser() admin: AuthUser,
     @Param(new ZodValidationPipe(courseIdParamsSchema)) params: CourseIdParams,
-  ): Promise<CourseRecord> {
+  ): Promise<CourseView> {
     return this.courseService.getCourseForReview(admin, params.courseId);
   }
 
@@ -43,7 +43,7 @@ export class AdminCoursesController {
     @CurrentUser() admin: AuthUser,
     @Param(new ZodValidationPipe(courseIdParamsSchema)) params: CourseIdParams,
     @Body(new ZodValidationPipe(setPricingSchema)) body: SetPricingInput,
-  ): Promise<CourseRecord> {
+  ): Promise<CourseView> {
     return this.courseService.setPricing(admin, params.courseId, body);
   }
 
@@ -52,7 +52,7 @@ export class AdminCoursesController {
   approve(
     @CurrentUser() admin: AuthUser,
     @Param(new ZodValidationPipe(courseIdParamsSchema)) params: CourseIdParams,
-  ): Promise<CourseRecord> {
+  ): Promise<CourseView> {
     return this.courseService.approveCourse(admin, params.courseId);
   }
 
@@ -62,7 +62,7 @@ export class AdminCoursesController {
     @CurrentUser() admin: AuthUser,
     @Param(new ZodValidationPipe(courseIdParamsSchema)) params: CourseIdParams,
     @Body(new ZodValidationPipe(rejectCourseSchema)) body: RejectCourseInput,
-  ): Promise<CourseRecord> {
+  ): Promise<CourseView> {
     return this.courseService.rejectCourse(admin, params.courseId, body);
   }
 }

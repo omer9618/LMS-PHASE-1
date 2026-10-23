@@ -156,7 +156,27 @@ describe('Courses: create, submit, price, approve, reject (#24, #25, #28, #29)',
       .set('Cookie', admin)
       .send({ reason: 'Syllabus area does not match the subject' })
       .expect(200);
-    expect(res.body.data.status).toBe('REJECTED');
+    expect(res.body.data).toMatchObject({
+      status: 'REJECTED',
+      rejectionReason: 'Syllabus area does not match the subject',
+    });
+
+    // The teacher reads the reason on their course, in detail and in their list.
+    const mine = await http()
+      .get(`/teacher/courses/${course.id}`)
+      .set('Cookie', teacher)
+      .expect(200);
+    expect(mine.body.data.rejectionReason).toBe('Syllabus area does not match the subject');
+    const list = await http()
+      .get('/teacher/courses?status=REJECTED&limit=100')
+      .set('Cookie', teacher)
+      .expect(200);
+    expect(list.body.data.find((c: { id: string }) => c.id === course.id)?.rejectionReason).toBe(
+      'Syllabus area does not match the subject',
+    );
+
+    // Rejection is final: the teacher cannot resubmit.
+    await http().post(`/teacher/courses/${course.id}/submit`).set('Cookie', teacher).expect(409);
 
     const entry = await app.get(PrismaService).auditLog.findFirst({
       where: { entityType: 'course', entityId: course.id, action: 'COURSE_REJECTED' },

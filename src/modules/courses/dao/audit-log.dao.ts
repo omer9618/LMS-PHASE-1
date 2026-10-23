@@ -18,4 +18,15 @@ export class AuditLogDao {
   ): Promise<void> {
     await (tx ?? this.prisma).auditLog.create({ data, select: { id: true } });
   }
+
+  /** Newest first. */
+  getAuditEntriesBy(
+    where: Prisma.AuditLogWhereInput,
+  ): Promise<{ entityId: string | null; details: Prisma.JsonValue; createdAt: Date }[]> {
+    return this.prisma.auditLog.findMany({
+      where,
+      select: { entityId: true, details: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }
