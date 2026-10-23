@@ -4,15 +4,16 @@ The schema matches **Database Schema v2.0** exactly, plus one documented additio
 
 ## Verification results
 
-| Check                                                | Result                                           |
-| ---------------------------------------------------- | ------------------------------------------------ |
-| Tables                                               | 29 of 29, none missing, none extra               |
-| Column names                                         | Every column in every table matches the document |
-| Documented constraints and indexes (§14)             | All 13 present                                   |
-| `payment_proofs.transaction_id`                      | Indexed, **not** unique — correct                |
-| Composite FK `courses (level_id, board_id) → levels` | Present                                          |
-| Undocumented indexes                                 | None                                             |
-| Prisma validate                                      | Passes on 7.10.0                                 |
+| Check                                                | Result                                                                                                                      |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Tables                                               | 29 of 29, none missing, none extra                                                                                          |
+| Column names                                         | Every column in every table matches the document                                                                            |
+| Timestamps (§2: UTC, timestamptz)                    | All 37 are `TIMESTAMPTZ(3)`. Fixed in `20261023162332_timestamps_to_timestamptz`; `init` had created them without time zone |
+| Documented constraints and indexes (§14)             | All 13 present                                                                                                              |
+| `payment_proofs.transaction_id`                      | Indexed, **not** unique — correct                                                                                           |
+| Composite FK `courses (level_id, board_id) → levels` | Present                                                                                                                     |
+| Undocumented indexes                                 | None                                                                                                                        |
+| Prisma validate                                      | Passes on 7.10.0                                                                                                            |
 
 Column names are snake_case in the database, matching the document. Prisma field names are camelCase with `@map` on every field — that is Prisma's convention and does not change the database.
 
@@ -134,6 +135,10 @@ DUPLICATE_TRANSACTION, OTHER
 
 ## 8. Working with this schema in code
 
+### Connections must run in UTC
+
+`@prisma/adapter-pg` sends `DateTime` values as UTC wall-clock strings **without an offset**, and drops the offset when reading `timestamptz` back. With any session time zone other than UTC, Postgres stores the wrong instant (five hours early under `Asia/Karachi`), while a Prisma round trip still looks correct. Always build the pool with `createPgPool()` (`src/prisma/pg-pool.ts`), which sets `TimeZone=UTC` on every connection. `test/timestamps.e2e-spec.ts` guards this.
+
 ### BigInt does not serialise to JSON
 
 All money is `BigInt`. `JSON.stringify` throws on it. Add once, in `main.ts`:
@@ -197,10 +202,11 @@ npx prisma db seed
 
 ## Additions to Schema v2.0
 
-| Added              | Migration                      | Why                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sessions`         | `20261022175942_add_sessions`  | #12 requires "logout clears session server-side" and #13 requires "old sessions invalidated on reset". A stateless JWT cannot be revoked. The cookie carries a random 256-bit token; only its SHA-256 hash is stored. Columns: `user_id`, `token_hash` (unique), `created_at`, `expires_at`, `last_seen_at`, `revoked_at`, `ip_address`, `user_agent`. |
-| `citext` extension | `20260907000000_enable_citext` | Fresh databases failed on `init` without it (see section 3).                                                                                                                                                                                                                                                                                           |
+| Added              | Migration                                  | Why                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sessions`         | `20261022175942_add_sessions`              | #12 requires "logout clears session server-side" and #13 requires "old sessions invalidated on reset". A stateless JWT cannot be revoked. The cookie carries a random 256-bit token; only its SHA-256 hash is stored. Columns: `user_id`, `token_hash` (unique), `created_at`, `expires_at`, `last_seen_at`, `revoked_at`, `ip_address`, `user_agent`. |
+| `citext` extension | `20260907000000_enable_citext`             | Fresh databases failed on `init` without it (see section 3).                                                                                                                                                                                                                                                                                           |
+| `timestamptz` fix  | `20261023162332_timestamps_to_timestamptz` | Not an addition but a correction: the document specifies timestamptz and `init` used `TIMESTAMP(3)`. Existing values were UTC (adapter behaviour), converted with `USING col AT TIME ZONE 'UTC'` so no stored instant moves.                                                                                                                           |
 
 Total tables: 30.
 
