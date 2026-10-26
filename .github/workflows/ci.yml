@@ -10,6 +10,26 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: lms
+          POSTGRES_PASSWORD: lms_ci_password
+          POSTGRES_DB: lms_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lms -d lms_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # prisma.config.ts resolves DATABASE_URL at load time. The e2e setup swaps in TEST_DATABASE_URL.
+      DATABASE_URL: postgresql://lms:lms_ci_password@localhost:5432/lms_test
+      TEST_DATABASE_URL: postgresql://lms:lms_ci_password@localhost:5432/lms_test
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,11 +44,8 @@ jobs:
         run: npm ci
 
       # The Prisma client is generated code, not committed. Typecheck needs it.
-      # prisma.config.ts resolves DATABASE_URL at load time; generate never connects.
       - name: Generate Prisma client
         run: npx prisma generate
-        env:
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
       - name: Check code formatting
         run: npm run format:check
@@ -38,3 +55,13 @@ jobs:
 
       - name: Check TypeScript types
         run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Migrates and seeds the service database, then runs the HTTP-level tests.
+      - name: E2E tests
+        run: npm run test:e2e
