@@ -6,6 +6,7 @@ import type { AuditService } from '../../audit/services/audit.service';
 import type { CourseDao, CourseRecord } from '../dao/course.dao';
 import { PublishGuardError } from '../domain/course.rules';
 import { fakeUser } from '../../../../test/utils/fake-user';
+import type { EmailService } from '../../email/services/email.service';
 import { CourseService } from './course.service';
 
 const user = fakeUser;
@@ -17,6 +18,8 @@ const course = (overrides: Partial<CourseRecord> = {}): CourseRecord =>
   ({
     id: 'course-1',
     teacherId: teacher.id,
+    title: 'Algebra',
+    teacher: { id: teacher.id, email: teacher.email, fullName: teacher.fullName },
     status: 'PENDING_APPROVAL',
     isFree: false,
     priceMinor: 150000n,
@@ -29,10 +32,12 @@ describe('CourseService (mocked DAOs)', () => {
   let courseDao: jest.Mocked<Pick<CourseDao, 'getCourseBy' | 'updateCourse'>>;
   let audit: jest.Mocked<Pick<AuditService, 'record' | 'latestFor'>>;
   let service: CourseService;
+  let email: { send: jest.Mock; appUrl: (path: string) => string };
 
   beforeEach(() => {
     courseDao = { getCourseBy: jest.fn(), updateCourse: jest.fn() };
     audit = { record: jest.fn(), latestFor: jest.fn() };
+    email = { send: jest.fn().mockResolvedValue(true), appUrl: (path: string) => path };
     const transactions = {
       run: jest.fn((fn: (t: unknown) => Promise<unknown>) => fn(tx)),
     } as unknown as TransactionService;
@@ -42,6 +47,7 @@ describe('CourseService (mocked DAOs)', () => {
       audit as unknown as AuditService,
       {} as ReferenceDataService,
       transactions,
+      email as unknown as EmailService,
     );
   });
 
@@ -99,9 +105,14 @@ describe('CourseService (mocked DAOs)', () => {
     expect(courseDao.getCourseBy).toHaveBeenCalledWith({ admin: true }, { id: 'course-1' });
     expect(courseDao.updateCourse).toHaveBeenCalledWith(
       { admin: true },
-      { id: 'course-1', expectedStatus: 'PENDING_APPROVAL' },
+      { id: 'course-1', expectedStatus: ['PENDING_APPROVAL'] },
       { status: 'PUBLISHED', publishedAt: expect.any(Date) },
       tx,
+    );
+    expect(email.send).toHaveBeenCalledWith(
+      teacher.email,
+      'COURSE_APPROVED',
+      expect.objectContaining({ courseTitle: 'Algebra' }),
     );
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -122,6 +133,7 @@ describe('CourseService (mocked DAOs)', () => {
     );
     expect(courseDao.updateCourse).not.toHaveBeenCalled();
     expect(audit.record).not.toHaveBeenCalled();
+    expect(email.send).not.toHaveBeenCalled();
   });
 
   it('stores the rejection reason in the audit entry', async () => {

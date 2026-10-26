@@ -39,6 +39,35 @@ export const EMAIL_TEMPLATES = {
       ],
       action: { label: 'Set your password', url: data.setPasswordUrl },
     }),
+
+  COURSE_APPROVED: (data: { courseTitle: string; courseUrl: string }) =>
+    renderEmail({
+      subject: `Approved: ${data.courseTitle}`,
+      heading: 'Your course is live',
+      paragraphs: [`"${data.courseTitle}" was approved and is now published in the catalogue.`],
+      action: { label: 'View course', url: data.courseUrl },
+    }),
+
+  COURSE_REJECTED: (data: { courseTitle: string; reason: string; courseUrl: string }) =>
+    renderEmail({
+      subject: `Not approved: ${data.courseTitle}`,
+      heading: 'Your course was not approved',
+      paragraphs: [`"${data.courseTitle}" was not approved for publication.`],
+      details: [['Reason', data.reason]],
+      action: { label: 'View course', url: data.courseUrl },
+    }),
+
+  COURSE_UNPUBLISHED: (data: { courseTitle: string; reason: string; courseUrl: string }) =>
+    renderEmail({
+      subject: `Unpublished: ${data.courseTitle}`,
+      heading: 'Your course was unpublished',
+      paragraphs: [
+        `An administrator unpublished "${data.courseTitle}". It is back in draft and hidden from the catalogue; enrolled students keep their access.`,
+        'Make the changes below and submit it for approval again.',
+      ],
+      details: [['Reason', data.reason]],
+      action: { label: 'Edit course', url: data.courseUrl },
+    }),
 } satisfies Record<string, (data: never) => RenderedTemplate>;
 
 export type EmailTemplateName = keyof typeof EMAIL_TEMPLATES;

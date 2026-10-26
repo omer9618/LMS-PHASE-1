@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CourseStatus, Prisma } from '@prisma/client';
+import { CourseStatus, LessonType, Prisma } from '@prisma/client';
 import { scopeWhere, TeacherOwnerScope, TeacherScope } from '../../../common/auth/scope';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { TransactionClient } from '../../../prisma/prisma.types';
@@ -30,13 +30,14 @@ const courseSelect = {
   board: { select: { id: true, name: true } },
   level: { select: { id: true, name: true } },
   subject: { select: { id: true, name: true } },
+  teacher: { select: { id: true, email: true, fullName: true } },
 } satisfies Prisma.CourseSelect;
 
 export type CourseRecord = Prisma.CourseGetPayload<{ select: typeof courseSelect }>;
 
 /** Fields a caller may write. teacherId comes from the scope, never from data. */
 export type CourseCreateData = Omit<Prisma.CourseUncheckedCreateInput, 'id' | 'teacherId'>;
-export type CourseUpdateData = Omit<Prisma.CourseUncheckedUpdateInput, 'id' | 'teacherId'>;
+export type CourseUpdateData = Omit<Prisma.CourseUncheckedUpdateManyInput, 'id' | 'teacherId'>;
 
 export interface Page {
   limit: number;
@@ -93,31 +94,72 @@ export class CourseDao {
     return (tx ?? this.prisma).course.count({ where: { AND: [where, scopeWhere(scope)] } });
   }
 
+  /** What depends on a course: used to refuse hard deletes (#26). */
+  async countCourseDependents(
+    scope: TeacherScope,
+    courseId: string,
+    tx?: TransactionClient,
+  ): Promise<{ enrollments: number; orderItems: number }> {
+    const client = tx ?? this.prisma;
+    const course = { id: courseId, ...scopeWhere(scope) };
+    const [enrollments, orderItems] = await Promise.all([
+      client.enrollment.count({ where: { course } }),
+      client.orderItem.count({ where: { course } }),
+    ]);
+    return { enrollments, orderItems };
+  }
+
+  /** #34: lessons that make up the course's demo (free-preview video lessons with a video). */
+  countFreePreviewVideoLessons(
+    scope: TeacherScope,
+    courseId: string,
+    tx?: TransactionClient,
+  ): Promise<number> {
+    return (tx ?? this.prisma).lesson.count({
+      where: {
+        type: LessonType.VIDEO,
+        isFreePreview: true,
+        videoAssetId: { not: null },
+        section: { course: { id: courseId, ...scopeWhere(scope) } },
+      },
+    });
+  }
+
+  /** Hard delete (sections and lessons cascade). Returns false if nothing in scope matched. */
+  async deleteCourse(
+    scope: TeacherScope,
+    courseId: string,
+    tx?: TransactionClient,
+  ): Promise<boolean> {
+    const { count } = await (tx ?? this.prisma).course.deleteMany({
+      where: { id: courseId, ...scopeWhere(scope) },
+    });
+    return count === 1;
+  }
+
   /**
-   * Updates one course if it is in scope and (when given) still has `expectedStatus`.
+   * Updates one course if it is in scope and (when given) still has an expected status.
    * Returns null when no row matched, so a concurrent change cannot be silently overwritten.
    */
   async updateCourse(
     scope: TeacherScope,
-    target: { id: string; expectedStatus?: CourseStatus },
+    target: { id: string; expectedStatus?: CourseStatus | readonly CourseStatus[] },
     data: CourseUpdateData,
     tx?: TransactionClient,
   ): Promise<CourseRecord | null> {
-    try {
-      return await (tx ?? this.prisma).course.update({
-        where: {
-          id: target.id,
-          ...(target.expectedStatus ? { status: target.expectedStatus } : {}),
-          ...scopeWhere(scope),
-        },
-        data,
-        select: courseSelect,
-      });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        return null;
-      }
-      throw error;
-    }
+    const client = tx ?? this.prisma;
+    const { count } = await client.course.updateMany({
+      where: { AND: [{ id: target.id }, statusWhere(target.expectedStatus), scopeWhere(scope)] },
+      data,
+    });
+    if (count === 0) return null;
+    return client.course.findUniqueOrThrow({ where: { id: target.id }, select: courseSelect });
   }
+}
+
+function statusWhere(
+  expected: CourseStatus | readonly CourseStatus[] | undefined,
+): Prisma.CourseWhereInput {
+  if (!expected) return {};
+  return typeof expected === 'string' ? { status: expected } : { status: { in: [...expected] } };
 }

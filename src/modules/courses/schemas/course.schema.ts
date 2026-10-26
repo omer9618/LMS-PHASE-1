@@ -1,4 +1,4 @@
-import { CourseStatus } from '@prisma/client';
+import { AudienceType, CourseStatus, ProgressionMode } from '@prisma/client';
 import { z } from 'zod';
 import { MAX_COMMISSION_BPS } from '../domain/course.rules';
 
@@ -18,16 +18,57 @@ const pagination = {
 export const courseIdParamsSchema = z.object({ courseId: z.uuid() });
 export type CourseIdParams = z.infer<typeof courseIdParamsSchema>;
 
-/** #24. syllabusArea is free text: no syllabus hierarchy until #126 is answered. */
-export const createCourseSchema = z.strictObject({
+/** #24, #33. syllabusArea is free text: no syllabus hierarchy until #126 is answered. */
+const courseDetails = {
   boardId: z.uuid(),
   levelId: z.uuid(),
   subjectId: z.uuid(),
-  syllabusArea: z.string().trim().min(1).max(200).optional(),
+  syllabusArea: z.string().trim().min(1).max(200).nullable().optional(),
   title: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(5000).optional(),
-});
+  description: z.string().trim().max(5000).nullable().optional(),
+  progressionMode: z.enum(ProgressionMode).optional(),
+  audienceType: z.enum(AudienceType).optional(),
+};
+
+export const createCourseSchema = z.strictObject(courseDetails);
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
+
+/**
+ * #26: partial update of details. Board, level and subject are validated together, so changing
+ * any of them requires sending all three.
+ */
+export const updateCourseDetailsSchema = z
+  .strictObject({
+    ...courseDetails,
+    title: courseDetails.title.optional(),
+    boardId: courseDetails.boardId.optional(),
+    levelId: courseDetails.levelId.optional(),
+    subjectId: courseDetails.subjectId.optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, 'Send at least one field to change')
+  .refine(
+    (v) => {
+      const given = [v.boardId, v.levelId, v.subjectId].filter((x) => x !== undefined).length;
+      return given === 0 || given === 3;
+    },
+    { message: 'Send boardId, levelId and subjectId together', path: ['boardId'] },
+  );
+export type UpdateCourseDetailsInput = z.infer<typeof updateCourseDetailsSchema>;
+
+/** #32: enrollment open/close, independent of publication status. */
+export const enrollmentToggleSchema = z.strictObject({ open: z.boolean() });
+export type EnrollmentToggleInput = z.infer<typeof enrollmentToggleSchema>;
+
+/** #28: unpublish needs a reason, which the teacher receives. */
+export const unpublishCourseSchema = z.strictObject({
+  reason: z.string().trim().min(1).max(2000),
+});
+export type UnpublishCourseInput = z.infer<typeof unpublishCourseSchema>;
+
+export const archiveCourseSchema = z
+  .strictObject({ reason: z.string().trim().min(1).max(2000).optional() })
+  .default({});
+export type ArchiveCourseInput = z.infer<typeof archiveCourseSchema>;
 
 /** #25 submit; teacherProposedBps is #30's advisory proposal, stored as-is. */
 export const submitCourseSchema = z

@@ -1,4 +1,15 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { Role } from '@prisma/client';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -9,10 +20,14 @@ import {
   courseIdParamsSchema,
   CreateCourseInput,
   createCourseSchema,
+  EnrollmentToggleInput,
+  enrollmentToggleSchema,
   ListMyCoursesQuery,
   listMyCoursesQuerySchema,
   SubmitCourseInput,
   submitCourseSchema,
+  UpdateCourseDetailsInput,
+  updateCourseDetailsSchema,
 } from '../schemas/course.schema';
 import { CourseView, CourseService } from '../services/course.service';
 
@@ -54,5 +69,42 @@ export class TeacherCoursesController {
     @Body(new ZodValidationPipe(submitCourseSchema)) body: SubmitCourseInput,
   ): Promise<CourseView> {
     return this.courseService.submitCourse(user, params.courseId, body);
+  }
+
+  /** #26: details are editable while the course is a draft. */
+  @Patch(':courseId')
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param(new ZodValidationPipe(courseIdParamsSchema)) params: CourseIdParams,
+    @Body(new ZodValidationPipe(updateCourseDetailsSchema)) body: UpdateCourseDetailsInput,
+  ): Promise<CourseView> {
+    return this.courseService.updateMyCourse(user, params.courseId, body);
+  }
+
+  @Post(':courseId/archive')
+  @HttpCode(200)
+  archive(
+    @CurrentUser() user: AuthUser,
+    @Param(new ZodValidationPipe(courseIdParamsSchema)) params: CourseIdParams,
+  ): Promise<CourseView> {
+    return this.courseService.archiveMyCourse(user, params.courseId);
+  }
+
+  @Delete(':courseId')
+  remove(
+    @CurrentUser() user: AuthUser,
+    @Param(new ZodValidationPipe(courseIdParamsSchema)) params: CourseIdParams,
+  ): Promise<{ deleted: true }> {
+    return this.courseService.deleteMyCourse(user, params.courseId);
+  }
+
+  /** #32: open or close enrollment. */
+  @Put(':courseId/enrollment')
+  setEnrollment(
+    @CurrentUser() user: AuthUser,
+    @Param(new ZodValidationPipe(courseIdParamsSchema)) params: CourseIdParams,
+    @Body(new ZodValidationPipe(enrollmentToggleSchema)) body: EnrollmentToggleInput,
+  ): Promise<CourseView> {
+    return this.courseService.setMyCourseEnrollment(user, params.courseId, body.open);
   }
 }
