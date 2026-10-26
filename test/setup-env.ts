@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 /**
  * Points every e2e test at TEST_DATABASE_URL, never the dev database.
@@ -11,3 +13,7 @@ if (!testUrl) {
 process.env.DATABASE_URL = testUrl;
 process.env.NODE_ENV = 'test';
 process.env.LOG_LEVEL = process.env.TEST_LOG_LEVEL ?? 'silent';
+// Emails are captured in memory (tests read links from them); files go to a temp directory.
+process.env.EMAIL_TRANSPORT = 'memory';
+process.env.STORAGE_DRIVER = 'local';
+process.env.STORAGE_LOCAL_DIR = join(tmpdir(), 'lms-e2e-storage');

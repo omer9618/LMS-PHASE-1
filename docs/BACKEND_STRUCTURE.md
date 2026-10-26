@@ -30,6 +30,7 @@ src/
     dao/<entity>.dao.ts
     schemas/<entity>.schema.ts
     domain/<entity>.rules.ts      only where there are state transitions or invariants
+    adapters/                     only where the module wraps an external service (SMTP, S3, Bunny)
 test/                      e2e tests (*.e2e-spec.ts) + utils
 ```
 
@@ -138,6 +139,23 @@ Teacher-owned data (courses, sections, lessons, enrollments, student records, ea
   Constraint-specific messages live in `common/errors/constraint-messages.ts`. Raw Prisma messages never reach clients.
 
 - Prefer checking a rule in the service or domain first, for a precise message. Database constraints are the backstop.
+
+## Email
+
+`EmailModule` is global. Inject `EmailService` and call `send(to, 'TEMPLATE_NAME', data)`. Templates live in `modules/email/templates/index.ts`, typed per template, and share one layout that escapes every value.
+
+- Send **after** the transaction commits, never inside it, so a rolled-back change emails no one.
+- Delivery is best-effort: a failure is logged (template, masked recipient, request id) and returns `false`. Decide per flow whether that matters.
+- Transports: `smtp` (production, any provider via `SMTP_URL`), `log` (development: the email, links included, is printed to the console), `memory` (e2e tests read sent mail from it).
+- Build links with `emailService.appUrl('/path', { token })`.
+
+## File storage
+
+`StorageModule` is global. `StorageService.store('CV', 'cv', file)` checks the file against its upload policy (`storage/domain/upload-policy.ts`: size, and type detected from the file's bytes, not its name) and returns a storage key.
+
+- Store the **key** in the `*_url` column. Never store or return a public URL.
+- Serve files with `storageService.downloadUrl(key, filename, contentType)`, a signed URL valid for 15 minutes, issued only after the service has authorised the caller.
+- Drivers: `s3` (production: AWS S3, R2, Spaces or MinIO) and `local` (development and tests: files under `.storage/`, served by a dev-only signed route). The env schema refuses `local` in production.
 
 ## Platform settings
 
