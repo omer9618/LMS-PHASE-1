@@ -10,5 +10,7 @@ export function fakeUser(id: string, ...roles: Role[]): AuthUser {
     isEmailVerified: true,
     roles: new Set(roles),
     sessionId: 'session',
+    mfaEnabled: true,
+    mfaVerified: true,
   };
 }

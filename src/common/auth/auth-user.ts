@@ -11,6 +11,10 @@ export interface AuthUser {
   readonly isEmailVerified: boolean;
   readonly roles: ReadonlySet<Role>;
   readonly sessionId: string;
+  /** The account has TOTP enrolled (#16). */
+  readonly mfaEnabled: boolean;
+  /** This session passed MFA. Required for any account holding ADMIN. */
+  readonly mfaVerified: boolean;
 }
 
 declare module 'express-serve-static-core' {

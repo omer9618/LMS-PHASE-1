@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Role, UserStatus } from '@prisma/client';
+import { AuthTokenPurpose, Role, UserStatus } from '@prisma/client';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
@@ -7,6 +7,7 @@ import { ENV } from '../../../config/config.module';
 import type { Env } from '../../../config/env.schema';
 import type { TransactionClient } from '../../../prisma/prisma.types';
 import { TransactionService } from '../../../prisma/transaction.service';
+import { AuthTokenDao } from '../dao/auth-token.dao';
 import { SessionDao } from '../dao/session.dao';
 import { UserDao, UserRecord } from '../dao/user.dao';
 import {
@@ -46,6 +47,14 @@ export interface SessionGrant {
   user: UserView;
 }
 
+/** A correct password either starts a session, or (MFA accounts) asks for a second factor. */
+export type LoginOutcome =
+  | { kind: 'session'; grant: SessionGrant }
+  | { kind: 'mfa'; challengeToken: string; expiresAt: Date };
+
+/** How long the user has to enter their TOTP code after a correct password. */
+export const MFA_CHALLENGE_TTL_MS = 5 * 60 * 1000;
+
 const MAX_USER_AGENT_LENGTH = 512;
 
 /** Login, logout and session resolution (#12). Account lifecycle lives in AccountService. */
@@ -57,6 +66,7 @@ export class AuthService {
   constructor(
     private readonly userDao: UserDao,
     private readonly sessionDao: SessionDao,
+    private readonly authTokenDao: AuthTokenDao,
     private readonly transactions: TransactionService,
     @Inject(ENV) env: Env,
   ) {
@@ -67,7 +77,7 @@ export class AuthService {
     };
   }
 
-  async login(input: LoginInput, client: ClientContext): Promise<SessionGrant> {
+  async login(input: LoginInput, client: ClientContext): Promise<LoginOutcome> {
     const user = await this.userDao.getUserCredentialsByEmail(input.email);
 
     // Always run bcrypt, even for unknown emails, so response time does not reveal which exist.
@@ -79,7 +89,21 @@ export class AuthService {
       throw new AppException(ErrorCode.INVALID_CREDENTIALS);
     }
 
-    return this.transactions.run((tx) => this.startSession(user, client, tx));
+    if (user.mfaEnabledAt) {
+      // The password alone proves nothing more: issue a short single-use challenge instead.
+      const challengeToken = generateOpaqueToken();
+      const expiresAt = new Date(Date.now() + MFA_CHALLENGE_TTL_MS);
+      await this.authTokenDao.createAuthToken({
+        userId: user.id,
+        purpose: AuthTokenPurpose.MFA_CHALLENGE,
+        tokenHash: hashOpaqueToken(challengeToken),
+        expiresAt,
+      });
+      return { kind: 'mfa', challengeToken, expiresAt };
+    }
+
+    const grant = await this.transactions.run((tx) => this.startSession(user, client, tx));
+    return { kind: 'session', grant };
   }
 
   /**
@@ -90,6 +114,7 @@ export class AuthService {
     user: UserRecord,
     client: ClientContext,
     tx: TransactionClient,
+    options: { mfaVerified?: boolean } = {},
   ): Promise<SessionGrant> {
     const now = new Date();
     const token = generateOpaqueToken();
@@ -111,6 +136,7 @@ export class AuthService {
         expiresAt,
         ipAddress: client.ipAddress,
         userAgent: client.userAgent?.slice(0, MAX_USER_AGENT_LENGTH),
+        mfaVerifiedAt: options.mfaVerified ? now : null,
       },
       tx,
     );
@@ -158,17 +184,26 @@ export class AuthService {
       isEmailVerified: session.user.isEmailVerified,
       roles: new Set(session.user.roles.map((r) => r.role)),
       sessionId: session.id,
+      mfaEnabled: session.user.mfaEnabledAt !== null,
+      mfaVerified: session.mfaVerifiedAt !== null,
     };
   }
 
-  describe(user: AuthUser): UserView {
+  describe(user: AuthUser): UserView & { mfaEnabled: boolean; mfaVerified: boolean } {
     return {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
       isEmailVerified: user.isEmailVerified,
       roles: [...user.roles],
+      mfaEnabled: user.mfaEnabled,
+      mfaVerified: user.mfaVerified,
     };
+  }
+
+  /** Marks the current session MFA-verified (right after enrolment proves the authenticator). */
+  async markSessionMfaVerified(sessionId: string, tx?: TransactionClient): Promise<void> {
+    await this.sessionDao.updateSession(sessionId, { mfaVerifiedAt: new Date() }, tx);
   }
 
   private getDummyHash(): Promise<string> {

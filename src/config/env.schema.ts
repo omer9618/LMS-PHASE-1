@@ -4,6 +4,10 @@ const booleanString = z.enum(['true', 'false']).transform((value) => value === '
 
 /** Dev/test-only signing secret for the local storage driver. Rejected in production. */
 const DEV_STORAGE_SIGNING_SECRET = 'dev-only-local-storage-signing-secret-change-me';
+/** Dev/test-only MFA encryption key (32 ASCII bytes, base64). Rejected in production. */
+export const DEV_MFA_ENCRYPTION_KEY = Buffer.from('dev-only-mfa-key-do-not-use-prod').toString(
+  'base64',
+);
 
 /**
  * Every environment variable the app reads, validated once at startup.
@@ -33,6 +37,13 @@ export const envSchema = z
     SESSION_IDLE_TIMEOUT_MINUTES: z.coerce.number().int().positive().default(720),
     COOKIE_SECURE: booleanString.optional(),
     COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
+
+    // MFA (#16). 32 random bytes, base64: `openssl rand -base64 32`.
+    MFA_ENCRYPTION_KEY: z
+      .string()
+      .refine((v) => Buffer.from(v, 'base64').length === 32, 'must be 32 bytes, base64-encoded')
+      .default(DEV_MFA_ENCRYPTION_KEY),
+    MFA_ISSUER: z.string().min(1).max(40).default('LMS'),
 
     // Email (#110). smtp in production; log prints emails; memory is for tests.
     EMAIL_TRANSPORT: z.enum(['smtp', 'log', 'memory']).default('log'),
@@ -74,6 +85,9 @@ export const envSchema = z
 
     if (production && env.STORAGE_DRIVER !== 's3') {
       issue('STORAGE_DRIVER', 'must be s3 in production (files never live on the app server)');
+    }
+    if (production && env.MFA_ENCRYPTION_KEY === DEV_MFA_ENCRYPTION_KEY) {
+      issue('MFA_ENCRYPTION_KEY', 'must be set in production');
     }
     if (production && env.STORAGE_SIGNING_SECRET === DEV_STORAGE_SIGNING_SECRET) {
       issue('STORAGE_SIGNING_SECRET', 'must be set in production');

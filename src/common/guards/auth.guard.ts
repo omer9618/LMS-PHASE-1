@@ -1,8 +1,10 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { Role } from '@prisma/client';
 import type { Request } from 'express';
 import { AuthService } from '../../modules/auth/services/auth.service';
 import { SessionCookie } from '../../modules/auth/session-cookie';
+import { AllowWithoutMfa } from '../decorators/allow-without-mfa.decorator';
 import { Public } from '../decorators/public.decorator';
 import { AppException } from '../errors/app.exception';
 import { ErrorCode } from '../errors/error-codes';
@@ -10,6 +12,8 @@ import { ErrorCode } from '../errors/error-codes';
 /**
  * Global guard: every route requires a live session unless marked @Public() (#14).
  * Resolves the HTTP-only session cookie and attaches the caller to `req.user`.
+ * Accounts holding ADMIN additionally need an MFA-verified session (#16), except on routes
+ * marked @AllowWithoutMfa() (enrolment).
  */
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -31,6 +35,16 @@ export class AuthGuard implements CanActivate {
     if (!user) throw new AppException(ErrorCode.UNAUTHENTICATED);
 
     req.user = user;
+
+    if (user.roles.has(Role.ADMIN) && !user.mfaVerified) {
+      const allowed = this.reflector.getAllAndOverride(AllowWithoutMfa, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+      if (!allowed) {
+        throw new AppException(ErrorCode.MFA_REQUIRED, { enrolled: user.mfaEnabled });
+      }
+    }
     return true;
   }
 }

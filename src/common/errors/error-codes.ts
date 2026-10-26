@@ -21,6 +21,8 @@ export enum ErrorCode {
   // Auth
   INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
   INVALID_TOKEN = 'INVALID_TOKEN',
+  MFA_REQUIRED = 'MFA_REQUIRED',
+  INVALID_MFA_CODE = 'INVALID_MFA_CODE',
 
   // Courses
   INVALID_STATE_TRANSITION = 'INVALID_STATE_TRANSITION',
@@ -49,6 +51,11 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
   [ErrorCode.INTERNAL]: { status: 500, message: 'Internal server error' },
   [ErrorCode.INVALID_CREDENTIALS]: { status: 401, message: 'Invalid email or password' },
   [ErrorCode.INVALID_TOKEN]: { status: 400, message: 'This link is invalid or has expired' },
+  [ErrorCode.MFA_REQUIRED]: {
+    status: 403,
+    message: 'Two-factor authentication is required for admin accounts',
+  },
+  [ErrorCode.INVALID_MFA_CODE]: { status: 401, message: 'Invalid authentication code' },
   [ErrorCode.INVALID_STATE_TRANSITION]: {
     status: 409,
     message: 'This action is not allowed in the current state',

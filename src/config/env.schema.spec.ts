@@ -12,6 +12,7 @@ const productionOk = {
   S3_ACCESS_KEY_ID: 'key',
   S3_SECRET_ACCESS_KEY: 'secret',
   STORAGE_SIGNING_SECRET: 'p'.repeat(40),
+  MFA_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
 };
 
 const failingPaths = (input: Record<string, string>) => {
@@ -48,5 +49,10 @@ describe('env schema', () => {
     const { STORAGE_SIGNING_SECRET: _secret, ...rest } = productionOk;
     expect(failingPaths(rest)).toContain('STORAGE_SIGNING_SECRET');
     expect(failingPaths({ ...productionOk, COOKIE_SECURE: 'false' })).toContain('COOKIE_SECURE');
+    const { MFA_ENCRYPTION_KEY: _mfa, ...noMfaKey } = productionOk;
+    expect(failingPaths(noMfaKey)).toContain('MFA_ENCRYPTION_KEY');
+    expect(failingPaths({ ...productionOk, MFA_ENCRYPTION_KEY: 'c2hvcnQ=' })).toContain(
+      'MFA_ENCRYPTION_KEY',
+    );
   });
 });

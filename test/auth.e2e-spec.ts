@@ -36,7 +36,7 @@ describe('Auth: login, session, logout (#12, #10, #14)', () => {
   it('logs in with an HTTP-only cookie, never returns the token or hash, and is case-insensitive', async () => {
     const res = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: SEEDED.admin.email.toUpperCase(), password: SEEDED.admin.password })
+      .send({ email: SEEDED.teacherA.email.toUpperCase(), password: SEEDED.teacherA.password })
       .expect(200);
 
     const cookie = (res.headers['set-cookie'] as unknown as string[])[0];
@@ -45,13 +45,22 @@ describe('Auth: login, session, logout (#12, #10, #14)', () => {
     expect(res.body.data).toEqual({
       user: {
         id: expect.any(String),
-        email: SEEDED.admin.email,
-        fullName: 'Platform Admin',
+        email: SEEDED.teacherA.email,
+        fullName: 'Teacher A',
         isEmailVerified: true,
-        roles: ['ADMIN'],
+        roles: ['TEACHER'],
       },
     });
     expect(JSON.stringify(res.body)).not.toMatch(/passwordHash|token/i);
+  });
+
+  it('an MFA admin gets a challenge, not a session, from the password alone (#16)', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send(SEEDED.admin)
+      .expect(200);
+    expect(res.body.data.mfaRequired).toBe(true);
+    expect(res.headers['set-cookie']).toBeUndefined();
   });
 
   it('logout revokes the session server-side: the old cookie stops working', async () => {

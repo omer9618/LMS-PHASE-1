@@ -119,7 +119,9 @@ Teacher-owned data (courses, sections, lessons, enrollments, student records, ea
 - Sessions have both an absolute expiry (`SESSION_TTL_HOURS`) and an idle expiry (`SESSION_IDLE_TIMEOUT_MINUTES`), and are rotated on login.
 - `AuthGuard` is global. Every route needs a live session unless it is marked `@Public()`.
 - `RolesGuard` is global. `@Roles([Role.ADMIN])` means "holds at least one of these roles". Roles come from `user_roles` as a set, so one user can be ADMIN and TEACHER.
-- `@CurrentUser()` gives `AuthUser { id, email, roles: ReadonlySet<Role>, sessionId }`.
+- `@CurrentUser()` gives `AuthUser { id, email, fullName, isEmailVerified, roles: ReadonlySet<Role>, sessionId, mfaEnabled, mfaVerified }`.
+- MFA (#16): any account holding ADMIN needs an MFA-verified session. `AuthGuard` returns 403 `MFA_REQUIRED` otherwise, except on routes marked `@AllowWithoutMfa()` (enrolment, `/auth/me`). Don't add that decorator to anything else.
+- Emailed tokens (verification, reset) and the MFA challenge use `auth_tokens`: hashed, expiring, and single-use via a conditional update (`consumeAuthToken`).
 
 ## Errors
 
