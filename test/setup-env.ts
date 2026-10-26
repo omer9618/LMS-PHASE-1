@@ -15,5 +15,7 @@ process.env.NODE_ENV = 'test';
 process.env.LOG_LEVEL = process.env.TEST_LOG_LEVEL ?? 'silent';
 // Emails are captured in memory (tests read links from them); files go to a temp directory.
 process.env.EMAIL_TRANSPORT = 'memory';
+// Suites log in many times from one IP; test/rate-limit.e2e-spec.ts re-enables limiting.
+process.env.RATE_LIMIT_ENABLED = 'false';
 process.env.STORAGE_DRIVER = 'local';
 process.env.STORAGE_LOCAL_DIR = join(tmpdir(), 'lms-e2e-storage');

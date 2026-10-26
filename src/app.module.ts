@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor';
+import { RATE_LIMITS } from './common/rate-limit/rate-limits';
 import { buildLoggerParams } from './common/logging/logger.config';
 import { ConfigModule, ENV } from './config/config.module';
 import type { Env } from './config/env.schema';
@@ -20,6 +22,14 @@ import { PrismaModule } from './prisma/prisma.module';
   imports: [
     ConfigModule,
     LoggerModule.forRootAsync({ inject: [ENV], useFactory: (env: Env) => buildLoggerParams(env) }),
+    // In-memory store: one app instance on the VPS. A shared store is only needed when scaling out.
+    ThrottlerModule.forRootAsync({
+      inject: [ENV],
+      useFactory: (env: Env) => ({
+        throttlers: [{ name: 'default', ...RATE_LIMITS.DEFAULT }],
+        skipIf: () => !env.RATE_LIMIT_ENABLED,
+      }),
+    }),
     PrismaModule,
     EmailModule,
     StorageModule.register(),
@@ -31,6 +41,7 @@ import { PrismaModule } from './prisma/prisma.module';
     CoursesModule,
   ],
   providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
   ],

@@ -24,6 +24,8 @@ export const envSchema = z
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
     // Number of reverse proxies in front of the app (0 = none). Controls req.ip.
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
+    // Rate limiting (#17). Only the e2e suite turns it off (and re-enables it for its own test).
+    RATE_LIMIT_ENABLED: booleanString.default(true),
     // Public base URLs: the web app (links in emails) and this API (local file links).
     APP_PUBLIC_URL: z.url().default('http://localhost:3001'),
     API_PUBLIC_URL: z.url().default('http://localhost:3000'),
