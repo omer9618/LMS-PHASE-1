@@ -21,3 +21,6 @@ Thumbs.db
 # Temp files
 remaining_backlog.csv
 add_module_options.py
+
+# Local file storage (STORAGE_DRIVER=local)
+.storage/
