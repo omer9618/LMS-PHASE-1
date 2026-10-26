@@ -3,7 +3,7 @@ import type { AuthUser } from '../../../common/auth/auth-user';
 import { AppException } from '../../../common/errors/app.exception';
 import type { TransactionService } from '../../../prisma/transaction.service';
 import type { ReferenceDataService } from '../../reference-data/services/reference-data.service';
-import type { AuditLogDao } from '../dao/audit-log.dao';
+import type { AuditService } from '../../audit/services/audit.service';
 import type { CourseDao, CourseRecord } from '../dao/course.dao';
 import { PublishGuardError } from '../domain/course.rules';
 import { CourseService } from './course.service';
@@ -32,19 +32,19 @@ const course = (overrides: Partial<CourseRecord> = {}): CourseRecord =>
 describe('CourseService (mocked DAOs)', () => {
   const tx = { marker: 'tx' };
   let courseDao: jest.Mocked<Pick<CourseDao, 'getCourseBy' | 'updateCourse'>>;
-  let auditLogDao: jest.Mocked<Pick<AuditLogDao, 'createAuditEntry' | 'getAuditEntriesBy'>>;
+  let audit: jest.Mocked<Pick<AuditService, 'record' | 'latestFor'>>;
   let service: CourseService;
 
   beforeEach(() => {
     courseDao = { getCourseBy: jest.fn(), updateCourse: jest.fn() };
-    auditLogDao = { createAuditEntry: jest.fn(), getAuditEntriesBy: jest.fn() };
+    audit = { record: jest.fn(), latestFor: jest.fn() };
     const transactions = {
       run: jest.fn((fn: (t: unknown) => Promise<unknown>) => fn(tx)),
     } as unknown as TransactionService;
 
     service = new CourseService(
       courseDao as unknown as CourseDao,
-      auditLogDao as unknown as AuditLogDao,
+      audit as unknown as AuditService,
       {} as ReferenceDataService,
       transactions,
     );
@@ -65,19 +65,14 @@ describe('CourseService (mocked DAOs)', () => {
 
   it('gives the teacher the rejection reason of their rejected course, looked up only for that id', async () => {
     courseDao.getCourseBy.mockResolvedValue(course({ status: 'REJECTED' }));
-    auditLogDao.getAuditEntriesBy.mockResolvedValue([
-      { entityId: 'course-1', details: { reason: 'Latest reason' }, createdAt: new Date(2) },
-      { entityId: 'course-1', details: { reason: 'Older reason' }, createdAt: new Date(1) },
-    ]);
+    audit.latestFor.mockResolvedValue(
+      new Map([['course-1', { details: { reason: 'Latest reason' } }]]) as never,
+    );
 
     await expect(service.getMyCourse(teacher, 'course-1')).resolves.toMatchObject({
       rejectionReason: 'Latest reason',
     });
-    expect(auditLogDao.getAuditEntriesBy).toHaveBeenCalledWith({
-      entityType: 'course',
-      action: 'COURSE_REJECTED',
-      entityId: { in: ['course-1'] },
-    });
+    expect(audit.latestFor).toHaveBeenCalledWith('course', 'COURSE_REJECTED', ['course-1']);
   });
 
   it('does not query the audit log for courses that are not rejected', async () => {
@@ -86,7 +81,7 @@ describe('CourseService (mocked DAOs)', () => {
     await expect(service.getMyCourse(teacher, 'course-1')).resolves.toMatchObject({
       rejectionReason: null,
     });
-    expect(auditLogDao.getAuditEntriesBy).not.toHaveBeenCalled();
+    expect(audit.latestFor).not.toHaveBeenCalled();
   });
 
   it('refuses teacher operations for a user without the TEACHER role, before any query', async () => {
@@ -113,7 +108,7 @@ describe('CourseService (mocked DAOs)', () => {
       { status: 'PUBLISHED', publishedAt: expect.any(Date) },
       tx,
     );
-    expect(auditLogDao.createAuditEntry).toHaveBeenCalledWith(
+    expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
         actorUserId: 'admin-1',
         action: 'COURSE_APPROVED',
@@ -131,7 +126,7 @@ describe('CourseService (mocked DAOs)', () => {
       PublishGuardError,
     );
     expect(courseDao.updateCourse).not.toHaveBeenCalled();
-    expect(auditLogDao.createAuditEntry).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
   });
 
   it('stores the rejection reason in the audit entry', async () => {
@@ -140,7 +135,7 @@ describe('CourseService (mocked DAOs)', () => {
 
     await service.rejectCourse(admin, 'course-1', { reason: 'Syllabus area is missing' });
 
-    expect(auditLogDao.createAuditEntry).toHaveBeenCalledWith(
+    expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'COURSE_REJECTED',
         details: { from: 'PENDING_APPROVAL', to: 'REJECTED', reason: 'Syllabus area is missing' },
@@ -156,6 +151,6 @@ describe('CourseService (mocked DAOs)', () => {
     const result = service.approveCourse(admin, 'course-1');
     await expect(result).rejects.toBeInstanceOf(AppException);
     await expect(result).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' });
-    expect(auditLogDao.createAuditEntry).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
   });
 });

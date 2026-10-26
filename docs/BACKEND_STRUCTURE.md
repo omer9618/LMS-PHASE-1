@@ -139,6 +139,14 @@ Teacher-owned data (courses, sections, lessons, enrollments, student records, ea
 
 - Prefer checking a rule in the service or domain first, for a precise message. Database constraints are the backstop.
 
+## Platform settings
+
+Values admins can change without a deploy (thresholds, windows) live in `platform_settings`. They're defined in `platform-settings/domain/settings.rules.ts` with a Zod schema, default and description. Read them with `PlatformSettingsService.get('ORDER_EXPIRY_WINDOW_HOURS')`, which returns a typed value. Never hard-code a value that a setting covers.
+
+## Request context
+
+Services never see `Request`, but some cross-cutting code needs the caller's IP or user agent (audit entries, sessions). `RequestContext.get()` (`common/context/request-context.ts`) returns them, backed by AsyncLocalStorage. Behind the reverse proxy, set `TRUST_PROXY_HOPS` so `req.ip` is the real client.
+
 ## Logging
 
 - Structured JSON (pino) in production, pretty-printed in development.
@@ -155,7 +163,19 @@ Teacher-owned data (courses, sections, lessons, enrollments, student records, ea
 
 ## Audit log
 
-State changes an admin will need to explain later write a row to `audit_log` in the **same transaction**: actor, action (`COURSE_APPROVED`), entity type and id, and `details`, which holds reasons and from/to. For now `AuditLogDao` lives in the courses module. The audit log ticket (#107) moves it to a shared module.
+State changes an admin will need to explain later write a row to `audit_log` in the **same transaction**. Import `AuditModule` and call:
+
+```ts
+await this.audit.record(
+  { actorUserId: admin.id, action: 'COURSE_APPROVED', entityType: 'course', entityId, details },
+  tx,
+);
+```
+
+- `action` is a SCREAMING_SNAKE past-tense verb; `entityType` is the snake_case table name in the singular.
+- `details` holds reasons, from/to states and amounts (money as strings). Never secrets.
+- The client IP is filled in automatically from the request context. Jobs pass `actorUserId: null`.
+- Admins search the log at `GET /admin/audit-log` (actor, action, entity, date range).
 
 When users need to see an audit detail, the service reads it back for records already loaded through the caller's scope, as `CourseService` does for `rejectionReason`. Never query `audit_log` by an id the caller has not been authorised for.
 

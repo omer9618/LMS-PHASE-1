@@ -14,6 +14,8 @@ export const envSchema = z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+    // Number of reverse proxies in front of the app (0 = none). Controls req.ip.
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
 
     // Sessions (#12). In production use SESSION_COOKIE_NAME=__Host-lms_session.
     SESSION_COOKIE_NAME: z
