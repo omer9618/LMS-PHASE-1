@@ -67,6 +67,8 @@ curl http://localhost:3000/health
 
 With `NODE_ENV=production` the seed refuses to run without `SEED_ADMIN_PASSWORD` and creates no teachers. The seed never changes an existing user's password.
 
+**Admin sign-in needs MFA (#16).** In development the seeded admin has a known authenticator secret, `JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP` (override with `SEED_ADMIN_MFA_SECRET`). Add it to Google Authenticator, Authy or 1Password as a manual entry. Logging in as admin returns `mfaRequired` and a `challengeToken`; send it with the 6-digit code to `POST /auth/login/mfa`. Production admins enrol at first sign-in.
+
 Log in (the session is an HTTP-only cookie):
 
 ```bash

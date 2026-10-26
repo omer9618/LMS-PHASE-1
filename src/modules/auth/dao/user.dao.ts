@@ -8,9 +8,22 @@ const userSelect = {
   email: true,
   fullName: true,
   isEmailVerified: true,
+  mfaEnabledAt: true,
   status: true,
   roles: { select: { role: true } },
 } satisfies Prisma.UserSelect;
+
+const mfaStateSelect = {
+  id: true,
+  email: true,
+  mfaSecretEncrypted: true,
+  mfaEnabledAt: true,
+  mfaLastUsedStep: true,
+  roles: { select: { role: true } },
+} satisfies Prisma.UserSelect;
+
+/** Includes the encrypted TOTP secret. Only MfaService may see this shape. */
+export type UserMfaState = Prisma.UserGetPayload<{ select: typeof mfaStateSelect }>;
 
 const credentialsSelect = { ...userSelect, passwordHash: true } satisfies Prisma.UserSelect;
 
@@ -28,6 +41,10 @@ export class UserDao {
     return this.prisma.user.findUnique({ where: { email }, select: credentialsSelect });
   }
 
+  getUserMfaState(id: string, tx?: TransactionClient): Promise<UserMfaState | null> {
+    return (tx ?? this.prisma).user.findUnique({ where: { id }, select: mfaStateSelect });
+  }
+
   getUserBy(where: Prisma.UserWhereUniqueInput): Promise<UserRecord | null> {
     return this.prisma.user.findUnique({ where, select: userSelect });
   }
@@ -41,6 +58,18 @@ export class UserDao {
       data: { ...data, roles: { create: roles.map((role) => ({ role })) } },
       select: userSelect,
     });
+  }
+
+  /**
+   * Records a used TOTP step only if it is newer than the last one, so the same code cannot be
+   * accepted twice even by concurrent requests.
+   */
+  async advanceMfaStep(userId: string, step: number, tx?: TransactionClient): Promise<boolean> {
+    const { count } = await (tx ?? this.prisma).user.updateMany({
+      where: { id: userId, OR: [{ mfaLastUsedStep: null }, { mfaLastUsedStep: { lt: step } }] },
+      data: { mfaLastUsedStep: step },
+    });
+    return count === 1;
   }
 
   async updateUser(

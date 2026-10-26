@@ -8,12 +8,14 @@ const sessionWithUserSelect = {
   expiresAt: true,
   lastSeenAt: true,
   revokedAt: true,
+  mfaVerifiedAt: true,
   user: {
     select: {
       id: true,
       email: true,
       fullName: true,
       isEmailVerified: true,
+      mfaEnabledAt: true,
       status: true,
       roles: { select: { role: true } },
     },

@@ -163,6 +163,7 @@ enum CompletionSource {
 enum AuthTokenPurpose {
   EMAIL_VERIFICATION
   PASSWORD_RESET
+  MFA_CHALLENGE
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -170,18 +171,23 @@ enum AuthTokenPurpose {
 // ─────────────────────────────────────────────────────────────
 
 model User {
-  id              String     @id @default(uuid())
-  email           String     @unique @db.Citext
+  id                 String     @id @default(uuid())
+  email              String     @unique @db.Citext
   // Not in Schema v2.0: display name for students, teachers and admins (#11, #41, #99).
-  fullName        String?    @map("full_name")
-  passwordHash    String     @map("password_hash")
-  isEmailVerified Boolean    @default(false) @map("is_email_verified")
-  guardianName    String?    @map("guardian_name")
-  guardianEmail   String?    @map("guardian_email")
-  guardianPhone   String?    @map("guardian_phone")
-  status          UserStatus @default(ACTIVE)
-  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  lastLoginAt     DateTime?  @map("last_login_at") @db.Timestamptz(3)
+  fullName           String?    @map("full_name")
+  passwordHash       String     @map("password_hash")
+  isEmailVerified    Boolean    @default(false) @map("is_email_verified")
+  guardianName       String?    @map("guardian_name")
+  guardianEmail      String?    @map("guardian_email")
+  guardianPhone      String?    @map("guardian_phone")
+  status             UserStatus @default(ACTIVE)
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastLoginAt        DateTime?  @map("last_login_at") @db.Timestamptz(3)
+  // Not in Schema v2.0: TOTP MFA (#16). Secret is AES-256-GCM encrypted; set before enabling.
+  mfaSecretEncrypted String?    @map("mfa_secret_encrypted")
+  mfaEnabledAt       DateTime?  @map("mfa_enabled_at") @db.Timestamptz(3)
+  // Last accepted 30-second TOTP step, so a code cannot be used twice.
+  mfaLastUsedStep    Int?       @map("mfa_last_used_step")
 
   roles                UserRole[]
   teacherProfile       TeacherProfile?
@@ -208,6 +214,7 @@ model User {
   settingsUpdated      PlatformSetting[]
   sessions             Session[]
   authTokens           AuthToken[]
+  mfaRecoveryCodes     MfaRecoveryCode[]
 
   @@map("users")
 }
@@ -228,15 +235,17 @@ model UserRole {
 // password reset (#13) can revoke access immediately. See docs/PRISMA_SETUP.md.
 // The cookie holds a random token; only its SHA-256 hash is stored here.
 model Session {
-  id         String    @id @default(uuid())
-  userId     String    @map("user_id")
-  tokenHash  String    @unique @map("token_hash") @db.Char(64)
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
-  lastSeenAt DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(3)
-  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
-  ipAddress  String?   @map("ip_address")
-  userAgent  String?   @map("user_agent")
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  tokenHash     String    @unique @map("token_hash") @db.Char(64)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(3)
+  lastSeenAt    DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz(3)
+  ipAddress     String?   @map("ip_address")
+  userAgent     String?   @map("user_agent")
+  // Set when this session passed MFA (#16). Admin routes require it.
+  mfaVerifiedAt DateTime? @map("mfa_verified_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -261,6 +270,20 @@ model AuthToken {
   @@index([userId, purpose])
   @@index([expiresAt])
   @@map("auth_tokens")
+}
+
+// One-time MFA recovery codes (#16). Stored as keyed HMAC-SHA256, never in plain text.
+model MfaRecoveryCode {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  codeHash  String    @map("code_hash") @db.Char(64)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, codeHash])
+  @@map("mfa_recovery_codes")
 }
 
 model TeacherProfile {

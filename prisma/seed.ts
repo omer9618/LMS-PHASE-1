@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import { PrismaClient, Role, UserStatus, type Board } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { DEV_MFA_ENCRYPTION_KEY } from '../src/config/env.schema';
+import { encryptSecret, parseMfaKey } from '../src/modules/auth/domain/mfa-crypto';
 import { hashPassword } from '../src/modules/auth/services/passwords';
 import { createPgPool } from '../src/prisma/pg-pool';
 
@@ -210,13 +212,29 @@ async function main() {
   );
 
   if (!isProduction) {
-    // Two teachers so teacher scoping (#14, #116) can be exercised locally and in e2e tests.
+    // Admin MFA is enforced (#16). In development the admin gets a known authenticator secret
+    // (README: "Dev accounts") so you can sign in; production admins enrol at first login.
+    await ensureDevAdminMfa(process.env.SEED_ADMIN_EMAIL ?? 'admin@lms.local');
+
+    // Two teachers so teacher scoping (#14, #117) can be exercised locally and in e2e tests.
     const teacherPassword = process.env.SEED_TEACHER_PASSWORD ?? 'TeacherPassword123!';
     await ensureUser('teacher.a@lms.local', 'Teacher A', teacherPassword, [Role.TEACHER]);
     await ensureUser('teacher.b@lms.local', 'Teacher B', teacherPassword, [Role.TEACHER]);
   }
 
   console.log('✅ Seeding finished.');
+}
+
+async function ensureDevAdminMfa(email: string) {
+  const secret = process.env.SEED_ADMIN_MFA_SECRET ?? 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+  const key = parseMfaKey(process.env.MFA_ENCRYPTION_KEY ?? DEV_MFA_ENCRYPTION_KEY);
+  const admin = await prisma.user.findUniqueOrThrow({ where: { email } });
+  if (admin.mfaEnabledAt) return;
+  await prisma.user.update({
+    where: { id: admin.id },
+    data: { mfaSecretEncrypted: encryptSecret(secret, key), mfaEnabledAt: new Date() },
+  });
+  console.log(`  - Enabled dev MFA for ${email}`);
 }
 
 async function ensureUser(email: string, fullName: string, password: string, roles: Role[]) {
