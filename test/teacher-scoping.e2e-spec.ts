@@ -5,7 +5,7 @@ import { classification, createCourse } from './utils/courses';
 import { createTestApp } from './utils/test-app';
 
 /**
- * #116 / #117 (early slice): cross-teacher access fails server-side.
+ * #117 (early slice): cross-teacher access fails server-side.
  * The full access-control suite is still to come in M3.
  */
 describe('Teacher scoping: teacher A cannot read or modify teacher B’s course', () => {

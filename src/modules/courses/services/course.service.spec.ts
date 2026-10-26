@@ -32,12 +32,12 @@ const course = (overrides: Partial<CourseRecord> = {}): CourseRecord =>
 describe('CourseService (mocked DAOs)', () => {
   const tx = { marker: 'tx' };
   let courseDao: jest.Mocked<Pick<CourseDao, 'getCourseBy' | 'updateCourse'>>;
-  let auditLogDao: jest.Mocked<Pick<AuditLogDao, 'createAuditEntry'>>;
+  let auditLogDao: jest.Mocked<Pick<AuditLogDao, 'createAuditEntry' | 'getAuditEntriesBy'>>;
   let service: CourseService;
 
   beforeEach(() => {
     courseDao = { getCourseBy: jest.fn(), updateCourse: jest.fn() };
-    auditLogDao = { createAuditEntry: jest.fn() };
+    auditLogDao = { createAuditEntry: jest.fn(), getAuditEntriesBy: jest.fn() };
     const transactions = {
       run: jest.fn((fn: (t: unknown) => Promise<unknown>) => fn(tx)),
     } as unknown as TransactionService;
@@ -63,6 +63,32 @@ describe('CourseService (mocked DAOs)', () => {
     );
   });
 
+  it('gives the teacher the rejection reason of their rejected course, looked up only for that id', async () => {
+    courseDao.getCourseBy.mockResolvedValue(course({ status: 'REJECTED' }));
+    auditLogDao.getAuditEntriesBy.mockResolvedValue([
+      { entityId: 'course-1', details: { reason: 'Latest reason' }, createdAt: new Date(2) },
+      { entityId: 'course-1', details: { reason: 'Older reason' }, createdAt: new Date(1) },
+    ]);
+
+    await expect(service.getMyCourse(teacher, 'course-1')).resolves.toMatchObject({
+      rejectionReason: 'Latest reason',
+    });
+    expect(auditLogDao.getAuditEntriesBy).toHaveBeenCalledWith({
+      entityType: 'course',
+      action: 'COURSE_REJECTED',
+      entityId: { in: ['course-1'] },
+    });
+  });
+
+  it('does not query the audit log for courses that are not rejected', async () => {
+    courseDao.getCourseBy.mockResolvedValue(course({ status: 'DRAFT' }));
+
+    await expect(service.getMyCourse(teacher, 'course-1')).resolves.toMatchObject({
+      rejectionReason: null,
+    });
+    expect(auditLogDao.getAuditEntriesBy).not.toHaveBeenCalled();
+  });
+
   it('refuses teacher operations for a user without the TEACHER role, before any query', async () => {
     await expect(service.getMyCourse(admin, 'course-1')).rejects.toMatchObject({
       code: 'FORBIDDEN',
@@ -75,7 +101,10 @@ describe('CourseService (mocked DAOs)', () => {
     courseDao.getCourseBy.mockResolvedValue(course());
     courseDao.updateCourse.mockResolvedValue(published);
 
-    await expect(service.approveCourse(admin, 'course-1')).resolves.toBe(published);
+    await expect(service.approveCourse(admin, 'course-1')).resolves.toEqual({
+      ...published,
+      rejectionReason: null,
+    });
 
     expect(courseDao.getCourseBy).toHaveBeenCalledWith({ admin: true }, { id: 'course-1' });
     expect(courseDao.updateCourse).toHaveBeenCalledWith(

@@ -157,6 +157,8 @@ Teacher-owned data (courses, sections, lessons, enrollments, student records, ea
 
 State changes an admin will need to explain later write a row to `audit_log` in the **same transaction**: actor, action (`COURSE_APPROVED`), entity type and id, and `details`, which holds reasons and from/to. For now `AuditLogDao` lives in the courses module. The audit log ticket (#107) moves it to a shared module.
 
+When users need to see an audit detail, the service reads it back for records already loaded through the caller's scope, as `CourseService` does for `rejectionReason`. Never query `audit_log` by an id the caller has not been authorised for.
+
 ## Testing
 
 | Kind         | Where                       | Runs with          | Database                 |

@@ -52,7 +52,7 @@ describe('course state machine', () => {
     expect(allCases).toHaveLength(15);
   });
 
-  it('does not allow resubmitting a REJECTED course (open question, not decided)', () => {
+  it('REJECTED is final: a rejected course cannot be resubmitted', () => {
     expect(canTransition('REJECTED', 'SUBMIT')).toBe(false);
   });
 
