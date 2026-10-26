@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient, type Board } from '@prisma/client';
+import { PrismaClient, Role, UserStatus, type Board } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
@@ -9,6 +9,16 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  // Passwords come from env. The defaults exist for local development and tests only;
+  // in production SEED_ADMIN_PASSWORD is required and no dev teachers are created.
+  // Passwords are never printed. Existing users are left untouched (idempotent).
+  const isProduction = process.env.NODE_ENV === 'production';
+  const adminPassword =
+    process.env.SEED_ADMIN_PASSWORD ?? (isProduction ? undefined : 'AdminPassword123!');
+  if (!adminPassword) {
+    throw new Error('SEED_ADMIN_PASSWORD must be set when seeding with NODE_ENV=production');
+  }
+
   console.log('🌱 Start seeding...');
 
   // ─────────────────────────────────────────────────────────────
@@ -177,42 +187,54 @@ async function main() {
   ];
 
   for (const setting of settings) {
+    // Create only: re-seeding must not overwrite a value an admin has since changed.
     await prisma.platformSetting.upsert({
       where: { key: setting.key },
-      update: { value: setting.value },
+      update: {},
       create: { key: setting.key, value: setting.value },
     });
-    console.log(`  - Setting: ${setting.key} = ${setting.value}`);
+    console.log(`  - Setting: ${setting.key}`);
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 4. Admin User
+  // 4. Users (passwords resolved at the top of main, before any write)
   // ─────────────────────────────────────────────────────────────
-  console.log('Seeding Admin User...');
-  const adminEmail = 'admin@lms.local';
-  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+  console.log('Seeding Users...');
+  await ensureUser(process.env.SEED_ADMIN_EMAIL ?? 'admin@lms.local', adminPassword, [Role.ADMIN]);
 
-  if (!existingAdmin) {
-    const passwordHash = await bcrypt.hash('AdminPassword123!', 10);
-    await prisma.user.create({
-      data: {
-        email: adminEmail,
-        passwordHash,
-        isEmailVerified: true,
-        status: 'ACTIVE',
-        roles: {
-          create: {
-            role: 'ADMIN',
-          },
-        },
-      },
-    });
-    console.log(`  - Created Admin User: ${adminEmail} (password: AdminPassword123!)`);
-  } else {
-    console.log(`  - Admin user already exists: ${adminEmail}`);
+  if (!isProduction) {
+    // Two teachers so teacher scoping (#14, #116) can be exercised locally and in e2e tests.
+    const teacherPassword = process.env.SEED_TEACHER_PASSWORD ?? 'TeacherPassword123!';
+    await ensureUser('teacher.a@lms.local', teacherPassword, [Role.TEACHER]);
+    await ensureUser('teacher.b@lms.local', teacherPassword, [Role.TEACHER]);
   }
 
   console.log('✅ Seeding finished.');
+}
+
+async function ensureUser(email: string, password: string, roles: Role[]) {
+  let user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash: await bcrypt.hash(password, 10),
+        isEmailVerified: true,
+        status: UserStatus.ACTIVE,
+      },
+    });
+    console.log(`  - Created user: ${email}`);
+  } else {
+    console.log(`  - User exists: ${email}`);
+  }
+
+  for (const role of roles) {
+    await prisma.userRole.upsert({
+      where: { userId_role: { userId: user.id, role } },
+      update: {},
+      create: { userId: user.id, role },
+    });
+  }
 }
 
 main()
