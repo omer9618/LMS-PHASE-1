@@ -59,15 +59,15 @@ curl http://localhost:3000/health
 
 ## Scripts
 
-| Script                                        | What it does                                                     |
-| --------------------------------------------- | ---------------------------------------------------------------- |
-| `npm run start:dev`                           | Dev server with watch mode                                       |
-| `npm run build` / `npm start`                 | Compile to `dist/` / run the compiled app                        |
-| `npm test`                                    | Unit tests (`src/**/*.spec.ts`), no database needed              |
-| `npm run test:e2e`                            | HTTP tests (`test/**/*.e2e-spec.ts`) against `TEST_DATABASE_URL` |
-| `npm run lint` / `format:check` / `typecheck` | The same checks CI runs                                          |
-| `npm run db:migrate` / `db:seed`              | `prisma migrate deploy` / `prisma db seed`                       |
-| `npx prisma migrate dev --name <change>`      | Create a migration after editing `schema.prisma` (dev only)      |
+| Script                                        | What it does                                                                                                                           |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run start:dev`                           | Dev server with watch mode                                                                                                             |
+| `npm run build` / `npm start`                 | Compile to `dist/` / run the compiled app                                                                                              |
+| `npm test`                                    | Unit tests (`src/**/*.spec.ts`), no database needed                                                                                    |
+| `npm run test:e2e`                            | HTTP tests (`test/**/*.e2e-spec.ts`) against `TEST_DATABASE_URL`                                                                       |
+| `npm run lint` / `format:check` / `typecheck` | The same checks CI runs                                                                                                                |
+| `npm run db:migrate` / `db:seed`              | `prisma migrate deploy` / `prisma db seed`                                                                                             |
+| `npx prisma migrate dev --name <change>`      | Create a migration after editing `schema.prisma` (dev only); run `npx prisma generate` afterwards — Prisma 7 no longer does it for you |
 
 ## Running tests
 

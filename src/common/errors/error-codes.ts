@@ -16,6 +16,9 @@ export enum ErrorCode {
   PAYLOAD_TOO_LARGE = 'PAYLOAD_TOO_LARGE',
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
   INTERNAL = 'INTERNAL',
+
+  // Auth
+  INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
 }
 
 export interface ErrorDefinition {
@@ -36,6 +39,7 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
   [ErrorCode.PAYLOAD_TOO_LARGE]: { status: 413, message: 'Request body too large' },
   [ErrorCode.SERVICE_UNAVAILABLE]: { status: 503, message: 'Service unavailable' },
   [ErrorCode.INTERNAL]: { status: 500, message: 'Internal server error' },
+  [ErrorCode.INVALID_CREDENTIALS]: { status: 401, message: 'Invalid email or password' },
 };
 
 export function isErrorCode(value: string): value is ErrorCode {

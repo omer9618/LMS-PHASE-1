@@ -1,6 +1,6 @@
 # Prisma setup — LMS Phase 1
 
-The schema matches **Database Schema v2.0** exactly. Every column name, type, nullability, constraint and index was checked against that document programmatically, not by eye.
+The schema matches **Database Schema v2.0** exactly, plus one documented addition: the `sessions` table (see [Additions to Schema v2.0](#additions-to-schema-v20)). Every column name, type, nullability, constraint and index was checked against that document programmatically, not by eye.
 
 ## Verification results
 
@@ -194,6 +194,15 @@ npx prisma db seed
 - Never change the database by hand. Change the schema, generate a migration.
 - Commit migrations; they are part of the codebase.
 - `migrate deploy` in CI, never `migrate dev`.
+
+## Additions to Schema v2.0
+
+| Added              | Migration                      | Why                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sessions`         | `20261022175942_add_sessions`  | #12 requires "logout clears session server-side" and #13 requires "old sessions invalidated on reset". A stateless JWT cannot be revoked. The cookie carries a random 256-bit token; only its SHA-256 hash is stored. Columns: `user_id`, `token_hash` (unique), `created_at`, `expires_at`, `last_seen_at`, `revoked_at`, `ip_address`, `user_agent`. |
+| `citext` extension | `20260907000000_enable_citext` | Fresh databases failed on `init` without it (see section 3).                                                                                                                                                                                                                                                                                           |
+
+Total tables: 30.
 
 ## Deliberate omissions
 
