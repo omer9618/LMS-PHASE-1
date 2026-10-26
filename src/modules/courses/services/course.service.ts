@@ -7,24 +7,34 @@ import { ErrorCode } from '../../../common/errors/error-codes';
 import type { TransactionClient } from '../../../prisma/prisma.types';
 import { TransactionService } from '../../../prisma/transaction.service';
 import { AuditService } from '../../audit/services/audit.service';
+import { EmailService } from '../../email/services/email.service';
 import { ReferenceDataService } from '../../reference-data/services/reference-data.service';
 import { CourseDao, CourseRecord, CourseUpdateData } from '../dao/course.dao';
 import {
+  assertDeletable,
+  assertDetailsEditable,
+  assertSubmittable,
   COURSE_TRANSITIONS,
   CourseAction,
   CourseStatusValue,
   decideApproval,
+  decideArchive,
   decidePricing,
   decideRejection,
   decideSubmission,
+  decideUnpublish,
+  Editor,
 } from '../domain/course.rules';
 import type {
+  ArchiveCourseInput,
   CreateCourseInput,
   ListCoursesForReviewQuery,
   ListMyCoursesQuery,
   RejectCourseInput,
   SetPricingInput,
   SubmitCourseInput,
+  UnpublishCourseInput,
+  UpdateCourseDetailsInput,
 } from '../schemas/course.schema';
 
 /**
@@ -38,7 +48,12 @@ export const COURSE_AUDIT_ACTIONS = {
   SUBMIT: 'COURSE_SUBMITTED',
   APPROVE: 'COURSE_APPROVED',
   REJECT: 'COURSE_REJECTED',
+  UNPUBLISH: 'COURSE_UNPUBLISHED',
+  ARCHIVE: 'COURSE_ARCHIVED',
   PRICE: 'COURSE_PRICED',
+  EDIT: 'COURSE_DETAILS_EDITED',
+  ENROLLMENT_TOGGLE: 'COURSE_ENROLLMENT_TOGGLED',
+  DELETE: 'COURSE_DELETED',
 } as const;
 
 @Injectable()
@@ -48,11 +63,12 @@ export class CourseService {
     private readonly audit: AuditService,
     private readonly referenceData: ReferenceDataService,
     private readonly transactions: TransactionService,
+    private readonly email: EmailService,
   ) {}
 
   // ── Teacher ───────────────────────────────────────────────────────
 
-  /** #24: a teacher creates a course in DRAFT, owned by them. */
+  /** #24, #33: a teacher creates a course in DRAFT, owned by them. */
   async createCourse(user: AuthUser, input: CreateCourseInput): Promise<CourseView> {
     const scope = teacherScope(user);
     await this.referenceData.assertValidClassification(input);
@@ -63,6 +79,8 @@ export class CourseService {
       syllabusArea: input.syllabusArea ?? null,
       title: input.title,
       description: input.description ?? null,
+      progressionMode: input.progressionMode,
+      audienceType: input.audienceType,
       status: CourseStatus.DRAFT,
     });
     return this.toView(course);
@@ -81,6 +99,15 @@ export class CourseService {
     return this.toView(await this.loadCourse(teacherScope(user), courseId));
   }
 
+  /** #26: teachers edit details only while drafting. */
+  async updateMyCourse(
+    user: AuthUser,
+    courseId: string,
+    input: UpdateCourseDetailsInput,
+  ): Promise<CourseView> {
+    return this.updateDetails(user, teacherScope(user), courseId, input, 'TEACHER');
+  }
+
   /** #25: DRAFT -> PENDING_APPROVAL, optionally with a proposed commission (#30). */
   async submitCourse(
     user: AuthUser,
@@ -95,6 +122,41 @@ export class CourseService {
       teacherProposedBps: decision.teacherProposedBps ?? null,
     });
     return this.toView(updated);
+  }
+
+  /** #26: archive own course: hidden and closed to new enrollments; students keep access. */
+  async archiveMyCourse(user: AuthUser, courseId: string): Promise<CourseView> {
+    return this.archive(user, teacherScope(user), courseId, undefined);
+  }
+
+  /** #26: hard delete, refused once anyone has enrolled in or ordered the course. */
+  async deleteMyCourse(user: AuthUser, courseId: string): Promise<{ deleted: true }> {
+    const scope = teacherScope(user);
+    const course = await this.loadCourse(scope, courseId);
+    await this.transactions.run(async (tx) => {
+      assertDeletable(await this.courseDao.countCourseDependents(scope, course.id, tx));
+      if (!(await this.courseDao.deleteCourse(scope, course.id, tx))) throw staleCourse(course);
+      await this.audit.record(
+        {
+          actorUserId: user.id,
+          action: COURSE_AUDIT_ACTIONS.DELETE,
+          entityType: 'course',
+          entityId: course.id,
+          details: { title: course.title, status: course.status },
+        },
+        tx,
+      );
+    });
+    return { deleted: true };
+  }
+
+  /** #32: open or close enrollment, independent of publication; enrolled students unaffected. */
+  async setMyCourseEnrollment(
+    user: AuthUser,
+    courseId: string,
+    open: boolean,
+  ): Promise<CourseView> {
+    return this.setEnrollmentOpen(user, teacherScope(user), courseId, open);
   }
 
   // ── Admin ─────────────────────────────────────────────────────────
@@ -117,7 +179,16 @@ export class CourseService {
     return this.toView(await this.loadCourse(adminScope(admin), courseId));
   }
 
-  /** #29: price + commission (or free), recording who set them and when. */
+  /** #26: admins can correct details, including on a published course. */
+  async updateCourseAsAdmin(
+    admin: AuthUser,
+    courseId: string,
+    input: UpdateCourseDetailsInput,
+  ): Promise<CourseView> {
+    return this.updateDetails(admin, adminScope(admin), courseId, input, 'ADMIN');
+  }
+
+  /** #29 price + commission (or free), and #31 changes after publication. Who and when recorded. */
   async setPricing(admin: AuthUser, courseId: string, input: SetPricingInput): Promise<CourseView> {
     const scope = adminScope(admin);
     const course = await this.loadCourse(scope, courseId);
@@ -138,11 +209,10 @@ export class CourseService {
           entityType: 'course',
           entityId: course.id,
           details: {
-            isFree: pricing.isFree,
+            status: course.status,
+            from: priceDetails(course),
             // JSON has no bigint: money is stored as a string of minor units.
-            priceMinor: pricing.priceMinor?.toString() ?? null,
-            currency: pricing.currency,
-            commissionRateBps: pricing.commissionRateBps,
+            to: priceDetails(pricing),
           },
         },
         tx,
@@ -161,12 +231,14 @@ export class CourseService {
     const updated = await this.applyTransition(scope, course, 'APPROVE', decision, admin.id, {
       publishedAt: decision.publishedAt,
     });
+    await this.notifyTeacher(updated, 'COURSE_APPROVED');
     return this.toView(updated);
   }
 
   /**
    * #28: PENDING_APPROVAL -> REJECTED, which is final (no resubmission). The reason is stored in
-   * audit_log (courses has no reason column) and returned to the teacher as `rejectionReason`.
+   * audit_log (courses has no reason column), emailed to the teacher and returned as
+   * `rejectionReason`.
    */
   async rejectCourse(
     admin: AuthUser,
@@ -188,7 +260,47 @@ export class CourseService {
         reason: decision.reason,
       },
     );
+    await this.notifyTeacher(updated, 'COURSE_REJECTED', decision.reason);
     return { ...updated, rejectionReason: decision.reason };
+  }
+
+  /** #28: PUBLISHED -> DRAFT with a reason; the teacher is notified and may resubmit. */
+  async unpublishCourse(
+    admin: AuthUser,
+    courseId: string,
+    input: UnpublishCourseInput,
+  ): Promise<CourseView> {
+    const scope = adminScope(admin);
+    const course = await this.loadCourse(scope, courseId);
+    const decision = decideUnpublish(course, input.reason);
+
+    const updated = await this.applyTransition(
+      scope,
+      course,
+      'UNPUBLISH',
+      decision,
+      admin.id,
+      { publishedAt: decision.publishedAt },
+      { reason: decision.reason },
+    );
+    await this.notifyTeacher(updated, 'COURSE_UNPUBLISHED', decision.reason);
+    return this.toView(updated);
+  }
+
+  async archiveCourseAsAdmin(
+    admin: AuthUser,
+    courseId: string,
+    input: ArchiveCourseInput,
+  ): Promise<CourseView> {
+    return this.archive(admin, adminScope(admin), courseId, input.reason);
+  }
+
+  async setCourseEnrollmentAsAdmin(
+    admin: AuthUser,
+    courseId: string,
+    open: boolean,
+  ): Promise<CourseView> {
+    return this.setEnrollmentOpen(admin, adminScope(admin), courseId, open);
   }
 
   // ── For other modules ─────────────────────────────────────────────
@@ -205,7 +317,109 @@ export class CourseService {
     );
   }
 
+  /** Loads a course in the caller's scope for sibling services (sections, lessons). 404 if not. */
+  loadInScope(scope: TeacherScope, courseId: string): Promise<CourseRecord> {
+    return this.loadCourse(scope, courseId);
+  }
+
   // ── Internals ─────────────────────────────────────────────────────
+
+  private async updateDetails(
+    actor: AuthUser,
+    scope: TeacherScope,
+    courseId: string,
+    input: UpdateCourseDetailsInput,
+    editor: Editor,
+  ): Promise<CourseView> {
+    const course = await this.loadCourse(scope, courseId);
+    assertDetailsEditable(course.status, editor);
+    if (input.boardId && input.levelId && input.subjectId) {
+      await this.referenceData.assertValidClassification({
+        boardId: input.boardId,
+        levelId: input.levelId,
+        subjectId: input.subjectId,
+      });
+    }
+
+    const updated = await this.transactions.run(async (tx) => {
+      const result = await this.courseDao.updateCourse(
+        scope,
+        { id: course.id, expectedStatus: course.status },
+        input,
+        tx,
+      );
+      if (!result) throw staleCourse(course);
+      await this.audit.record(
+        {
+          actorUserId: actor.id,
+          action: COURSE_AUDIT_ACTIONS.EDIT,
+          entityType: 'course',
+          entityId: course.id,
+          details: { editor, fields: Object.keys(input) },
+        },
+        tx,
+      );
+      return result;
+    });
+    return this.toView(updated);
+  }
+
+  private async archive(
+    actor: AuthUser,
+    scope: TeacherScope,
+    courseId: string,
+    reason: string | undefined,
+  ): Promise<CourseView> {
+    const course = await this.loadCourse(scope, courseId);
+    const decision = decideArchive(course, new Date());
+    const updated = await this.applyTransition(
+      scope,
+      course,
+      'ARCHIVE',
+      decision,
+      actor.id,
+      { archivedAt: decision.archivedAt, isEnrollmentOpen: decision.isEnrollmentOpen },
+      reason ? { reason } : {},
+    );
+    return this.toView(updated);
+  }
+
+  private async setEnrollmentOpen(
+    actor: AuthUser,
+    scope: TeacherScope,
+    courseId: string,
+    open: boolean,
+  ): Promise<CourseView> {
+    const course = await this.loadCourse(scope, courseId);
+    if (open && course.status === CourseStatus.ARCHIVED) {
+      throw new AppException(ErrorCode.COURSE_LOCKED, { status: course.status }, undefined, {
+        message: 'An archived course cannot reopen enrollment',
+      });
+    }
+    if (course.isEnrollmentOpen === open) return this.toView(course);
+
+    const updated = await this.transactions.run(async (tx) => {
+      const result = await this.courseDao.updateCourse(
+        scope,
+        { id: course.id },
+        { isEnrollmentOpen: open },
+        tx,
+      );
+      if (!result) throw staleCourse(course);
+      await this.audit.record(
+        {
+          actorUserId: actor.id,
+          action: COURSE_AUDIT_ACTIONS.ENROLLMENT_TOGGLE,
+          entityType: 'course',
+          entityId: course.id,
+          details: { open },
+        },
+        tx,
+      );
+      return result;
+    });
+    return this.toView(updated);
+  }
 
   private async toView(course: CourseRecord): Promise<CourseView> {
     const [view] = await this.toViews([course]);
@@ -226,7 +440,6 @@ export class CourseService {
       COURSE_AUDIT_ACTIONS.REJECT,
       rejectedIds,
     );
-
     return courses.map((course) => {
       const reason = (rejections.get(course.id)?.details as { reason?: unknown } | null)?.reason;
       return { ...course, rejectionReason: typeof reason === 'string' ? reason : null };
@@ -242,7 +455,7 @@ export class CourseService {
 
   /**
    * Persists a status change decided by the domain rules, plus its audit entry, atomically.
-   * The update only matches while the course still has the status the decision was made from.
+   * The update only matches while the course still has a status the decision allows.
    */
   private applyTransition(
     scope: TeacherScope,
@@ -259,6 +472,16 @@ export class CourseService {
       ...auditDetails,
     };
     return this.transactions.run(async (tx) => {
+      if (action === 'SUBMIT') {
+        // #34: a course must carry a demo (a free-preview video lesson) before review.
+        assertSubmittable({
+          freePreviewVideoLessons: await this.courseDao.countFreePreviewVideoLessons(
+            scope,
+            course.id,
+            tx,
+          ),
+        });
+      }
       const updated = await this.courseDao.updateCourse(
         scope,
         { id: course.id, expectedStatus: COURSE_TRANSITIONS[action].from },
@@ -279,6 +502,41 @@ export class CourseService {
       return updated;
     });
   }
+
+  /** Emails the course's teacher after a decision has committed (#28, #111). */
+  private async notifyTeacher(
+    course: CourseRecord,
+    template: 'COURSE_APPROVED' | 'COURSE_REJECTED' | 'COURSE_UNPUBLISHED',
+    reason?: string,
+  ): Promise<void> {
+    const courseUrl = this.email.appUrl(`/teacher/courses/${course.id}`);
+    if (template === 'COURSE_APPROVED') {
+      await this.email.send(course.teacher.email, template, {
+        courseTitle: course.title,
+        courseUrl,
+      });
+    } else {
+      await this.email.send(course.teacher.email, template, {
+        courseTitle: course.title,
+        reason: reason ?? '',
+        courseUrl,
+      });
+    }
+  }
+}
+
+function priceDetails(p: {
+  isFree: boolean;
+  priceMinor: bigint | null;
+  currency: string | null;
+  commissionRateBps: number | null;
+}): Prisma.InputJsonObject {
+  return {
+    isFree: p.isFree,
+    priceMinor: p.priceMinor?.toString() ?? null,
+    currency: p.currency,
+    commissionRateBps: p.commissionRateBps,
+  };
 }
 
 function staleCourse(course: CourseRecord): AppException {

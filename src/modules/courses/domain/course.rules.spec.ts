@@ -1,13 +1,19 @@
 import {
+  assertContentEditable,
+  assertDeletable,
+  assertDetailsEditable,
   assertPublishable,
   canTransition,
+  CourseLockedError,
   CourseAction,
   CourseNotPriceableError,
   CourseStatusValue,
   decideApproval,
+  decideArchive,
   decidePricing,
   decideRejection,
   decideSubmission,
+  decideUnpublish,
   InvalidCourseInputError,
   InvalidCourseTransitionError,
   nextStatus,
@@ -23,21 +29,23 @@ const ALL_STATUSES: CourseStatusValue[] = [
   'ARCHIVED',
 ];
 
-/** The complete transition table for this phase. Anything not listed must be rejected. */
-const VALID: Record<CourseAction, [CourseStatusValue, CourseStatusValue]> = {
-  SUBMIT: ['DRAFT', 'PENDING_APPROVAL'],
-  APPROVE: ['PENDING_APPROVAL', 'PUBLISHED'],
-  REJECT: ['PENDING_APPROVAL', 'REJECTED'],
+/** The complete transition table. Anything not listed must be rejected. */
+const VALID: Record<CourseAction, { from: CourseStatusValue[]; to: CourseStatusValue }> = {
+  SUBMIT: { from: ['DRAFT'], to: 'PENDING_APPROVAL' },
+  APPROVE: { from: ['PENDING_APPROVAL'], to: 'PUBLISHED' },
+  REJECT: { from: ['PENDING_APPROVAL'], to: 'REJECTED' },
+  UNPUBLISH: { from: ['PUBLISHED'], to: 'DRAFT' },
+  ARCHIVE: { from: ['DRAFT', 'PUBLISHED', 'REJECTED'], to: 'ARCHIVED' },
 };
 
 const allCases = (Object.keys(VALID) as CourseAction[]).flatMap((action) =>
-  ALL_STATUSES.map((from) => ({ action, from, valid: VALID[action][0] === from })),
+  ALL_STATUSES.map((from) => ({ action, from, valid: VALID[action].from.includes(from) })),
 );
 
 describe('course state machine', () => {
   it.each(allCases.filter((c) => c.valid))('$action from $from is allowed', ({ action, from }) => {
     expect(canTransition(from, action)).toBe(true);
-    expect(nextStatus(from, action)).toBe(VALID[action][1]);
+    expect(nextStatus(from, action)).toBe(VALID[action].to);
   });
 
   it.each(allCases.filter((c) => !c.valid))(
@@ -48,12 +56,18 @@ describe('course state machine', () => {
     },
   );
 
-  it('covers all 15 action/status combinations', () => {
-    expect(allCases).toHaveLength(15);
+  it('covers all 25 action/status combinations', () => {
+    expect(allCases).toHaveLength(25);
   });
 
   it('REJECTED is final: a rejected course cannot be resubmitted', () => {
     expect(canTransition('REJECTED', 'SUBMIT')).toBe(false);
+  });
+
+  it('ARCHIVED is final', () => {
+    (Object.keys(VALID) as CourseAction[]).forEach((action) =>
+      expect(canTransition('ARCHIVED', action)).toBe(false),
+    );
   });
 
   it('reports the attempted and allowed states on an invalid transition', () => {
@@ -63,9 +77,42 @@ describe('course state machine', () => {
     } catch (error) {
       expect(error).toMatchObject({
         code: 'INVALID_STATE_TRANSITION',
-        info: { from: 'PUBLISHED', action: 'APPROVE', allowedFrom: 'PENDING_APPROVAL' },
+        info: { from: 'PUBLISHED', action: 'APPROVE', allowedFrom: ['PENDING_APPROVAL'] },
       });
     }
+  });
+});
+
+describe('editing rules (#26)', () => {
+  it.each([
+    ['TEACHER', ['DRAFT']],
+    ['ADMIN', ['DRAFT', 'PENDING_APPROVAL', 'PUBLISHED']],
+  ] as const)('%s may edit details only in %j', (editor, allowed) => {
+    ALL_STATUSES.forEach((status) => {
+      if ((allowed as readonly string[]).includes(status)) {
+        expect(() => assertDetailsEditable(status, editor)).not.toThrow();
+      } else {
+        expect(() => assertDetailsEditable(status, editor)).toThrow(CourseLockedError);
+      }
+    });
+  });
+
+  it('tells a teacher that published details are locked and an admin can change them', () => {
+    expect(() => assertDetailsEditable('PUBLISHED', 'TEACHER')).toThrow(/Ask an admin/);
+  });
+
+  it('content is editable while drafting and after publication, not in review or when closed', () => {
+    expect(() => assertContentEditable('DRAFT')).not.toThrow();
+    expect(() => assertContentEditable('PUBLISHED')).not.toThrow();
+    (['PENDING_APPROVAL', 'REJECTED', 'ARCHIVED'] as const).forEach((status) =>
+      expect(() => assertContentEditable(status)).toThrow(CourseLockedError),
+    );
+  });
+
+  it('hard delete only when nobody has enrolled in or ordered the course', () => {
+    expect(() => assertDeletable({ enrollments: 0, orderItems: 0 })).not.toThrow();
+    expect(() => assertDeletable({ enrollments: 1, orderItems: 0 })).toThrow(/Archive it instead/);
+    expect(() => assertDeletable({ enrollments: 0, orderItems: 2 })).toThrow(CourseLockedError);
   });
 });
 
@@ -180,6 +227,28 @@ describe('decisions', () => {
   });
 });
 
+describe('unpublish and archive (#28, #26)', () => {
+  const now = new Date('2026-10-26T12:00:00Z');
+
+  it('unpublish returns to DRAFT with a required reason and clears publishedAt', () => {
+    expect(decideUnpublish({ status: 'PUBLISHED' }, '  Wrong syllabus  ')).toEqual({
+      status: 'DRAFT',
+      reason: 'Wrong syllabus',
+      publishedAt: null,
+    });
+    expect(() => decideUnpublish({ status: 'PUBLISHED' }, ' ')).toThrow(InvalidCourseInputError);
+    expect(() => decideUnpublish({ status: 'DRAFT' }, 'x')).toThrow(InvalidCourseTransitionError);
+  });
+
+  it('archive stamps archivedAt and closes enrollment', () => {
+    expect(decideArchive({ status: 'PUBLISHED' }, now)).toEqual({
+      status: 'ARCHIVED',
+      archivedAt: now,
+      isEnrollmentOpen: false,
+    });
+  });
+});
+
 describe('pricing (#29)', () => {
   const now = new Date('2026-10-22T12:00:00Z');
   const paid = {
@@ -210,7 +279,11 @@ describe('pricing (#29)', () => {
     );
   });
 
-  it.each(ALL_STATUSES.filter((s) => s !== 'PENDING_APPROVAL'))(
+  it('may change after publication (#31)', () => {
+    expect(decidePricing({ status: 'PUBLISHED' }, paid, 'admin-1', now).priceMinor).toBe(150000n);
+  });
+
+  it.each(ALL_STATUSES.filter((s) => s !== 'PENDING_APPROVAL' && s !== 'PUBLISHED'))(
     'is not allowed while %s',
     (status) => {
       expect(() => decidePricing({ status }, paid, 'admin-1', now)).toThrow(

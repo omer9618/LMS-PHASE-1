@@ -1,5 +1,6 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
+import { PrismaService } from '../../src/prisma/prisma.service';
 
 export interface Classification {
   boardId: string;
@@ -31,11 +32,16 @@ export async function classification(
   };
 }
 
+/**
+ * Creates a DRAFT course through the API. By default it is also made submittable (#34): one section
+ * with a free-preview video lesson. Pass `{ withDemo: false }` for an incomplete course.
+ */
 export async function createCourse(
   app: NestExpressApplication,
   cookie: string,
   ids: Classification,
   title: string,
+  options: { withDemo?: boolean } = {},
 ): Promise<{ id: string; status: string; teacherId: string }> {
   const res = await request(app.getHttpServer())
     .post('/teacher/courses')
@@ -48,5 +54,37 @@ export async function createCourse(
       syllabusArea: 'Algebra',
     })
     .expect(201);
-  return res.body.data;
+  const course = res.body.data;
+  if (options.withDemo !== false) await addDemoLesson(app, cookie, course.id);
+  return course;
+}
+
+/**
+ * Adds a section with a free-preview video lesson. Until the upload flow (#35/#36) exists, the
+ * video asset is attached directly in the database: clients can never attach videos by id.
+ */
+export async function addDemoLesson(
+  app: NestExpressApplication,
+  cookie: string,
+  courseId: string,
+): Promise<string> {
+  const http = request(app.getHttpServer());
+  const outline = await http
+    .post(`/teacher/courses/${courseId}/sections`)
+    .set('Cookie', cookie)
+    .send({ title: 'Introduction' })
+    .expect(201);
+  const section = outline.body.data.sections.at(-1);
+  const withLesson = await request(app.getHttpServer())
+    .post(`/teacher/courses/${courseId}/sections/${section.id}/lessons`)
+    .set('Cookie', cookie)
+    .send({ title: 'Welcome video', type: 'VIDEO', isFreePreview: true })
+    .expect(201);
+  const lesson = withLesson.body.data.sections.at(-1).lessons.at(-1);
+  const prisma = app.get(PrismaService);
+  const asset = await prisma.videoAsset.create({
+    data: { provider: 'BUNNY', providerVideoId: `test-${lesson.id}`, status: 'READY' },
+  });
+  await prisma.lesson.update({ where: { id: lesson.id }, data: { videoAssetId: asset.id } });
+  return lesson.id;
 }

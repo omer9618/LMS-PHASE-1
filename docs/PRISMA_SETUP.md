@@ -213,6 +213,12 @@ npx prisma db seed
 
 Total tables: 32.
 
+## Columns not used by the application
+
+| Column                        | Why                                                                                                                                                                                                         |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `courses.demo_video_asset_id` | The course demo (#34) is the course's own free-preview video lessons (`lessons.is_free_preview`), decided 2026-10-26. A course needs at least one to be submitted. The column is kept to match Schema v2.0. |
+
 ## Deliberate omissions
 
 The following were **not** added, because the document does not specify them. Each may be worth adding later, as a documented change rather than a silent one:

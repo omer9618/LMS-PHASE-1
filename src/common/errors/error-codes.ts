@@ -30,6 +30,8 @@ export enum ErrorCode {
   INVALID_STATE_TRANSITION = 'INVALID_STATE_TRANSITION',
   PUBLISH_GUARD_FAILED = 'PUBLISH_GUARD_FAILED',
   COURSE_NOT_PRICEABLE = 'COURSE_NOT_PRICEABLE',
+  COURSE_LOCKED = 'COURSE_LOCKED',
+  COURSE_INCOMPLETE = 'COURSE_INCOMPLETE',
 }
 
 export interface ErrorDefinition {
@@ -74,9 +76,14 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
     status: 422,
     message: 'A course must be free, or have both a price and a commission, before it is published',
   },
+  [ErrorCode.COURSE_LOCKED]: {
+    status: 409,
+    message: 'The course cannot be changed in its current state',
+  },
+  [ErrorCode.COURSE_INCOMPLETE]: { status: 422, message: 'The course is not ready to submit' },
   [ErrorCode.COURSE_NOT_PRICEABLE]: {
     status: 409,
-    message: 'Pricing can only be set while a course is awaiting approval',
+    message: 'Pricing can only be set on a course awaiting approval or published',
   },
 };
 
