@@ -9,7 +9,14 @@ const sessionWithUserSelect = {
   lastSeenAt: true,
   revokedAt: true,
   user: {
-    select: { id: true, email: true, status: true, roles: { select: { role: true } } },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      isEmailVerified: true,
+      status: true,
+      roles: { select: { role: true } },
+    },
   },
 } satisfies Prisma.SessionSelect;
 

@@ -7,6 +7,8 @@ import type { Role } from '@prisma/client';
 export interface AuthUser {
   readonly id: string;
   readonly email: string;
+  readonly fullName: string | null;
+  readonly isEmailVerified: boolean;
   readonly roles: ReadonlySet<Role>;
   readonly sessionId: string;
 }

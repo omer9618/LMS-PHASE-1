@@ -1,19 +1,19 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Role, UserStatus } from '@prisma/client';
-import bcrypt from 'bcrypt';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
 import { ENV } from '../../../config/config.module';
 import type { Env } from '../../../config/env.schema';
+import type { TransactionClient } from '../../../prisma/prisma.types';
 import { TransactionService } from '../../../prisma/transaction.service';
 import { SessionDao } from '../dao/session.dao';
-import { UserDao } from '../dao/user.dao';
+import { UserDao, UserRecord } from '../dao/user.dao';
 import {
-  generateSessionToken,
-  hashSessionToken,
-  isWellFormedSessionToken,
-} from '../domain/session-token';
+  generateOpaqueToken,
+  hashOpaqueToken,
+  isWellFormedOpaqueToken,
+} from '../domain/opaque-token';
 import {
   DEFAULT_TOUCH_INTERVAL_MS,
   rejectSession,
@@ -22,22 +22,25 @@ import {
   shouldTouch,
 } from '../domain/session.rules';
 import type { LoginInput } from '../schemas/auth.schema';
+import { hashPassword, verifyPassword } from './passwords';
 
 /** What the API returns about a user. Never includes passwordHash. */
 export interface UserView {
   id: string;
   email: string;
+  fullName: string | null;
+  isEmailVerified: boolean;
   roles: Role[];
 }
 
 export interface ClientContext {
   ipAddress?: string;
   userAgent?: string;
-  /** The session cookie already on the request, if any. Revoked on login (rotation). */
+  /** The session cookie already on the request, if any. Revoked when a new session starts. */
   currentToken?: string;
 }
 
-export interface LoginResult {
+export interface SessionGrant {
   token: string;
   expiresAt: Date;
   user: UserView;
@@ -45,6 +48,7 @@ export interface LoginResult {
 
 const MAX_USER_AGENT_LENGTH = 512;
 
+/** Login, logout and session resolution (#12). Account lifecycle lives in AccountService. */
 @Injectable()
 export class AuthService {
   private readonly policy: SessionPolicy;
@@ -63,11 +67,11 @@ export class AuthService {
     };
   }
 
-  async login(input: LoginInput, client: ClientContext): Promise<LoginResult> {
+  async login(input: LoginInput, client: ClientContext): Promise<SessionGrant> {
     const user = await this.userDao.getUserCredentialsByEmail(input.email);
 
     // Always run bcrypt, even for unknown emails, so response time does not reveal which exist.
-    const passwordMatches = await bcrypt.compare(
+    const passwordMatches = await verifyPassword(
       input.password,
       user?.passwordHash ?? (await this.getDummyHash()),
     );
@@ -75,52 +79,63 @@ export class AuthService {
       throw new AppException(ErrorCode.INVALID_CREDENTIALS);
     }
 
+    return this.transactions.run((tx) => this.startSession(user, client, tx));
+  }
+
+  /**
+   * Creates a session for an already-authenticated user (login, registration), rotating out the
+   * caller's current session if any. Run inside the caller's transaction.
+   */
+  async startSession(
+    user: UserRecord,
+    client: ClientContext,
+    tx: TransactionClient,
+  ): Promise<SessionGrant> {
     const now = new Date();
-    const token = generateSessionToken();
+    const token = generateOpaqueToken();
     const expiresAt = sessionExpiry(now, this.policy);
 
-    await this.transactions.run(async (tx) => {
-      if (isWellFormedSessionToken(client.currentToken)) {
-        await this.sessionDao.revokeSessionsBy(
-          { tokenHash: hashSessionToken(client.currentToken) },
-          now,
-          tx,
-        );
-      }
-      await this.sessionDao.createSession(
-        {
-          userId: user.id,
-          tokenHash: hashSessionToken(token),
-          createdAt: now,
-          lastSeenAt: now,
-          expiresAt,
-          ipAddress: client.ipAddress,
-          userAgent: client.userAgent?.slice(0, MAX_USER_AGENT_LENGTH),
-        },
+    if (isWellFormedOpaqueToken(client.currentToken)) {
+      await this.sessionDao.revokeSessionsBy(
+        { tokenHash: hashOpaqueToken(client.currentToken) },
+        now,
         tx,
       );
-      await this.userDao.updateUser(user.id, { lastLoginAt: now }, tx);
-    });
+    }
+    await this.sessionDao.createSession(
+      {
+        userId: user.id,
+        tokenHash: hashOpaqueToken(token),
+        createdAt: now,
+        lastSeenAt: now,
+        expiresAt,
+        ipAddress: client.ipAddress,
+        userAgent: client.userAgent?.slice(0, MAX_USER_AGENT_LENGTH),
+      },
+      tx,
+    );
+    await this.userDao.updateUser(user.id, { lastLoginAt: now }, tx);
 
-    return {
-      token,
-      expiresAt,
-      user: { id: user.id, email: user.email, roles: user.roles.map((r) => r.role) },
-    };
+    return { token, expiresAt, user: toUserView(user) };
   }
 
   /** Revokes the session server-side. Safe to call with a missing or already-dead token. */
   async logout(token: string | undefined): Promise<void> {
-    if (!isWellFormedSessionToken(token)) return;
-    await this.sessionDao.revokeSessionsBy({ tokenHash: hashSessionToken(token) }, new Date());
+    if (!isWellFormedOpaqueToken(token)) return;
+    await this.sessionDao.revokeSessionsBy({ tokenHash: hashOpaqueToken(token) }, new Date());
+  }
+
+  /** Signs a user out everywhere (password reset #13, suspension #15). */
+  async revokeAllSessions(userId: string, tx?: TransactionClient): Promise<void> {
+    await this.sessionDao.revokeSessionsBy({ userId }, new Date(), tx);
   }
 
   /** Resolves a session cookie to the caller, or null if it is missing, dead or revoked. */
   async authenticate(token: string | undefined): Promise<AuthUser | null> {
-    if (!isWellFormedSessionToken(token)) return null;
+    if (!isWellFormedOpaqueToken(token)) return null;
 
     const session = await this.sessionDao.getSessionWithUserBy({
-      tokenHash: hashSessionToken(token),
+      tokenHash: hashOpaqueToken(token),
     });
     if (!session) return null;
 
@@ -139,17 +154,35 @@ export class AuthService {
     return {
       id: session.user.id,
       email: session.user.email,
+      fullName: session.user.fullName,
+      isEmailVerified: session.user.isEmailVerified,
       roles: new Set(session.user.roles.map((r) => r.role)),
       sessionId: session.id,
     };
   }
 
   describe(user: AuthUser): UserView {
-    return { id: user.id, email: user.email, roles: [...user.roles] };
+    return {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      isEmailVerified: user.isEmailVerified,
+      roles: [...user.roles],
+    };
   }
 
   private getDummyHash(): Promise<string> {
-    this.dummyHash ??= bcrypt.hash('timing-equaliser-not-a-password', 10);
+    this.dummyHash ??= hashPassword('timing-equaliser-not-a-password');
     return this.dummyHash;
   }
+}
+
+export function toUserView(user: UserRecord): UserView {
+  return {
+    id: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    isEmailVerified: user.isEmailVerified,
+    roles: user.roles.map((r) => r.role),
+  };
 }

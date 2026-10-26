@@ -43,7 +43,13 @@ describe('Auth: login, session, logout (#12, #10, #14)', () => {
     expect(cookie).toMatch(/HttpOnly/i);
     expect(cookie).toMatch(/SameSite=Lax/i);
     expect(res.body.data).toEqual({
-      user: { id: expect.any(String), email: SEEDED.admin.email, roles: ['ADMIN'] },
+      user: {
+        id: expect.any(String),
+        email: SEEDED.admin.email,
+        fullName: 'Platform Admin',
+        isEmailVerified: true,
+        roles: ['ADMIN'],
+      },
     });
     expect(JSON.stringify(res.body)).not.toMatch(/passwordHash|token/i);
   });
