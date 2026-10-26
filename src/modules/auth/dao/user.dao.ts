@@ -32,6 +32,18 @@ export type UserRecord = Prisma.UserGetPayload<{ select: typeof userSelect }>;
 /** Includes passwordHash. Only auth services may see this shape, and it must never be returned. */
 export type UserCredentials = Prisma.UserGetPayload<{ select: typeof credentialsSelect }>;
 
+/** What admins see about an account (#15, #103). Never the hash or MFA secret. */
+const adminUserSelect = {
+  ...userSelect,
+  guardianName: true,
+  guardianEmail: true,
+  guardianPhone: true,
+  createdAt: true,
+  lastLoginAt: true,
+} satisfies Prisma.UserSelect;
+
+export type AdminUserRecord = Prisma.UserGetPayload<{ select: typeof adminUserSelect }>;
+
 @Injectable()
 export class UserDao {
   constructor(private readonly prisma: PrismaService) {}
@@ -70,6 +82,40 @@ export class UserDao {
       data: { mfaLastUsedStep: step },
     });
     return count === 1;
+  }
+
+  getAdminUserBy(where: Prisma.UserWhereUniqueInput): Promise<AdminUserRecord | null> {
+    return this.prisma.user.findUnique({ where, select: adminUserSelect });
+  }
+
+  getAdminUsersBy(
+    where: Prisma.UserWhereInput,
+    page: { limit: number; offset: number },
+  ): Promise<AdminUserRecord[]> {
+    return this.prisma.user.findMany({
+      where,
+      select: adminUserSelect,
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      take: page.limit,
+      skip: page.offset,
+    });
+  }
+
+  countUsersBy(where: Prisma.UserWhereInput, tx?: TransactionClient): Promise<number> {
+    return (tx ?? this.prisma).user.count({ where });
+  }
+
+  async addRole(userId: string, role: Role, tx?: TransactionClient): Promise<void> {
+    await (tx ?? this.prisma).userRole.upsert({
+      where: { userId_role: { userId, role } },
+      update: {},
+      create: { userId, role },
+      select: { id: true },
+    });
+  }
+
+  async removeRole(userId: string, role: Role, tx?: TransactionClient): Promise<void> {
+    await (tx ?? this.prisma).userRole.deleteMany({ where: { userId, role } });
   }
 
   async updateUser(

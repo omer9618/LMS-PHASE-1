@@ -28,6 +28,17 @@ export const EMAIL_TEMPLATES = {
       action: { label: 'Choose a new password', url: data.resetUrl },
       footnote: "If this wasn't you, ignore this email; your password stays the same.",
     }),
+
+  ACCOUNT_CREATED: (data: { setPasswordUrl: string; expiresInHours: number; roles: string[] }) =>
+    renderEmail({
+      subject: 'Your account has been created',
+      heading: 'Welcome',
+      paragraphs: [
+        `An administrator created an account for you (${data.roles.join(' and ').toLowerCase()}).`,
+        `Choose a password to sign in. The link works once and expires in ${data.expiresInHours} hours.`,
+      ],
+      action: { label: 'Set your password', url: data.setPasswordUrl },
+    }),
 } satisfies Record<string, (data: never) => RenderedTemplate>;
 
 export type EmailTemplateName = keyof typeof EMAIL_TEMPLATES;
