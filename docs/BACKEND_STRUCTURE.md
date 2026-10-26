@@ -123,6 +123,10 @@ Teacher-owned data (courses, sections, lessons, enrollments, student records, ea
 - MFA (#16): any account holding ADMIN needs an MFA-verified session. `AuthGuard` returns 403 `MFA_REQUIRED` otherwise, except on routes marked `@AllowWithoutMfa()` (enrolment, `/auth/me`). Don't add that decorator to anything else.
 - Emailed tokens (verification, reset) and the MFA challenge use `auth_tokens`: hashed, expiring, and single-use via a conditional update (`consumeAuthToken`).
 
+## Rate limits (#17)
+
+Every route gets the default per-IP limit. Public or brute-forceable routes add a named limit from `common/rate-limit/rate-limits.ts`: `@RateLimit('LOGIN')`, `'REGISTER'`, `'ACCOUNT_EMAIL'`, `'APPLICATION_SUBMIT'`, `'SEARCH'`. Change the numbers there, not on routes. Exceeding a limit returns 429 `RATE_LIMITED` with `Retry-After`.
+
 ## Errors
 
 - Add a code to `ErrorCode` + `ERROR_DEFINITIONS` (status and default message), then throw `new AppException(ErrorCode.X, info, extended, { message?, cause? })`.

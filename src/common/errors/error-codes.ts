@@ -15,6 +15,7 @@ export enum ErrorCode {
   CONSTRAINT_VIOLATION = 'CONSTRAINT_VIOLATION',
   PAYLOAD_TOO_LARGE = 'PAYLOAD_TOO_LARGE',
   UPLOAD_REJECTED = 'UPLOAD_REJECTED',
+  RATE_LIMITED = 'RATE_LIMITED',
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
   INTERNAL = 'INTERNAL',
 
@@ -47,6 +48,10 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
   [ErrorCode.CONSTRAINT_VIOLATION]: { status: 409, message: 'The change violates a data rule' },
   [ErrorCode.PAYLOAD_TOO_LARGE]: { status: 413, message: 'Request body too large' },
   [ErrorCode.UPLOAD_REJECTED]: { status: 400, message: 'The uploaded file was not accepted' },
+  [ErrorCode.RATE_LIMITED]: {
+    status: 429,
+    message: 'Too many requests. Please wait and try again.',
+  },
   [ErrorCode.SERVICE_UNAVAILABLE]: { status: 503, message: 'Service unavailable' },
   [ErrorCode.INTERNAL]: { status: 500, message: 'Internal server error' },
   [ErrorCode.INVALID_CREDENTIALS]: { status: 401, message: 'Invalid email or password' },

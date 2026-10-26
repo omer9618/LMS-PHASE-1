@@ -141,6 +141,8 @@ function fromHttpException(exception: HttpException): ErrorBody {
       return fromCode(ErrorCode.ROUTE_NOT_FOUND);
     case 413:
       return fromCode(ErrorCode.PAYLOAD_TOO_LARGE);
+    case 429:
+      return fromCode(ErrorCode.RATE_LIMITED);
     default:
       return status >= 500
         ? fromCode(ErrorCode.INTERNAL)

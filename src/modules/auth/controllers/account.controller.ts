@@ -4,6 +4,7 @@ import type { AuthUser } from '../../../common/auth/auth-user';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Public } from '../../../common/decorators/public.decorator';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
+import { RateLimit } from '../../../common/rate-limit/rate-limits';
 import {
   ConfirmPasswordResetInput,
   confirmPasswordResetSchema,
@@ -27,6 +28,7 @@ export class AccountController {
   ) {}
 
   @Public()
+  @RateLimit('REGISTER')
   @Post('register')
   async register(
     @Body(new ZodValidationPipe(registerSchema)) body: RegisterInput,
@@ -51,6 +53,7 @@ export class AccountController {
     return this.accountService.verifyEmail(body);
   }
 
+  @RateLimit('ACCOUNT_EMAIL')
   @Post('verify-email/resend')
   @HttpCode(200)
   resendVerification(@CurrentUser() user: AuthUser): Promise<{ sent: boolean }> {
@@ -58,6 +61,7 @@ export class AccountController {
   }
 
   @Public()
+  @RateLimit('ACCOUNT_EMAIL')
   @Post('password-reset/request')
   @HttpCode(200)
   requestPasswordReset(
@@ -67,6 +71,7 @@ export class AccountController {
   }
 
   @Public()
+  @RateLimit('LOGIN')
   @Post('password-reset/confirm')
   @HttpCode(200)
   confirmPasswordReset(

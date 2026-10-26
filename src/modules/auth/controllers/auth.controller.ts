@@ -5,6 +5,7 @@ import { AllowWithoutMfa } from '../../../common/decorators/allow-without-mfa.de
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Public } from '../../../common/decorators/public.decorator';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
+import { RateLimit } from '../../../common/rate-limit/rate-limits';
 import { LoginInput, loginSchema } from '../schemas/auth.schema';
 import { MfaLoginInput, mfaLoginSchema } from '../schemas/mfa.schema';
 import { AuthService, UserView } from '../services/auth.service';
@@ -20,6 +21,7 @@ export class AuthController {
   ) {}
 
   @Public()
+  @RateLimit('LOGIN')
   @Post('login')
   @HttpCode(200)
   async login(
@@ -45,6 +47,7 @@ export class AuthController {
 
   /** #16: second step of login for MFA accounts. */
   @Public()
+  @RateLimit('LOGIN')
   @Post('login/mfa')
   @HttpCode(200)
   async loginMfa(
