@@ -8,7 +8,11 @@ import { loadEnv } from './config/env.schema';
 async function bootstrap(): Promise<void> {
   // Validate before Nest starts so a bad config fails with one readable message.
   const env = loadEnv();
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+  // rawBody: webhook signatures (Bunny #36) are computed over the exact request bytes.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+    rawBody: true,
+  });
   configureApp(app);
   await app.listen(env.PORT);
 }

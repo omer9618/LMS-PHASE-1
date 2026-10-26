@@ -4,6 +4,8 @@ const booleanString = z.enum(['true', 'false']).transform((value) => value === '
 
 /** Dev/test-only signing secret for the local storage driver. Rejected in production. */
 const DEV_STORAGE_SIGNING_SECRET = 'dev-only-local-storage-signing-secret-change-me';
+/** Dev/test-only webhook secret for the fake video provider. */
+const DEV_VIDEO_WEBHOOK_SECRET = 'dev-only-fake-video-webhook-secret';
 /** Dev/test-only MFA encryption key (32 ASCII bytes, base64). Rejected in production. */
 export const DEV_MFA_ENCRYPTION_KEY = Buffer.from('dev-only-mfa-key-do-not-use-prod').toString(
   'base64',
@@ -51,6 +53,14 @@ export const envSchema = z
     CAPTCHA_PROVIDER: z.enum(['turnstile', 'disabled']).default('disabled'),
     CAPTCHA_SECRET_KEY: z.string().min(1).optional(),
 
+    // Video hosting (#35–#37). bunny in production; fake = dev/tests (no network).
+    VIDEO_PROVIDER: z.enum(['bunny', 'fake']).default('fake'),
+    BUNNY_LIBRARY_ID: z.string().regex(/^\d+$/).optional(),
+    BUNNY_API_KEY: z.string().min(1).optional(),
+    BUNNY_READONLY_API_KEY: z.string().min(1).optional(),
+    BUNNY_TOKEN_AUTH_KEY: z.string().min(1).optional(),
+    FAKE_VIDEO_WEBHOOK_SECRET: z.string().min(16).default(DEV_VIDEO_WEBHOOK_SECRET),
+
     // Scheduled jobs (@nestjs/schedule): order expiry, payout auto-accept, purges. Off in e2e tests.
     JOBS_ENABLED: booleanString.default(true),
 
@@ -94,6 +104,20 @@ export const envSchema = z
 
     if (production && env.STORAGE_DRIVER !== 's3') {
       issue('STORAGE_DRIVER', 'must be s3 in production (files never live on the app server)');
+    }
+    if (production && env.VIDEO_PROVIDER !== 'bunny') {
+      issue('VIDEO_PROVIDER', 'must be bunny in production');
+    }
+    if (env.VIDEO_PROVIDER === 'bunny') {
+      const keys = [
+        'BUNNY_LIBRARY_ID',
+        'BUNNY_API_KEY',
+        'BUNNY_READONLY_API_KEY',
+        'BUNNY_TOKEN_AUTH_KEY',
+      ] as const;
+      for (const key of keys) {
+        if (!env[key]) issue(key, 'is required when VIDEO_PROVIDER=bunny');
+      }
     }
     if (production && env.CAPTCHA_PROVIDER !== 'turnstile') {
       issue('CAPTCHA_PROVIDER', 'must be turnstile in production');
