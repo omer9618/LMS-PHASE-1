@@ -107,20 +107,9 @@ export class AccountService {
     const user = await this.userDao.getUserBy({ email: input.email });
     if (!user || user.status !== UserStatus.ACTIVE) return { requested: true };
 
-    const token = generateOpaqueToken();
-    const now = new Date();
-    await this.transactions.run(async (tx) => {
-      await this.authTokenDao.retireAuthTokensBy(user.id, AuthTokenPurpose.PASSWORD_RESET, now, tx);
-      await this.authTokenDao.createAuthToken(
-        {
-          userId: user.id,
-          purpose: AuthTokenPurpose.PASSWORD_RESET,
-          tokenHash: hashOpaqueToken(token),
-          expiresAt: new Date(now.getTime() + TOKEN_TTL.PASSWORD_RESET_MINUTES * MINUTE_MS),
-        },
-        tx,
-      );
-    });
+    const token = await this.transactions.run((tx) =>
+      this.issuePasswordSetToken(user.id, TOKEN_TTL.PASSWORD_RESET_MINUTES * MINUTE_MS, tx),
+    );
 
     await this.email.send(user.email, 'PASSWORD_RESET', {
       resetUrl: this.email.appUrl('/reset-password', { token }),
@@ -160,6 +149,30 @@ export class AccountService {
       );
     });
     return { reset: true };
+  }
+
+  /**
+   * A single-use link to set a password (password reset, and new accounts created by an admin).
+   * Retires any earlier unused link. Returns the raw token to put in the email.
+   */
+  async issuePasswordSetToken(
+    userId: string,
+    ttlMs: number,
+    tx: TransactionClient,
+  ): Promise<string> {
+    const token = generateOpaqueToken();
+    const now = new Date();
+    await this.authTokenDao.retireAuthTokensBy(userId, AuthTokenPurpose.PASSWORD_RESET, now, tx);
+    await this.authTokenDao.createAuthToken(
+      {
+        userId,
+        purpose: AuthTokenPurpose.PASSWORD_RESET,
+        tokenHash: hashOpaqueToken(token),
+        expiresAt: new Date(now.getTime() + ttlMs),
+      },
+      tx,
+    );
+    return token;
   }
 
   private async issueVerificationToken(

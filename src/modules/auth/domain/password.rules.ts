@@ -41,4 +41,6 @@ export function assertAcceptablePassword(password: string, email: string): void 
 export const TOKEN_TTL = {
   EMAIL_VERIFICATION_HOURS: 48,
   PASSWORD_RESET_MINUTES: 30,
+  /** New accounts created by an admin: long enough to survive a weekend. */
+  ACCOUNT_SETUP_HOURS: 72,
 } as const;
