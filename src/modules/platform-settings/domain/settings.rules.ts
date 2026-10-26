@@ -25,6 +25,11 @@ export const SETTING_DEFINITIONS = {
     defaultValue: 7,
     description: 'Days a teacher has to raise a concern about a payout before it auto-accepts.',
   },
+  APPLICATION_RETENTION_DAYS: {
+    schema: z.coerce.number().int().min(30).max(3650),
+    defaultValue: 180,
+    description: 'Days a rejected teacher application (and its CV) is kept before it is purged.',
+  },
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFINITIONS;

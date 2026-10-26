@@ -47,6 +47,13 @@ export const envSchema = z
       .default(DEV_MFA_ENCRYPTION_KEY),
     MFA_ISSUER: z.string().min(1).max(40).default('LMS'),
 
+    // Captcha for public forms (#18). turnstile = Cloudflare Turnstile; disabled = dev/tests only.
+    CAPTCHA_PROVIDER: z.enum(['turnstile', 'disabled']).default('disabled'),
+    CAPTCHA_SECRET_KEY: z.string().min(1).optional(),
+
+    // Scheduled jobs (@nestjs/schedule): order expiry, payout auto-accept, purges. Off in e2e tests.
+    JOBS_ENABLED: booleanString.default(true),
+
     // Email (#110). smtp in production; log prints emails; memory is for tests.
     EMAIL_TRANSPORT: z.enum(['smtp', 'log', 'memory']).default('log'),
     SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
@@ -87,6 +94,12 @@ export const envSchema = z
 
     if (production && env.STORAGE_DRIVER !== 's3') {
       issue('STORAGE_DRIVER', 'must be s3 in production (files never live on the app server)');
+    }
+    if (production && env.CAPTCHA_PROVIDER !== 'turnstile') {
+      issue('CAPTCHA_PROVIDER', 'must be turnstile in production');
+    }
+    if (env.CAPTCHA_PROVIDER === 'turnstile' && !env.CAPTCHA_SECRET_KEY) {
+      issue('CAPTCHA_SECRET_KEY', 'is required when CAPTCHA_PROVIDER=turnstile');
     }
     if (production && env.MFA_ENCRYPTION_KEY === DEV_MFA_ENCRYPTION_KEY) {
       issue('MFA_ENCRYPTION_KEY', 'must be set in production');

@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { CourseStatus, Prisma } from '@prisma/client';
+import { CourseStatus, EnrollmentStatus, Prisma } from '@prisma/client';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { adminScope, teacherScope, TeacherScope } from '../../../common/auth/scope';
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
+import type { TransactionClient } from '../../../prisma/prisma.types';
 import { TransactionService } from '../../../prisma/transaction.service';
 import { AuditService } from '../../audit/services/audit.service';
 import { ReferenceDataService } from '../../reference-data/services/reference-data.service';
@@ -188,6 +189,20 @@ export class CourseService {
       },
     );
     return { ...updated, rejectionReason: decision.reason };
+  }
+
+  // ── For other modules ─────────────────────────────────────────────
+
+  /**
+   * #22: courses a teacher is committed to, meaning students currently hold an active enrollment.
+   * Teacher deactivation is blocked while this is above zero.
+   */
+  countCommittedCourses(teacherId: string, tx?: TransactionClient): Promise<number> {
+    return this.courseDao.countCoursesBy(
+      { teacherId },
+      { enrollments: { some: { status: EnrollmentStatus.ACTIVE } } },
+      tx,
+    );
   }
 
   // ── Internals ─────────────────────────────────────────────────────

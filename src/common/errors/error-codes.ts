@@ -16,6 +16,7 @@ export enum ErrorCode {
   PAYLOAD_TOO_LARGE = 'PAYLOAD_TOO_LARGE',
   UPLOAD_REJECTED = 'UPLOAD_REJECTED',
   RATE_LIMITED = 'RATE_LIMITED',
+  CAPTCHA_FAILED = 'CAPTCHA_FAILED',
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
   INTERNAL = 'INTERNAL',
 
@@ -48,6 +49,10 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
   [ErrorCode.CONSTRAINT_VIOLATION]: { status: 409, message: 'The change violates a data rule' },
   [ErrorCode.PAYLOAD_TOO_LARGE]: { status: 413, message: 'Request body too large' },
   [ErrorCode.UPLOAD_REJECTED]: { status: 400, message: 'The uploaded file was not accepted' },
+  [ErrorCode.CAPTCHA_FAILED]: {
+    status: 400,
+    message: 'Please complete the human verification and try again',
+  },
   [ErrorCode.RATE_LIMITED]: {
     status: 429,
     message: 'Too many requests. Please wait and try again.',

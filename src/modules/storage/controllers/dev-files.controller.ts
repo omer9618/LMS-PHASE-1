@@ -21,7 +21,9 @@ export class DevFilesController {
   async download(@Param('token') token: string, @Res() res: Response): Promise<void> {
     const file = this.storage.verify(token);
     if (!file) throw new AppException(ErrorCode.NOT_FOUND);
-    const body = await this.storage.read(file.key);
+    // A valid link to a file that has since been deleted (e.g. purged) is simply not found.
+    const body = await this.storage.read(file.key).catch(() => null);
+    if (!body) throw new AppException(ErrorCode.NOT_FOUND);
     res
       .status(200)
       .type(file.contentType)

@@ -13,6 +13,8 @@ const productionOk = {
   S3_SECRET_ACCESS_KEY: 'secret',
   STORAGE_SIGNING_SECRET: 'p'.repeat(40),
   MFA_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+  CAPTCHA_PROVIDER: 'turnstile',
+  CAPTCHA_SECRET_KEY: 'turnstile-secret',
 };
 
 const failingPaths = (input: Record<string, string>) => {

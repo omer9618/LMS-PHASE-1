@@ -85,6 +85,14 @@ export class CourseDao {
     });
   }
 
+  countCoursesBy(
+    scope: TeacherScope,
+    where: Prisma.CourseWhereInput,
+    tx?: TransactionClient,
+  ): Promise<number> {
+    return (tx ?? this.prisma).course.count({ where: { AND: [where, scopeWhere(scope)] } });
+  }
+
   /**
    * Updates one course if it is in scope and (when given) still has `expectedStatus`.
    * Returns null when no row matched, so a concurrent change cannot be silently overwritten.
