@@ -15,6 +15,11 @@ const productionOk = {
   MFA_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
   CAPTCHA_PROVIDER: 'turnstile',
   CAPTCHA_SECRET_KEY: 'turnstile-secret',
+  VIDEO_PROVIDER: 'bunny',
+  BUNNY_LIBRARY_ID: '759',
+  BUNNY_API_KEY: 'k',
+  BUNNY_READONLY_API_KEY: 'r',
+  BUNNY_TOKEN_AUTH_KEY: 't',
 };
 
 const failingPaths = (input: Record<string, string>) => {

@@ -32,6 +32,10 @@ export enum ErrorCode {
   COURSE_NOT_PRICEABLE = 'COURSE_NOT_PRICEABLE',
   COURSE_LOCKED = 'COURSE_LOCKED',
   COURSE_INCOMPLETE = 'COURSE_INCOMPLETE',
+
+  // Content and enrollment
+  ENROLLMENT_REQUIRED = 'ENROLLMENT_REQUIRED',
+  VIDEO_NOT_READY = 'VIDEO_NOT_READY',
 }
 
 export interface ErrorDefinition {
@@ -80,6 +84,8 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
     status: 409,
     message: 'The course cannot be changed in its current state',
   },
+  [ErrorCode.ENROLLMENT_REQUIRED]: { status: 403, message: 'Enrol in this course to access it' },
+  [ErrorCode.VIDEO_NOT_READY]: { status: 409, message: 'This video is still processing' },
   [ErrorCode.COURSE_INCOMPLETE]: { status: 422, message: 'The course is not ready to submit' },
   [ErrorCode.COURSE_NOT_PRICEABLE]: {
     status: 409,

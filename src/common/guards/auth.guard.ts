@@ -5,6 +5,7 @@ import type { Request } from 'express';
 import { AuthService } from '../../modules/auth/services/auth.service';
 import { SessionCookie } from '../../modules/auth/session-cookie';
 import { AllowWithoutMfa } from '../decorators/allow-without-mfa.decorator';
+import { OptionalAuth } from '../decorators/optional-auth.decorator';
 import { Public } from '../decorators/public.decorator';
 import { AppException } from '../errors/app.exception';
 import { ErrorCode } from '../errors/error-codes';
@@ -32,7 +33,14 @@ export class AuthGuard implements CanActivate {
 
     const req = context.switchToHttp().getRequest<Request>();
     const user = await this.authService.authenticate(this.sessionCookie.read(req));
-    if (!user) throw new AppException(ErrorCode.UNAUTHENTICATED);
+    const optional = this.reflector.getAllAndOverride(OptionalAuth, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!user) {
+      if (optional) return true;
+      throw new AppException(ErrorCode.UNAUTHENTICATED);
+    }
 
     req.user = user;
 

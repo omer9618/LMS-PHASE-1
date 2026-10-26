@@ -197,6 +197,32 @@ export class OutlineService {
     return this.outline(scope, courseId);
   }
 
+  // ── For the content module (#35–#39) ──────────────────────────────
+
+  /** A lesson of the teacher's own course, in a status that allows content changes. */
+  async loadEditableLesson(
+    user: AuthUser,
+    courseId: string,
+    lessonId: string,
+  ): Promise<LessonRecord> {
+    const scope = await this.editableCourse(user, courseId);
+    return this.loadLesson(scope, courseId, lessonId);
+  }
+
+  /** Points a lesson at a video asset. Call only after loadEditableLesson authorised the caller. */
+  async setLessonVideo(
+    lessonId: string,
+    videoAssetId: string,
+    tx?: TransactionClient,
+  ): Promise<void> {
+    await this.outlineDao.updateLesson(lessonId, { videoAssetId }, tx);
+  }
+
+  /** See OutlineDao.getLessonAccessContext: access facts only, never content. */
+  getLessonAccessContext(courseId: string, lessonId: string) {
+    return this.outlineDao.getLessonAccessContext(courseId, lessonId);
+  }
+
   // ── Internals ─────────────────────────────────────────────────────
 
   /** The teacher's own course, in a status that allows content changes. */

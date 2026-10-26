@@ -14,6 +14,10 @@ const lessonSelect = {
   isFreePreview: true,
   createdAt: true,
   videoAsset: { select: { id: true, provider: true, status: true, durationSeconds: true } },
+  resources: {
+    select: { id: true, fileName: true, fileSizeBytes: true, orderIndex: true },
+    orderBy: { orderIndex: 'asc' },
+  },
 } satisfies Prisma.LessonSelect;
 
 const sectionSelect = {
@@ -65,6 +69,32 @@ export class OutlineDao {
     return (tx ?? this.prisma).lesson.findFirst({
       where: { id: lessonId, section: { course: { id: courseId, ...scopeWhere(scope) } } },
       select: lessonSelect,
+    });
+  }
+
+  /**
+   * The minimum needed to decide who may use a lesson (#37, #39): course status and owner, lesson
+   * type, free-preview flag and video. This is the one read of teacher-owned data without a
+   * TeacherScope; it returns no content, and every caller decides access before returning anything.
+   */
+  getLessonAccessContext(courseId: string, lessonId: string) {
+    return this.prisma.lesson.findFirst({
+      where: { id: lessonId, section: { courseId } },
+      select: {
+        id: true,
+        type: true,
+        isFreePreview: true,
+        section: { select: { course: { select: { id: true, status: true, teacherId: true } } } },
+        videoAsset: {
+          select: {
+            id: true,
+            provider: true,
+            providerVideoId: true,
+            status: true,
+            durationSeconds: true,
+          },
+        },
+      },
     });
   }
 

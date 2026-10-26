@@ -4,6 +4,7 @@ NestJS API on PostgreSQL with Prisma 7 (pg driver adapter).
 
 - Code conventions and layer rules: [docs/BACKEND_STRUCTURE.md](docs/BACKEND_STRUCTURE.md)
 - Schema rules (money, ledger, scoping, publish guard): [docs/PRISMA_SETUP.md](docs/PRISMA_SETUP.md)
+- External services (Bunny, SMTP, S3, Turnstile): [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)
 - Backlog: GitHub Issues + the "lms phase 1" project board
 
 ## Prerequisites

@@ -13,8 +13,10 @@ import { HealthModule } from './health/health.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CaptchaModule } from './modules/captcha/captcha.module';
+import { ContentModule } from './modules/content/content.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { EmailModule } from './modules/email/email.module';
+import { EnrollmentModule } from './modules/enrollment/enrollment.module';
 import { PlatformSettingsModule } from './modules/platform-settings/platform-settings.module';
 import { ReferenceDataModule } from './modules/reference-data/reference-data.module';
 import { StorageModule } from './modules/storage/storage.module';
@@ -44,6 +46,8 @@ import { PrismaModule } from './prisma/prisma.module';
     ReferenceDataModule,
     CoursesModule,
     TeachersModule,
+    ContentModule,
+    EnrollmentModule,
     // Scheduled jobs (@Cron) run only when enabled; the e2e suite turns them off.
     ...(loadEnv().JOBS_ENABLED ? [ScheduleModule.forRoot()] : []),
   ],
