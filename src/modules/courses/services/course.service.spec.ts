@@ -1,19 +1,14 @@
 import { Role } from '@prisma/client';
-import type { AuthUser } from '../../../common/auth/auth-user';
 import { AppException } from '../../../common/errors/app.exception';
 import type { TransactionService } from '../../../prisma/transaction.service';
 import type { ReferenceDataService } from '../../reference-data/services/reference-data.service';
 import type { AuditService } from '../../audit/services/audit.service';
 import type { CourseDao, CourseRecord } from '../dao/course.dao';
 import { PublishGuardError } from '../domain/course.rules';
+import { fakeUser } from '../../../../test/utils/fake-user';
 import { CourseService } from './course.service';
 
-const user = (id: string, ...roles: Role[]): AuthUser => ({
-  id,
-  email: `${id}@test.local`,
-  roles: new Set(roles),
-  sessionId: 'session',
-});
+const user = fakeUser;
 
 const teacher = user('teacher-1', Role.TEACHER);
 const admin = user('admin-1', Role.ADMIN);

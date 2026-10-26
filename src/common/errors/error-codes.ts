@@ -20,6 +20,7 @@ export enum ErrorCode {
 
   // Auth
   INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
+  INVALID_TOKEN = 'INVALID_TOKEN',
 
   // Courses
   INVALID_STATE_TRANSITION = 'INVALID_STATE_TRANSITION',
@@ -47,6 +48,7 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
   [ErrorCode.SERVICE_UNAVAILABLE]: { status: 503, message: 'Service unavailable' },
   [ErrorCode.INTERNAL]: { status: 500, message: 'Internal server error' },
   [ErrorCode.INVALID_CREDENTIALS]: { status: 401, message: 'Invalid email or password' },
+  [ErrorCode.INVALID_TOKEN]: { status: 400, message: 'This link is invalid or has expired' },
   [ErrorCode.INVALID_STATE_TRANSITION]: {
     status: 409,
     message: 'This action is not allowed in the current state',

@@ -159,6 +159,12 @@ enum CompletionSource {
   QUIZ
 }
 
+// Not in Schema v2.0: single-use account tokens (#11, #13). See docs/PRISMA_SETUP.md.
+enum AuthTokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
 // ─────────────────────────────────────────────────────────────
 // 3. Domain 1 — Users and access
 // ─────────────────────────────────────────────────────────────
@@ -166,6 +172,8 @@ enum CompletionSource {
 model User {
   id              String     @id @default(uuid())
   email           String     @unique @db.Citext
+  // Not in Schema v2.0: display name for students, teachers and admins (#11, #41, #99).
+  fullName        String?    @map("full_name")
   passwordHash    String     @map("password_hash")
   isEmailVerified Boolean    @default(false) @map("is_email_verified")
   guardianName    String?    @map("guardian_name")
@@ -199,6 +207,7 @@ model User {
   auditEntries         AuditLog[]
   settingsUpdated      PlatformSetting[]
   sessions             Session[]
+  authTokens           AuthToken[]
 
   @@map("users")
 }
@@ -234,6 +243,24 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+// Single-use, expiring tokens emailed to users (#11 email verification, #13 password reset).
+// Like sessions, only the SHA-256 hash of the token is stored.
+model AuthToken {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  purpose   AuthTokenPurpose
+  tokenHash String           @unique @map("token_hash") @db.Char(64)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt DateTime         @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime?        @map("used_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+  @@map("auth_tokens")
 }
 
 model TeacherProfile {

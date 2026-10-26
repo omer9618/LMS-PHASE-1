@@ -1,6 +1,6 @@
 # Prisma setup — LMS Phase 1
 
-The schema matches **Database Schema v2.0** exactly, plus one documented addition: the `sessions` table (see [Additions to Schema v2.0](#additions-to-schema-v20)). Every column name, type, nullability, constraint and index was checked against that document programmatically, not by eye.
+The schema matches **Database Schema v2.0** exactly, plus documented additions (`sessions`, `auth_tokens`, `users.full_name`) (see [Additions to Schema v2.0](#additions-to-schema-v20)). Every column name, type, nullability, constraint and index was checked against that document programmatically, not by eye.
 
 ## Verification results
 
@@ -202,13 +202,15 @@ npx prisma db seed
 
 ## Additions to Schema v2.0
 
-| Added              | Migration                                  | Why                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sessions`         | `20261022175942_add_sessions`              | #12 requires "logout clears session server-side" and #13 requires "old sessions invalidated on reset". A stateless JWT cannot be revoked. The cookie carries a random 256-bit token; only its SHA-256 hash is stored. Columns: `user_id`, `token_hash` (unique), `created_at`, `expires_at`, `last_seen_at`, `revoked_at`, `ip_address`, `user_agent`. |
-| `citext` extension | `20260907000000_enable_citext`             | Fresh databases failed on `init` without it (see section 3).                                                                                                                                                                                                                                                                                           |
-| `timestamptz` fix  | `20261023162332_timestamps_to_timestamptz` | Not an addition but a correction: the document specifies timestamptz and `init` used `TIMESTAMP(3)`. Existing values were UTC (adapter behaviour), converted with `USING col AT TIME ZONE 'UTC'` so no stored instant moves.                                                                                                                           |
+| Added                                   | Migration                                      | Why                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sessions`                              | `20261022175942_add_sessions`                  | #12 requires "logout clears session server-side" and #13 requires "old sessions invalidated on reset". A stateless JWT cannot be revoked. The cookie carries a random 256-bit token; only its SHA-256 hash is stored. Columns: `user_id`, `token_hash` (unique), `created_at`, `expires_at`, `last_seen_at`, `revoked_at`, `ip_address`, `user_agent`. |
+| `citext` extension                      | `20260907000000_enable_citext`                 | Fresh databases failed on `init` without it (see section 3).                                                                                                                                                                                                                                                                                           |
+| `timestamptz` fix                       | `20261023162332_timestamps_to_timestamptz`     | Not an addition but a correction: the document specifies timestamptz and `init` used `TIMESTAMP(3)`. Existing values were UTC (adapter behaviour), converted with `USING col AT TIME ZONE 'UTC'` so no stored instant moves.                                                                                                                           |
+| `users.full_name`                       | `20261026122006_add_auth_tokens_and_full_name` | The document has no name for any user. Registration (#11), teacher search by name (#41) and public teacher profiles (#99) need one. Nullable in the database for rows created before it existed; required by the registration API.                                                                                                                     |
+| `auth_tokens` + enum `AuthTokenPurpose` | `20261026122006_add_auth_tokens_and_full_name` | Single-use, expiring tokens for email verification (#11) and password reset (#13). Only the SHA-256 hash is stored; `used_at` makes each token single-use.                                                                                                                                                                                             |
 
-Total tables: 30.
+Total tables: 31.
 
 ## Deliberate omissions
 

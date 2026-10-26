@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { PrismaClient, Role, UserStatus, type Board } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import bcrypt from 'bcrypt';
+import { hashPassword } from '../src/modules/auth/services/passwords';
 import { createPgPool } from '../src/prisma/pg-pool';
 
 if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
@@ -202,25 +202,31 @@ async function main() {
   // 4. Users (passwords resolved at the top of main, before any write)
   // ─────────────────────────────────────────────────────────────
   console.log('Seeding Users...');
-  await ensureUser(process.env.SEED_ADMIN_EMAIL ?? 'admin@lms.local', adminPassword, [Role.ADMIN]);
+  await ensureUser(
+    process.env.SEED_ADMIN_EMAIL ?? 'admin@lms.local',
+    'Platform Admin',
+    adminPassword,
+    [Role.ADMIN],
+  );
 
   if (!isProduction) {
     // Two teachers so teacher scoping (#14, #116) can be exercised locally and in e2e tests.
     const teacherPassword = process.env.SEED_TEACHER_PASSWORD ?? 'TeacherPassword123!';
-    await ensureUser('teacher.a@lms.local', teacherPassword, [Role.TEACHER]);
-    await ensureUser('teacher.b@lms.local', teacherPassword, [Role.TEACHER]);
+    await ensureUser('teacher.a@lms.local', 'Teacher A', teacherPassword, [Role.TEACHER]);
+    await ensureUser('teacher.b@lms.local', 'Teacher B', teacherPassword, [Role.TEACHER]);
   }
 
   console.log('✅ Seeding finished.');
 }
 
-async function ensureUser(email: string, password: string, roles: Role[]) {
+async function ensureUser(email: string, fullName: string, password: string, roles: Role[]) {
   let user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
     user = await prisma.user.create({
       data: {
         email,
-        passwordHash: await bcrypt.hash(password, 10),
+        fullName,
+        passwordHash: await hashPassword(password),
         isEmailVerified: true,
         status: UserStatus.ACTIVE,
       },
@@ -228,6 +234,10 @@ async function ensureUser(email: string, password: string, roles: Role[]) {
     console.log(`  - Created user: ${email}`);
   } else {
     console.log(`  - User exists: ${email}`);
+    // Backfill only: users created before full_name existed. Never overwrites a real name.
+    if (!user.fullName) {
+      await prisma.user.update({ where: { id: user.id }, data: { fullName } });
+    }
   }
 
   for (const role of roles) {
