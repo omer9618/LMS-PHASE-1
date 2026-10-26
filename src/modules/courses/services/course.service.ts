@@ -5,8 +5,8 @@ import { adminScope, teacherScope, TeacherScope } from '../../../common/auth/sco
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
 import { TransactionService } from '../../../prisma/transaction.service';
+import { AuditService } from '../../audit/services/audit.service';
 import { ReferenceDataService } from '../../reference-data/services/reference-data.service';
-import { AuditLogDao } from '../dao/audit-log.dao';
 import { CourseDao, CourseRecord, CourseUpdateData } from '../dao/course.dao';
 import {
   COURSE_TRANSITIONS,
@@ -44,7 +44,7 @@ export const COURSE_AUDIT_ACTIONS = {
 export class CourseService {
   constructor(
     private readonly courseDao: CourseDao,
-    private readonly auditLogDao: AuditLogDao,
+    private readonly audit: AuditService,
     private readonly referenceData: ReferenceDataService,
     private readonly transactions: TransactionService,
   ) {}
@@ -130,7 +130,7 @@ export class CourseService {
         tx,
       );
       if (!updated) throw staleCourse(course);
-      await this.auditLogDao.createAuditEntry(
+      await this.audit.record(
         {
           actorUserId: admin.id,
           action: COURSE_AUDIT_ACTIONS.PRICE,
@@ -204,27 +204,18 @@ export class CourseService {
    */
   private async toViews(courses: CourseRecord[]): Promise<CourseView[]> {
     const rejectedIds = courses.filter((c) => c.status === CourseStatus.REJECTED).map((c) => c.id);
-    const reasons = new Map<string, string>();
+    if (rejectedIds.length === 0) return courses.map((c) => ({ ...c, rejectionReason: null }));
 
-    if (rejectedIds.length > 0) {
-      const entries = await this.auditLogDao.getAuditEntriesBy({
-        entityType: 'course',
-        action: COURSE_AUDIT_ACTIONS.REJECT,
-        entityId: { in: rejectedIds },
-      });
-      // Newest first: if a course were ever rejected twice, the latest reason wins.
-      for (const entry of entries) {
-        const reason = (entry.details as { reason?: unknown } | null)?.reason;
-        if (entry.entityId && typeof reason === 'string' && !reasons.has(entry.entityId)) {
-          reasons.set(entry.entityId, reason);
-        }
-      }
-    }
+    const rejections = await this.audit.latestFor(
+      'course',
+      COURSE_AUDIT_ACTIONS.REJECT,
+      rejectedIds,
+    );
 
-    return courses.map((course) => ({
-      ...course,
-      rejectionReason: reasons.get(course.id) ?? null,
-    }));
+    return courses.map((course) => {
+      const reason = (rejections.get(course.id)?.details as { reason?: unknown } | null)?.reason;
+      return { ...course, rejectionReason: typeof reason === 'string' ? reason : null };
+    });
   }
 
   /** Not-found and not-yours look identical, so other teachers' course ids are not revealed. */
@@ -260,7 +251,7 @@ export class CourseService {
         tx,
       );
       if (!updated) throw staleCourse(course);
-      await this.auditLogDao.createAuditEntry(
+      await this.audit.record(
         {
           actorUserId,
           action: COURSE_AUDIT_ACTIONS[action],

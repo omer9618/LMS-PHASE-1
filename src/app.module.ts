@@ -7,8 +7,10 @@ import { buildLoggerParams } from './common/logging/logger.config';
 import { ConfigModule, ENV } from './config/config.module';
 import type { Env } from './config/env.schema';
 import { HealthModule } from './health/health.module';
+import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CoursesModule } from './modules/courses/courses.module';
+import { PlatformSettingsModule } from './modules/platform-settings/platform-settings.module';
 import { ReferenceDataModule } from './modules/reference-data/reference-data.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -19,6 +21,8 @@ import { PrismaModule } from './prisma/prisma.module';
     PrismaModule,
     HealthModule,
     AuthModule,
+    AuditModule,
+    PlatformSettingsModule,
     ReferenceDataModule,
     CoursesModule,
   ],
