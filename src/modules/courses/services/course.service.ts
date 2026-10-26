@@ -26,6 +26,9 @@ import type {
   SubmitCourseInput,
 } from '../schemas/course.schema';
 
+/** What course endpoints return. Controllers import it from here, never from the DAO. */
+export type { CourseRecord };
+
 /** audit_log.action values written by this service. */
 export const COURSE_AUDIT_ACTIONS = {
   SUBMIT: 'COURSE_SUBMITTED',

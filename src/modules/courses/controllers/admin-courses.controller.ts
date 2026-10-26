@@ -4,7 +4,6 @@ import type { AuthUser } from '../../../common/auth/auth-user';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
-import type { CourseRecord } from '../dao/course.dao';
 import {
   CourseIdParams,
   courseIdParamsSchema,
@@ -15,7 +14,7 @@ import {
   SetPricingInput,
   setPricingSchema,
 } from '../schemas/course.schema';
-import { CourseService } from '../services/course.service';
+import { CourseRecord, CourseService } from '../services/course.service';
 
 /** Admin review queue (#28) and pricing (#29). */
 @Roles([Role.ADMIN])

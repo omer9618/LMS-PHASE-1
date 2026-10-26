@@ -4,7 +4,6 @@ import type { AuthUser } from '../../../common/auth/auth-user';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
-import type { CourseRecord } from '../dao/course.dao';
 import {
   CourseIdParams,
   courseIdParamsSchema,
@@ -15,7 +14,7 @@ import {
   SubmitCourseInput,
   submitCourseSchema,
 } from '../schemas/course.schema';
-import { CourseService } from '../services/course.service';
+import { CourseRecord, CourseService } from '../services/course.service';
 
 /** A teacher's own courses. Scoping to the caller happens in the service/DAO, not here. */
 @Roles([Role.TEACHER])
