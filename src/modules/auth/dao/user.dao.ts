@@ -84,8 +84,11 @@ export class UserDao {
     return count === 1;
   }
 
-  getAdminUserBy(where: Prisma.UserWhereUniqueInput): Promise<AdminUserRecord | null> {
-    return this.prisma.user.findUnique({ where, select: adminUserSelect });
+  getAdminUserBy(
+    where: Prisma.UserWhereUniqueInput,
+    tx?: TransactionClient,
+  ): Promise<AdminUserRecord | null> {
+    return (tx ?? this.prisma).user.findUnique({ where, select: adminUserSelect });
   }
 
   getAdminUsersBy(

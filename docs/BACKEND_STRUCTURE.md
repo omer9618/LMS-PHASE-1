@@ -167,6 +167,17 @@ Every route gets the default per-IP limit. Public or brute-forceable routes add 
 
 Values admins can change without a deploy (thresholds, windows) live in `platform_settings`. They're defined in `platform-settings/domain/settings.rules.ts` with a Zod schema, default and description. Read them with `PlatformSettingsService.get('ORDER_EXPIRY_WINDOW_HOURS')`, which returns a typed value. Never hard-code a value that a setting covers.
 
+## Scheduled jobs
+
+Jobs use `@nestjs/schedule` (no queue, no Redis). A job is an `@Injectable()` class in `modules/<module>/jobs/`, registered as a provider. Its `@Cron(...)` method:
+
+- calls one service method, so the logic is testable and can also be triggered by an admin endpoint
+- catches and logs its own errors; a job must never crash the process
+- passes `actorUserId: null` to audit entries
+- runs in UTC (`timeZone: 'UTC'`)
+
+`JOBS_ENABLED=false` (the e2e suite) leaves `ScheduleModule` out, so no cron fires during tests. Tests call the service method directly.
+
 ## Request context
 
 Services never see `Request`, but some cross-cutting code needs the caller's IP or user agent (audit entries, sessions). `RequestContext.get()` (`common/context/request-context.ts`) returns them, backed by AsyncLocalStorage. Behind the reverse proxy, set `TRUST_PROXY_HOPS` so `req.ip` is the real client.

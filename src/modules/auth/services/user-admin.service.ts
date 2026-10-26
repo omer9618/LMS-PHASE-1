@@ -133,8 +133,8 @@ export class UserAdminService {
     tx?: TransactionClient,
   ): Promise<AdminUserView> {
     adminScope(admin);
-    const run = async (t: TransactionClient) => {
-      const target = await this.loadUser(userId);
+    const run = async (t: TransactionClient): Promise<AdminUserView> => {
+      const target = await this.loadUser(userId, t);
       const activeAdmins = await this.countActiveAdmins(t);
       const to = decideStatusChange(admin.id, toTarget(target), action, activeAdmins);
       await this.userDao.updateUser(userId, { status: to }, t);
@@ -149,9 +149,10 @@ export class UserAdminService {
         },
         t,
       );
+      // Read back inside the same transaction: the caller's may not have committed yet.
+      return toAdminView(await this.loadUser(userId, t));
     };
-    await (tx ? run(tx) : this.transactions.run(run));
-    return this.getUser(admin, userId);
+    return tx ? run(tx) : this.transactions.run(run);
   }
 
   async grantRole(admin: AuthUser, userId: string, role: Role): Promise<AdminUserView> {
@@ -194,8 +195,8 @@ export class UserAdminService {
     return this.getUser(admin, userId);
   }
 
-  private async loadUser(userId: string): Promise<AdminUserRecord> {
-    const user = await this.userDao.getAdminUserBy({ id: userId });
+  private async loadUser(userId: string, tx?: TransactionClient): Promise<AdminUserRecord> {
+    const user = await this.userDao.getAdminUserBy({ id: userId }, tx);
     if (!user) throw new AppException(ErrorCode.NOT_FOUND, { entity: 'user', id: userId });
     return user;
   }
