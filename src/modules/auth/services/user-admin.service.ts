@@ -70,6 +70,13 @@ export class UserAdminService {
     return toAdminView(await this.loadUser(userId));
   }
 
+  /** Exact, case-insensitive (citext) lookup; null if no account has this email. */
+  async findUserByEmail(admin: AuthUser, email: string): Promise<AdminUserView | null> {
+    adminScope(admin);
+    const user = await this.userDao.getAdminUserBy({ email });
+    return user ? toAdminView(user) : null;
+  }
+
   /**
    * #15/#21: creates an ADMIN and/or TEACHER account. The admin never chooses the password: the
    * new user receives a single-use link to set one.

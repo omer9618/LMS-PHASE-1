@@ -35,6 +35,8 @@ export enum ErrorCode {
 
   // Content and enrollment
   ENROLLMENT_REQUIRED = 'ENROLLMENT_REQUIRED',
+  ENROLLMENT_EXPIRED = 'ENROLLMENT_EXPIRED',
+  ENROLLMENT_REFUSED = 'ENROLLMENT_REFUSED',
   VIDEO_NOT_READY = 'VIDEO_NOT_READY',
 }
 
@@ -85,6 +87,11 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
     message: 'The course cannot be changed in its current state',
   },
   [ErrorCode.ENROLLMENT_REQUIRED]: { status: 403, message: 'Enrol in this course to access it' },
+  [ErrorCode.ENROLLMENT_EXPIRED]: {
+    status: 403,
+    message: 'Your access to this course has ended. Renew it to continue.',
+  },
+  [ErrorCode.ENROLLMENT_REFUSED]: { status: 409, message: 'You cannot enrol in this course' },
   [ErrorCode.VIDEO_NOT_READY]: { status: 409, message: 'This video is still processing' },
   [ErrorCode.COURSE_INCOMPLETE]: { status: 422, message: 'The course is not ready to submit' },
   [ErrorCode.COURSE_NOT_PRICEABLE]: {
