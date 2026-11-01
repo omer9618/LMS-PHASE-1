@@ -9,13 +9,14 @@ import {
   StudentOrdersController,
 } from './controllers/orders.controller';
 import { OrderDao } from './dao/order.dao';
+import { OrderExpiryJob } from './jobs/order-expiry.job';
 import { OrderService } from './services/order.service';
 
 /** Orders and cart (#54-#62). */
 @Module({
   imports: [AuditModule, CoursesModule, EnrollmentModule, PlatformSettingsModule],
   controllers: [OrdersController, StudentOrdersController, AdminOrdersController],
-  providers: [OrderService, OrderDao],
+  providers: [OrderService, OrderDao, OrderExpiryJob],
   exports: [OrderService],
 })
 export class OrdersModule {}

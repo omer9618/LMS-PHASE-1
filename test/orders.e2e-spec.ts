@@ -1,6 +1,8 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { hashPassword } from '../src/modules/auth/services/passwords';
+import { OrderExpiryJob } from '../src/modules/orders/jobs/order-expiry.job';
+import { OrderService } from '../src/modules/orders/services/order.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { loginAs, SEEDED } from './utils/auth';
 import { classification, Classification, createCourse } from './utils/courses';
@@ -602,6 +604,93 @@ describe('Orders and Cart (#54, #55, #56)', () => {
           nextStepMessage: expect.stringContaining('administrator is verifying'),
         },
       });
+    });
+  });
+  describe('Order expiry job (#61)', () => {
+    it('lapses overdue PENDING orders, records an ORDER_LAPSED audit entry, emails the student, and leaves PROOF_SUBMITTED orders untouched', async () => {
+      const courseId = await publishPaidCourse(teacherA, 'Expiry Window Course', '190000', 2000);
+      const studentPending = await newStudent(true);
+      const studentWithProof = await newStudent(true);
+
+      const pendingOrderRes = await http()
+        .post('/orders')
+        .set('Cookie', studentPending.cookie)
+        .send({ courseIds: [courseId] })
+        .expect(201);
+      const pendingOrderId = pendingOrderRes.body.data.id as string;
+      const pendingOrderRef = pendingOrderRes.body.data.paymentReference as string;
+
+      const proofOrderRes = await http()
+        .post('/orders')
+        .set('Cookie', studentWithProof.cookie)
+        .send({ courseIds: [courseId] })
+        .expect(201);
+      const proofOrderId = proofOrderRes.body.data.id as string;
+
+      // Student 2 submits payment proof before the expiry window passes
+      await http()
+        .post(`/orders/${proofOrderId}/proofs`)
+        .set('Cookie', studentWithProof.cookie)
+        .send({ transactionId: 'EXPIRY-SAFE-TXN-' + String(Date.now()) })
+        .expect(201);
+
+      // Move both orders' expiresAt into the past
+      const past = new Date(Date.now() - 60 * 60 * 1000);
+      await prisma.order.updateMany({
+        where: { id: { in: [pendingOrderId, proofOrderId] } },
+        data: { expiresAt: past },
+      });
+
+      // Run the scheduled OrderExpiryJob
+      const expiryJob = app.get(OrderExpiryJob);
+      await expiryJob.run();
+
+      // Overdue PENDING order is now LAPSED
+      const lapsedView = await http()
+        .get(`/me/orders/${pendingOrderId}`)
+        .set('Cookie', studentPending.cookie)
+        .expect(200);
+      expect(lapsedView.body.data.status).toBe('LAPSED');
+      expect(lapsedView.body.data.guidance).toMatchObject({
+        statusLabel: 'Order Expired',
+        actionRequired: 'NONE',
+        canSubmitProof: false,
+      });
+
+      // Student was notified via ORDER_LAPSED email
+      const lapsedEmail = mailbox(app).lastTo(studentPending.email, 'ORDER_LAPSED');
+      expect(lapsedEmail).toBeDefined();
+      expect(lapsedEmail?.text).toContain(pendingOrderRef);
+
+      // System ORDER_LAPSED audit entry recorded with actorUserId: null
+      const auditLogs = await http()
+        .get(`/admin/audit-log?entityType=order&entityId=${pendingOrderId}&action=ORDER_LAPSED`)
+        .set('Cookie', admin)
+        .expect(200);
+      expect(auditLogs.body.data.items).toEqual([
+        expect.objectContaining({
+          actorUserId: null,
+          action: 'ORDER_LAPSED',
+          entityType: 'order',
+          entityId: pendingOrderId,
+          details: expect.objectContaining({
+            from: 'PENDING',
+            to: 'LAPSED',
+            paymentReference: pendingOrderRef,
+          }),
+        }),
+      ]);
+
+      // Order with submitted proof remains PROOF_SUBMITTED and is never lapsed by timer
+      const proofOrderView = await http()
+        .get(`/me/orders/${proofOrderId}`)
+        .set('Cookie', studentWithProof.cookie)
+        .expect(200);
+      expect(proofOrderView.body.data.status).toBe('PROOF_SUBMITTED');
+
+      // Re-running expireDueOrders is idempotent (0 newly lapsed)
+      const orderService = app.get(OrderService);
+      expect(await orderService.expireDueOrders()).toBe(0);
     });
   });
 });
