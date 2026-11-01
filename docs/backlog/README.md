@@ -1,5 +1,9 @@
 # Phase 1 backlog — import instructions
 
+> The import has already been run: the 134 issues live on GitHub. This folder is kept as the record of how they were created. Run the script from this folder (`cd docs/backlog`).
+>
+> **Issue numbers:** GitHub issue numbers match the CSV row numbers for #2–#115. #116 is a duplicate of #115, so every row after that is one higher on GitHub (access-control tests are #117, Blocked-Client are #125–#134). #1 is a placeholder.
+
 ## Files
 
 | File                 | Purpose                                                   |
