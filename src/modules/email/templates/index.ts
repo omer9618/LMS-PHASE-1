@@ -98,6 +98,28 @@ export const EMAIL_TEMPLATES = {
       ],
       action: { label: 'Submit payment proof', url: data.orderUrl },
     }),
+
+  ORDER_LAPSED: (data: {
+    paymentReference: string;
+    totalMinor: string;
+    currency: string;
+    expiredAt: string;
+    catalogueUrl: string;
+  }) =>
+    renderEmail({
+      subject: `Order ${data.paymentReference} has expired`,
+      heading: 'Your order has expired',
+      paragraphs: [
+        `Your pending order (${data.paymentReference}) expired because no proof of payment was received before the deadline.`,
+        'If you still wish to enrol in these courses, please place a new order from the catalogue.',
+      ],
+      details: [
+        ['Payment reference', data.paymentReference],
+        ['Amount (minor units)', `${data.currency} ${data.totalMinor}`],
+        ['Expired at (UTC)', data.expiredAt],
+      ],
+      action: { label: 'Browse courses', url: data.catalogueUrl },
+    }),
 } satisfies Record<string, (data: never) => RenderedTemplate>;
 
 export type EmailTemplateName = keyof typeof EMAIL_TEMPLATES;
