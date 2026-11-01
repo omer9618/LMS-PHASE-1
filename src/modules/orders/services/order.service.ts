@@ -351,6 +351,53 @@ export class OrderService {
   }
 
   /**
+   * #61: sweeps PENDING orders whose expiry window has passed (`expiresAt <= now`) to `LAPSED`,
+   * writes an `ORDER_LAPSED` audit entry (`actorUserId: null`), and emails each student.
+   * Orders in `PROOF_SUBMITTED` or later states are never lapsed by timer.
+   */
+  async expireDueOrders(now: Date = new Date()): Promise<number> {
+    const dueOrders = await this.orderDao.getOrdersBy({
+      status: OrderStatus.PENDING,
+      expiresAt: { lte: now },
+    });
+
+    let lapsedCount = 0;
+    for (const order of dueOrders) {
+      const transitioned = await this.transactions.run(async (tx) => {
+        const current = await this.orderDao.getOrderBy({ id: order.id }, tx);
+        if (!current || current.status !== OrderStatus.PENDING) return false;
+        if (!current.expiresAt || current.expiresAt > now) return false;
+
+        await this.applyOrderTransition(
+          current,
+          'LAPSE',
+          null,
+          {
+            paymentReference: current.paymentReference,
+            expiresAt: current.expiresAt.toISOString(),
+          },
+          now,
+          tx,
+        );
+        return true;
+      });
+
+      if (transitioned) {
+        lapsedCount += 1;
+        await this.email.send(order.student.email, 'ORDER_LAPSED', {
+          paymentReference: order.paymentReference,
+          totalMinor: order.totalMinor.toString(),
+          currency: order.currency,
+          expiredAt: now.toISOString(),
+          catalogueUrl: this.email.appUrl('/courses'),
+        });
+      }
+    }
+
+    return lapsedCount;
+  }
+
+  /**
    * #57: validates and applies a state transition on an order inside a caller-owned transaction,
    * recording the actor, timestamp, and from/to state in `audit_log`.
    */
