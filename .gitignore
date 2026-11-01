@@ -18,9 +18,9 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Temp files
-remaining_backlog.csv
-add_module_options.py
+# Test and tool output
+coverage/
+*.log
 
 # Local file storage (STORAGE_DRIVER=local)
 .storage/
