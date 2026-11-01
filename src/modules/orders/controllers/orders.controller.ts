@@ -27,14 +27,14 @@ import {
   submitPaymentProofSchema,
 } from '../schemas/order.schema';
 import {
-  CartPreviewView,
   AdminOrderDetailView,
+  CartPreviewView,
   OrderService,
   StudentOrderView,
   SubmittedPaymentProofView,
 } from '../services/order.service';
 
-/** #54, #55, #58: Student cart preview, order creation, and payment proof submission. */
+/** #54, #55, #58, #60: Student cart preview, order creation, status screen, and payment proof submission. */
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly orderService: OrderService) {}
@@ -56,6 +56,21 @@ export class OrdersController {
     return this.orderService.createOrder(user, body);
   }
 
+  /** #60: list the student's orders with current status and next-step guidance. */
+  @Get()
+  listOrders(@CurrentUser() user: AuthUser): Promise<StudentOrderView[]> {
+    return this.orderService.listStudentOrders(user);
+  }
+
+  /** #60: student order status screen showing status, submitted proofs, and what is expected next. */
+  @Get(':orderId')
+  getOrder(
+    @CurrentUser() user: AuthUser,
+    @Param(new ZodValidationPipe(orderParamsSchema)) params: OrderParams,
+  ): Promise<StudentOrderView> {
+    return this.orderService.getStudentOrder(user, params.orderId);
+  }
+
   /** #58: submit a proof of payment (required transactionId + optional screenshot/PDF). */
   @Post(':orderId/proofs')
   @UseInterceptors(
@@ -75,6 +90,25 @@ export class OrdersController {
     @UploadedFile() proof: Express.Multer.File | undefined,
   ): Promise<SubmittedPaymentProofView> {
     return this.orderService.submitPaymentProof(user, params.orderId, body, proof);
+  }
+}
+
+/** #60: `/me/orders` aliases for the student order status screen. */
+@Controller('me/orders')
+export class StudentOrdersController {
+  constructor(private readonly orderService: OrderService) {}
+
+  @Get()
+  listOrders(@CurrentUser() user: AuthUser): Promise<StudentOrderView[]> {
+    return this.orderService.listStudentOrders(user);
+  }
+
+  @Get(':orderId')
+  getOrder(
+    @CurrentUser() user: AuthUser,
+    @Param(new ZodValidationPipe(orderParamsSchema)) params: OrderParams,
+  ): Promise<StudentOrderView> {
+    return this.orderService.getStudentOrder(user, params.orderId);
   }
 }
 
