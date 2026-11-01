@@ -17,6 +17,15 @@ const orderItemSelect = {
   teacher: { select: { id: true, email: true, fullName: true } },
 } satisfies Prisma.OrderItemSelect;
 
+const paymentProofSelect = {
+  id: true,
+  orderId: true,
+  transactionId: true,
+  proofFileUrl: true,
+  amountClaimedMinor: true,
+  submittedAt: true,
+} satisfies Prisma.PaymentProofSelect;
+
 const orderSelect = {
   id: true,
   studentId: true,
@@ -32,10 +41,17 @@ const orderSelect = {
     select: orderItemSelect,
     orderBy: { id: 'asc' as const },
   },
+  proofs: {
+    select: paymentProofSelect,
+    orderBy: { submittedAt: 'asc' as const },
+  },
 } satisfies Prisma.OrderSelect;
 
 export type OrderRecord = Prisma.OrderGetPayload<{ select: typeof orderSelect }>;
 export type OrderItemRecord = Prisma.OrderItemGetPayload<{ select: typeof orderItemSelect }>;
+export type PaymentProofRecord = Prisma.PaymentProofGetPayload<{
+  select: typeof paymentProofSelect;
+}>;
 
 export interface CreateOrderData {
   studentId: string;
@@ -52,6 +68,13 @@ export interface CreateOrderData {
     commissionMinor: bigint;
     netTeacherMinor: bigint;
   }>;
+}
+
+export interface CreatePaymentProofData {
+  orderId: string;
+  transactionId: string;
+  proofFileUrl?: string | null;
+  amountClaimedMinor?: bigint | null;
 }
 
 @Injectable()
@@ -93,6 +116,33 @@ export class OrderDao {
       data,
     });
     return res.count === 1;
+  }
+
+  /** #58: persists a student's payment proof (required transactionId + optional proof file key). */
+  createPaymentProof(
+    data: CreatePaymentProofData,
+    tx?: TransactionClient,
+  ): Promise<PaymentProofRecord> {
+    return (tx ?? this.prisma).paymentProof.create({
+      data: {
+        orderId: data.orderId,
+        transactionId: data.transactionId,
+        proofFileUrl: data.proofFileUrl ?? null,
+        amountClaimedMinor: data.amountClaimedMinor ?? null,
+      },
+      select: paymentProofSelect,
+    });
+  }
+
+  getPaymentProofsBy(
+    where: Prisma.PaymentProofWhereInput,
+    tx?: TransactionClient,
+  ): Promise<PaymentProofRecord[]> {
+    return (tx ?? this.prisma).paymentProof.findMany({
+      where,
+      select: paymentProofSelect,
+      orderBy: { submittedAt: 'asc' },
+    });
   }
 
   /**

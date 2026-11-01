@@ -356,4 +356,101 @@ describe('Orders and Cart (#54, #55, #56)', () => {
       ]);
     });
   });
+  describe('Student proof of payment submission (#58)', () => {
+    // Minimal valid PNG header (8-byte PNG signature + padding)
+    const pngBuffer = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(32, 0),
+    ]);
+
+    it('requires transactionId, supports optional file upload and multiple proofs per order, and transitions to PROOF_SUBMITTED', async () => {
+      const courseId = await publishPaidCourse(teacherA, 'Proof Submission Course', '250000', 2000);
+      const student = await newStudent(true);
+      const otherStudent = await newStudent(true);
+
+      const created = await http()
+        .post('/orders')
+        .set('Cookie', student.cookie)
+        .send({ courseIds: [courseId] })
+        .expect(201);
+      const orderId = created.body.data.id as string;
+
+      // Missing transactionId is rejected
+      await http()
+        .post(`/orders/${orderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .send({})
+        .expect(400);
+
+      // Another student cannot submit proof on this order
+      await http()
+        .post(`/orders/${orderId}/proofs`)
+        .set('Cookie', otherStudent.cookie)
+        .send({ transactionId: 'TXN-OTHER-001' })
+        .expect(404);
+
+      // Proof 1: transactionId only (no file upload), transitions order PENDING -> PROOF_SUBMITTED
+      const proof1 = await http()
+        .post(`/orders/${orderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .send({ transactionId: 'MEZN-20261102-001', amountClaimedMinor: '150000' })
+        .expect(201);
+
+      expect(proof1.body.data).toMatchObject({
+        orderId,
+        orderStatus: 'PROOF_SUBMITTED',
+        proof: {
+          id: expect.any(String),
+          transactionId: 'MEZN-20261102-001',
+          amountClaimedMinor: '150000',
+          hasProofFile: false,
+        },
+        proofs: [
+          expect.objectContaining({
+            transactionId: 'MEZN-20261102-001',
+            amountClaimedMinor: '150000',
+            hasProofFile: false,
+          }),
+        ],
+      });
+
+      // Proof 2: multipart form with optional PNG screenshot (e.g. top-up transfer), keeps PROOF_SUBMITTED
+      const proof2 = await http()
+        .post(`/orders/${orderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .field('transactionId', 'MEZN-20261102-002')
+        .field('amountClaimedMinor', '100000')
+        .attach('proof', pngBuffer, { filename: 'receipt.png', contentType: 'image/png' })
+        .expect(201);
+
+      expect(proof2.body.data.orderStatus).toBe('PROOF_SUBMITTED');
+      expect(proof2.body.data.proof).toMatchObject({
+        transactionId: 'MEZN-20261102-002',
+        amountClaimedMinor: '100000',
+        hasProofFile: true,
+      });
+      expect(proof2.body.data.proofs).toHaveLength(2);
+
+      // Admin detail includes both proofs and stored key
+      const adminDetail = await http()
+        .get(`/admin/orders/${orderId}`)
+        .set('Cookie', admin)
+        .expect(200);
+      expect(adminDetail.body.data.status).toBe('PROOF_SUBMITTED');
+      expect(adminDetail.body.data.proofs).toHaveLength(2);
+      expect(adminDetail.body.data.proofs[1].proofFileUrl).toMatch(/^payment-proof\/.+\.png$/);
+
+      // Terminal orders (e.g. LAPSED) reject proof submission via state machine (#57)
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { status: 'LAPSED' },
+      });
+      const rejected = await http()
+        .post(`/orders/${orderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .send({ transactionId: 'MEZN-20261102-003' })
+        .expect(409);
+      expect(rejected.body.error.name).toBe('INVALID_STATE_TRANSITION');
+    });
+  });
 });
