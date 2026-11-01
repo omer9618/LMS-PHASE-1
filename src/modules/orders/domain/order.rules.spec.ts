@@ -6,6 +6,7 @@ import {
   buildPaymentInstructions,
   computeLineSplit,
   computeOrderExpiry,
+  describeStudentOrderNextStep,
   EmailNotVerifiedError,
   formatPaymentReference,
   InvalidOrderTransitionError,
@@ -282,6 +283,69 @@ describe('Order domain rules (#54, #55, #57)', () => {
         conflictingPaymentReferences: ['LMS-20261102-AAAAAA'],
         message: expect.stringContaining('LMS-20261102-AAAAAA'),
       });
+    });
+  });
+  describe('student order status guidance (#60)', () => {
+    const expiresAt = new Date('2026-11-03T00:00:00.000Z');
+
+    it('instructs the student to transfer funds and submit proof when PENDING with no proofs', () => {
+      const guidance = describeStudentOrderNextStep({
+        status: 'PENDING',
+        paymentReference: 'LMS-20261102-ABCDEF',
+        totalMinor: 250000n,
+        currency: 'PKR',
+        expiresAt,
+        proofCount: 0,
+      });
+      expect(guidance).toEqual({
+        statusLabel: 'Awaiting Payment & Proof',
+        actionRequired: 'SUBMIT_PROOF',
+        canSubmitProof: true,
+        nextStepMessage: expect.stringContaining('LMS-20261102-ABCDEF'),
+      });
+    });
+
+    it('instructs the student to submit top-up proof when PENDING with prior proofs', () => {
+      const guidance = describeStudentOrderNextStep({
+        status: 'PENDING',
+        paymentReference: 'LMS-20261102-ABCDEF',
+        totalMinor: 250000n,
+        currency: 'PKR',
+        expiresAt,
+        proofCount: 1,
+      });
+      expect(guidance.statusLabel).toBe('Additional Payment Required');
+      expect(guidance.actionRequired).toBe('SUBMIT_PROOF');
+      expect(guidance.canSubmitProof).toBe(true);
+    });
+
+    it('explains that admin verification is in progress when PROOF_SUBMITTED', () => {
+      const guidance = describeStudentOrderNextStep({
+        status: 'PROOF_SUBMITTED',
+        paymentReference: 'LMS-20261102-ABCDEF',
+        totalMinor: 250000n,
+        currency: 'PKR',
+        expiresAt,
+        proofCount: 1,
+      });
+      expect(guidance.statusLabel).toBe('Payment Proof Under Review');
+      expect(guidance.actionRequired).toBe('AWAIT_ADMIN_VERIFICATION');
+      expect(guidance.canSubmitProof).toBe(true);
+    });
+
+    it('marks VERIFIED, REJECTED, LAPSED, and REFUNDED orders as requiring no further student action', () => {
+      for (const status of ['VERIFIED', 'REJECTED', 'LAPSED', 'REFUNDED'] as const) {
+        const guidance = describeStudentOrderNextStep({
+          status,
+          paymentReference: 'LMS-20261102-ABCDEF',
+          totalMinor: 250000n,
+          currency: 'PKR',
+          expiresAt,
+          proofCount: 1,
+        });
+        expect(guidance.actionRequired).toBe('NONE');
+        expect(guidance.canSubmitProof).toBe(false);
+      }
     });
   });
 });
