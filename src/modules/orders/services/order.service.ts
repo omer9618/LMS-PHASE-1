@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { OrderStatus, UserStatus } from '@prisma/client';
 import type { AuthUser } from '../../../common/auth/auth-user';
+import { adminScope } from '../../../common/auth/scope';
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
 import type { TransactionClient } from '../../../prisma/prisma.types';
@@ -10,7 +11,7 @@ import { CourseService } from '../../courses/services/course.service';
 import { EmailService } from '../../email/services/email.service';
 import { EnrollmentAccessService } from '../../enrollment/services/enrollment-access.service';
 import { PlatformSettingsService } from '../../platform-settings/services/platform-settings.service';
-import { OrderDao, OrderRecord } from '../dao/order.dao';
+import { OrderDao, OrderItemRecord, OrderRecord } from '../dao/order.dao';
 import {
   assertEmailVerifiedForOrder,
   buildCartQuote,
@@ -22,6 +23,8 @@ import {
   PurchasableCourseFacts,
 } from '../domain/order.rules';
 import type { CartPreviewInput, CreateOrderInput } from '../schemas/order.schema';
+
+export type { OrderItemRecord, OrderRecord };
 
 export interface CartPreviewItemView {
   courseId: string;
@@ -63,8 +66,8 @@ export interface StudentOrderView {
 }
 
 /**
- * Orders and cart (#54, #55). Validates multi-teacher carts, creates orders with unique payment
- * references, and returns bank transfer instructions.
+ * Orders and cart (#54, #55, #56). Validates multi-teacher carts, creates orders with unique
+ * payment references, and persists frozen price and commission snapshots on every line item.
  */
 @Injectable()
 export class OrderService {
@@ -99,8 +102,9 @@ export class OrderService {
   }
 
   /**
-   * #55: creates an order with a unique payment reference, sets expiry from platform settings,
-   * returns bank details + amount + currency + reference, and emails transfer instructions.
+   * #55, #56: creates an order with a unique payment reference, stores frozen price, commission
+   * rate, commission amount and net teacher earning snapshots on each line item, and emails
+   * transfer instructions.
    */
   async createOrder(user: AuthUser, input: CreateOrderInput): Promise<StudentOrderView> {
     assertEmailVerifiedForOrder(user.isEmailVerified);
@@ -146,6 +150,14 @@ export class OrderService {
     });
 
     return view;
+  }
+
+  /** #56: admin view of an order including frozen line-item snapshots (commission bps, net, etc.). */
+  async getOrderForAdmin(admin: AuthUser, orderId: string): Promise<OrderRecord> {
+    adminScope(admin);
+    const order = await this.orderDao.getOrderBy({ id: orderId });
+    if (!order) throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
+    return order;
   }
 
   /** Computes the full cart quote (including frozen commission splits for order creation). */

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { OrderStatus, Prisma } from '@prisma/client';
+import { scopeWhere, TeacherScope } from '../../../common/auth/scope';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { TransactionClient } from '../../../prisma/prisma.types';
 
@@ -13,7 +14,7 @@ const orderItemSelect = {
   commissionMinor: true,
   netTeacherMinor: true,
   course: { select: { id: true, title: true } },
-  teacher: { select: { id: true, fullName: true } },
+  teacher: { select: { id: true, email: true, fullName: true } },
 } satisfies Prisma.OrderItemSelect;
 
 const orderSelect = {
@@ -26,6 +27,7 @@ const orderSelect = {
   expiresAt: true,
   createdAt: true,
   verifiedAt: true,
+  student: { select: { id: true, email: true, fullName: true } },
   items: {
     select: orderItemSelect,
     orderBy: { id: 'asc' as const },
@@ -73,6 +75,22 @@ export class OrderDao {
     return (tx ?? this.prisma).order.findFirst({
       where,
       select: orderSelect,
+    });
+  }
+
+  /**
+   * #56: teacher-scoped read of order line items with their frozen price, commission rate,
+   * commission amount, and net teacher earning snapshots.
+   */
+  getOrderItemsBy(
+    scope: TeacherScope,
+    where: Prisma.OrderItemWhereInput,
+    tx?: TransactionClient,
+  ): Promise<OrderItemRecord[]> {
+    return (tx ?? this.prisma).orderItem.findMany({
+      where: { AND: [where, scopeWhere(scope)] },
+      select: orderItemSelect,
+      orderBy: { id: 'asc' },
     });
   }
 }
