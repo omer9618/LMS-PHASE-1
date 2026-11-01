@@ -4,12 +4,12 @@ import { hashPassword } from '../src/modules/auth/services/passwords';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { loginAs, SEEDED } from './utils/auth';
 import { classification, Classification, createCourse } from './utils/courses';
-import { uniqueEmail } from './utils/email';
+import { mailbox, uniqueEmail } from './utils/email';
 import { createTestApp } from './utils/test-app';
 
 const PASSWORD = 'student passphrase for orders';
 
-describe('Orders and Cart (#54)', () => {
+describe('Orders and Cart (#54, #55)', () => {
   let app: NestExpressApplication;
   let teacherA: string;
   let teacherB: string;
@@ -127,7 +127,6 @@ describe('Orders and Cart (#54)', () => {
       const paidCourse = await publishPaidCourse(teacherA, 'Paid Chemistry Full', '180000', 2000);
       const student = await newStudent();
 
-      // Free course in cart -> refused
       const freeRes = await http()
         .post('/orders/cart/preview')
         .set('Cookie', student.cookie)
@@ -138,7 +137,6 @@ describe('Orders and Cart (#54)', () => {
         info: { reason: 'FREE_COURSE', courseId: freeCourse },
       });
 
-      // Teacher buying own course -> refused
       const ownRes = await http()
         .post('/orders/cart/preview')
         .set('Cookie', teacherA)
@@ -149,7 +147,6 @@ describe('Orders and Cart (#54)', () => {
         info: { reason: 'OWN_COURSE', courseId: paidCourse },
       });
 
-      // Student already actively enrolled -> refused
       await http()
         .post('/admin/enrollments')
         .set('Cookie', admin)
@@ -186,6 +183,80 @@ describe('Orders and Cart (#54)', () => {
         name: 'ORDER_REFUSED',
         info: { reason: 'CURRENCY_MISMATCH', expected: 'PKR', actual: 'USD' },
       });
+    });
+  });
+
+  describe('POST /orders (#55)', () => {
+    it('creates an order with a unique payment reference, returns bank details and amount, and emails instructions', async () => {
+      const courseA = await publishPaidCourse(teacherA, 'Order Course A', '150000', 2000);
+      const courseB = await publishPaidCourse(teacherB, 'Order Course B', '250000', 1500);
+      const student = await newStudent(true);
+
+      const first = await http()
+        .post('/orders')
+        .set('Cookie', student.cookie)
+        .send({ courseIds: [courseA, courseB] })
+        .expect(201);
+
+      expect(first.body.data).toMatchObject({
+        id: expect.any(String),
+        paymentReference: expect.stringMatching(/^LMS-\d{8}-[2-9A-HJ-NP-Z]{6}$/),
+        status: 'PENDING',
+        totalMinor: '400000',
+        currency: 'PKR',
+        createdAt: expect.any(String),
+        expiresAt: expect.any(String),
+        verifiedAt: null,
+        items: [
+          expect.objectContaining({
+            courseId: expect.any(String),
+            priceMinor: expect.any(String),
+            currency: 'PKR',
+          }),
+          expect.objectContaining({
+            courseId: expect.any(String),
+            priceMinor: expect.any(String),
+            currency: 'PKR',
+          }),
+        ],
+        paymentInstructions: {
+          bank: {
+            bankName: 'Meezan Bank',
+            accountTitle: 'LMS Education Pvt Ltd',
+            accountNumber: '01010105432101',
+            iban: 'PK36MEZN0001010105432101',
+          },
+          paymentReference: first.body.data.paymentReference,
+          amountMinor: '400000',
+          currency: 'PKR',
+          expiresAt: first.body.data.expiresAt,
+          instructions: expect.stringContaining(first.body.data.paymentReference),
+        },
+      });
+
+      const second = await http()
+        .post('/orders')
+        .set('Cookie', student.cookie)
+        .send({ courseIds: [courseA] })
+        .expect(201);
+      expect(second.body.data.paymentReference).not.toBe(first.body.data.paymentReference);
+
+      const sent = mailbox(app).lastTo(student.email, 'ORDER_CREATED');
+      expect(sent).toBeDefined();
+      expect(sent?.text).toContain(second.body.data.paymentReference);
+      expect(sent?.text).toContain('PK36MEZN0001010105432101');
+    });
+
+    it('requires a verified email address before creating a paid order (#11)', async () => {
+      const courseA = await publishPaidCourse(teacherA, 'Verified Only Course', '150000', 2000);
+      const unverified = await newStudent(false);
+
+      const res = await http()
+        .post('/orders')
+        .set('Cookie', unverified.cookie)
+        .send({ courseIds: [courseA] })
+        .expect(403);
+      expect(res.body.error.name).toBe('EMAIL_NOT_VERIFIED');
     });
   });
 });

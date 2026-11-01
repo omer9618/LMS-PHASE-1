@@ -1,9 +1,15 @@
 import {
   assertCoursePurchasable,
+  assertEmailVerifiedForOrder,
   buildCartQuote,
+  buildPaymentInstructions,
   computeLineSplit,
+  computeOrderExpiry,
+  EmailNotVerifiedError,
+  formatPaymentReference,
   OrderRefusedError,
   PurchasableCourseFacts,
+  RECEIVING_BANK_ACCOUNT,
 } from './order.rules';
 
 function course(overrides: Partial<PurchasableCourseFacts> = {}): PurchasableCourseFacts {
@@ -24,14 +30,13 @@ function course(overrides: Partial<PurchasableCourseFacts> = {}): PurchasableCou
   };
 }
 
-describe('Order domain rules (#54)', () => {
+describe('Order domain rules (#54, #55)', () => {
   describe('computeLineSplit', () => {
     it('computes commission and net teacher earning in BigInt minor units without rounding drift', () => {
       expect(computeLineSplit(150000n, 2000)).toEqual({
         commissionMinor: 30000n,
         netTeacherMinor: 120000n,
       });
-      // Odd minor unit: 999 * 15% (1500 bps) = 149 commission, 850 net (sum = 999).
       const odd = computeLineSplit(999n, 1500);
       expect(odd.commissionMinor).toBe(149n);
       expect(odd.netTeacherMinor).toBe(850n);
@@ -138,6 +143,43 @@ describe('Order domain rules (#54)', () => {
       expect(() => buildCartQuote([], [], 'student-1', new Set())).toThrow(
         expect.objectContaining({ info: expect.objectContaining({ reason: 'EMPTY_CART' }) }),
       );
+    });
+  });
+
+  describe('payment reference, expiry and bank instructions (#55)', () => {
+    it('requires a verified email address before order creation', () => {
+      expect(() => assertEmailVerifiedForOrder(false)).toThrow(EmailNotVerifiedError);
+      expect(() => assertEmailVerifiedForOrder(true)).not.toThrow();
+    });
+
+    it('formats a readable LMS-YYYYMMDD-XXXXXX payment reference using unambiguous characters', () => {
+      const now = new Date('2026-11-01T18:30:00.000Z');
+      const ref = formatPaymentReference(now, new Uint8Array([0, 1, 2, 3, 4, 5]));
+      expect(ref).toBe('LMS-20261101-234567');
+      expect(ref).toMatch(/^LMS-\d{8}-[2-9A-HJ-NP-Z]{6}$/);
+    });
+
+    it('computes the order expiry instant from the configured window in hours', () => {
+      const now = new Date('2026-11-01T00:00:00.000Z');
+      expect(computeOrderExpiry(now, 48).toISOString()).toBe('2026-11-03T00:00:00.000Z');
+    });
+
+    it('builds payment instructions with bank details, amount, currency and reference', () => {
+      const expiresAt = new Date('2026-11-03T00:00:00.000Z');
+      const instructions = buildPaymentInstructions({
+        paymentReference: 'LMS-20261101-ABCDEF',
+        totalMinor: 425000n,
+        currency: 'PKR',
+        expiresAt,
+      });
+      expect(instructions).toEqual({
+        bank: RECEIVING_BANK_ACCOUNT,
+        paymentReference: 'LMS-20261101-ABCDEF',
+        amountMinor: 425000n,
+        currency: 'PKR',
+        expiresAt,
+        instructions: expect.stringContaining('LMS-20261101-ABCDEF'),
+      });
     });
   });
 });
