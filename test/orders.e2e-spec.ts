@@ -4,6 +4,7 @@ import { hashPassword } from '../src/modules/auth/services/passwords';
 import { OrderExpiryJob } from '../src/modules/orders/jobs/order-expiry.job';
 import { OrderService } from '../src/modules/orders/services/order.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { TransactionService } from '../src/prisma/transaction.service';
 import { loginAs, SEEDED } from './utils/auth';
 import { classification, Classification, createCourse } from './utils/courses';
 import { mailbox, uniqueEmail } from './utils/email';
@@ -691,6 +692,85 @@ describe('Orders and Cart (#54, #55, #56)', () => {
       // Re-running expireDueOrders is idempotent (0 newly lapsed)
       const orderService = app.get(OrderService);
       expect(await orderService.expireDueOrders()).toBe(0);
+    });
+  });
+  describe('Receipt generation on confirmation (#62)', () => {
+    it('refuses receipt at checkout and while pending/proof-submitted, and issues receipt only after confirmation (VERIFIED)', async () => {
+      const courseId = await publishPaidCourse(teacherA, 'Receipt Course', '300000', 2000);
+      const student = await newStudent(true);
+
+      const created = await http()
+        .post('/orders')
+        .set('Cookie', student.cookie)
+        .send({ courseIds: [courseId] })
+        .expect(201);
+      const orderId = created.body.data.id as string;
+      const paymentReference = created.body.data.paymentReference as string;
+
+      // 1. At checkout (PENDING): receipt is refused with 409 ORDER_REFUSED (NOT_VERIFIED)
+      const pendingReceipt = await http()
+        .get(`/me/orders/${orderId}/receipt`)
+        .set('Cookie', student.cookie)
+        .expect(409);
+      expect(pendingReceipt.body.error.name).toBe('ORDER_REFUSED');
+
+      // 2. After proof submission (PROOF_SUBMITTED): receipt is still refused before admin confirmation
+      const txId = 'RECEIPT-TXN-' + String(Date.now());
+      await http()
+        .post(`/orders/${orderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .send({ transactionId: txId, amountClaimedMinor: '300000' })
+        .expect(201);
+
+      const proofSubmittedReceipt = await http()
+        .get(`/orders/${orderId}/receipt`)
+        .set('Cookie', student.cookie)
+        .expect(409);
+      expect(proofSubmittedReceipt.body.error.name).toBe('ORDER_REFUSED');
+
+      // 3. Transition order to VERIFIED (simulating confirmation #64 via OrderService.applyOrderTransition)
+      const orderService = app.get(OrderService);
+      const transactions = app.get(TransactionService);
+      const confirmedAt = new Date();
+      await transactions.run((tx) =>
+        orderService.applyOrderTransition(
+          { id: orderId, status: 'PROOF_SUBMITTED' },
+          'VERIFY',
+          null,
+          { transactionId: txId },
+          confirmedAt,
+          tx,
+        ),
+      );
+
+      // 4. Now VERIFIED: receipt is issued with RCT-<paymentReference>, line items, and verifiedAt timestamp
+      const receiptRes = await http()
+        .get(`/me/orders/${orderId}/receipt`)
+        .set('Cookie', student.cookie)
+        .expect(200);
+
+      expect(receiptRes.body.data).toEqual({
+        receiptNumber: `RCT-${paymentReference}`,
+        orderId,
+        paymentReference,
+        issuedAt: confirmedAt.toISOString(),
+        student: {
+          id: student.id,
+          fullName: 'Zain Buyer',
+          email: student.email,
+        },
+        items: [
+          expect.objectContaining({
+            courseId,
+            courseTitle: 'Receipt Course',
+            priceMinor: '300000',
+            currency: 'PKR',
+          }),
+        ],
+        totalMinor: '300000',
+        currency: 'PKR',
+        transactionIds: [txId],
+      });
     });
   });
 });
