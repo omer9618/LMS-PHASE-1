@@ -22,6 +22,7 @@ import {
   assertEmailVerifiedForOrder,
   buildCartQuote,
   buildDuplicateTransactionIdWarning,
+  buildOrderReceipt,
   buildPaymentInstructions,
   CartQuote,
   computeOrderExpiry,
@@ -29,6 +30,7 @@ import {
   DuplicateTransactionIdWarning,
   formatPaymentReference,
   OrderAction,
+  OrderReceipt,
   OrderTransitionResult,
   PaymentInstructions,
   PurchasableCourseFacts,
@@ -41,7 +43,7 @@ import type {
   SubmitPaymentProofInput,
 } from '../schemas/order.schema';
 
-export type { OrderItemRecord, OrderRecord, PaymentProofRecord };
+export type { OrderItemRecord, OrderReceipt, OrderRecord, PaymentProofRecord };
 
 export interface CartPreviewItemView {
   courseId: string;
@@ -235,6 +237,43 @@ export class OrderService {
       throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
     }
     return this.toStudentOrderView(order);
+  }
+
+  /**
+   * #62: returns the official receipt for an order owned by the student (or viewed by an admin).
+   * Receipts are issued only upon payment confirmation (`VERIFIED`) â€” never at checkout.
+   */
+  async getOrderReceipt(user: AuthUser, orderId: string): Promise<OrderReceipt> {
+    const isAdmin = user.roles.has('ADMIN');
+    const order = await this.orderDao.getOrderBy(
+      isAdmin ? { id: orderId } : { id: orderId, studentId: user.id },
+    );
+    if (!order) {
+      throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
+    }
+    return buildOrderReceipt({
+      id: order.id,
+      paymentReference: order.paymentReference,
+      status: order.status,
+      verifiedAt: order.verifiedAt,
+      totalMinor: order.totalMinor,
+      currency: order.currency,
+      student: {
+        id: order.student.id,
+        fullName: order.student.fullName,
+        email: order.student.email,
+      },
+      items: order.items.map((item) => ({
+        id: item.id,
+        courseId: item.courseId,
+        courseTitle: item.course.title,
+        teacherId: item.teacherId,
+        teacherName: item.teacher.fullName,
+        priceMinor: item.priceMinor,
+        currency: order.currency,
+      })),
+      transactionIds: order.proofs.map((p) => p.transactionId),
+    });
   }
 
   /**

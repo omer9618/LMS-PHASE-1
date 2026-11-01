@@ -502,3 +502,63 @@ export function describeStudentOrderNextStep(input: {
       };
   }
 }
+export interface OrderReceiptLineItem {
+  id: string;
+  courseId: string;
+  courseTitle: string;
+  teacherId: string;
+  teacherName: string | null;
+  priceMinor: bigint;
+  currency: string;
+}
+
+export interface OrderReceipt {
+  receiptNumber: string;
+  orderId: string;
+  paymentReference: string;
+  issuedAt: Date;
+  student: {
+    id: string;
+    fullName: string | null;
+    email: string;
+  };
+  items: OrderReceiptLineItem[];
+  totalMinor: bigint;
+  currency: string;
+  transactionIds: string[];
+}
+
+/**
+ * #62: issues an official receipt for an order only after payment confirmation (`VERIFIED`).
+ * Refuses unconfirmed orders so a receipt is never issued at checkout or before verification.
+ */
+export function buildOrderReceipt(order: {
+  id: string;
+  paymentReference: string;
+  status: OrderStatusValue;
+  verifiedAt: Date | null;
+  totalMinor: bigint;
+  currency: string;
+  student: { id: string; fullName: string | null; email: string };
+  items: OrderReceiptLineItem[];
+  transactionIds: readonly string[];
+}): OrderReceipt {
+  if (order.status !== 'VERIFIED' || !order.verifiedAt) {
+    throw new OrderRefusedError('A receipt is only issued after payment confirmation', {
+      orderId: order.id,
+      status: order.status,
+      reason: 'NOT_VERIFIED',
+    });
+  }
+  return {
+    receiptNumber: `RCT-${order.paymentReference}`,
+    orderId: order.id,
+    paymentReference: order.paymentReference,
+    issuedAt: order.verifiedAt,
+    student: order.student,
+    items: order.items,
+    totalMinor: order.totalMinor,
+    currency: order.currency,
+    transactionIds: [...new Set(order.transactionIds)],
+  };
+}

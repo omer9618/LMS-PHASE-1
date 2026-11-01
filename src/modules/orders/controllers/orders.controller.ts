@@ -29,12 +29,13 @@ import {
 import {
   AdminOrderDetailView,
   CartPreviewView,
+  OrderReceipt,
   OrderService,
   StudentOrderView,
   SubmittedPaymentProofView,
 } from '../services/order.service';
 
-/** #54, #55, #58, #60: Student cart preview, order creation, status screen, and payment proof submission. */
+/** #54, #55, #58, #60, #62: Student cart preview, order creation, status screen, proof submission, and receipt. */
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly orderService: OrderService) {}
@@ -71,6 +72,15 @@ export class OrdersController {
     return this.orderService.getStudentOrder(user, params.orderId);
   }
 
+  /** #62: official receipt, issued only after payment confirmation (`VERIFIED`). */
+  @Get(':orderId/receipt')
+  getReceipt(
+    @CurrentUser() user: AuthUser,
+    @Param(new ZodValidationPipe(orderParamsSchema)) params: OrderParams,
+  ): Promise<OrderReceipt> {
+    return this.orderService.getOrderReceipt(user, params.orderId);
+  }
+
   /** #58: submit a proof of payment (required transactionId + optional screenshot/PDF). */
   @Post(':orderId/proofs')
   @UseInterceptors(
@@ -93,7 +103,7 @@ export class OrdersController {
   }
 }
 
-/** #60: `/me/orders` aliases for the student order status screen. */
+/** #60, #62: `/me/orders` aliases for the student order status screen and receipt. */
 @Controller('me/orders')
 export class StudentOrdersController {
   constructor(private readonly orderService: OrderService) {}
@@ -109,6 +119,14 @@ export class StudentOrdersController {
     @Param(new ZodValidationPipe(orderParamsSchema)) params: OrderParams,
   ): Promise<StudentOrderView> {
     return this.orderService.getStudentOrder(user, params.orderId);
+  }
+
+  @Get(':orderId/receipt')
+  getReceipt(
+    @CurrentUser() user: AuthUser,
+    @Param(new ZodValidationPipe(orderParamsSchema)) params: OrderParams,
+  ): Promise<OrderReceipt> {
+    return this.orderService.getOrderReceipt(user, params.orderId);
   }
 }
 

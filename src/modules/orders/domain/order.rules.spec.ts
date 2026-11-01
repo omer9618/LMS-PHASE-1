@@ -3,6 +3,7 @@ import {
   assertEmailVerifiedForOrder,
   buildCartQuote,
   buildDuplicateTransactionIdWarning,
+  buildOrderReceipt,
   buildPaymentInstructions,
   computeLineSplit,
   computeOrderExpiry,
@@ -347,5 +348,61 @@ describe('Order domain rules (#54, #55, #57)', () => {
         expect(guidance.canSubmitProof).toBe(false);
       }
     });
+  });
+  describe('receipt generation on confirmation (#62)', () => {
+    const verifiedAt = new Date('2026-11-02T10:00:00.000Z');
+    const baseOrder = {
+      id: 'order-1',
+      paymentReference: 'LMS-20261102-ABCDEF',
+      status: 'VERIFIED' as const,
+      verifiedAt,
+      totalMinor: 375000n,
+      currency: 'PKR',
+      student: { id: 'student-1', fullName: 'Zain Buyer', email: 'zain@example.com' },
+      items: [
+        {
+          id: 'item-1',
+          courseId: 'course-1',
+          courseTitle: 'AS Chemistry Unit 1',
+          teacherId: 'teacher-a',
+          teacherName: 'Teacher A',
+          priceMinor: 150000n,
+          currency: 'PKR',
+        },
+      ],
+      transactionIds: ['TXN-001', 'TXN-001', 'TXN-002'],
+    };
+
+    it('issues a receipt with RCT-<paymentReference> and verifiedAt timestamp when VERIFIED', () => {
+      const receipt = buildOrderReceipt(baseOrder);
+      expect(receipt).toEqual({
+        receiptNumber: 'RCT-LMS-20261102-ABCDEF',
+        orderId: 'order-1',
+        paymentReference: 'LMS-20261102-ABCDEF',
+        issuedAt: verifiedAt,
+        student: baseOrder.student,
+        items: baseOrder.items,
+        totalMinor: 375000n,
+        currency: 'PKR',
+        transactionIds: ['TXN-001', 'TXN-002'],
+      });
+    });
+
+    it.each(['PENDING', 'PROOF_SUBMITTED', 'REJECTED', 'LAPSED', 'REFUNDED'] as const)(
+      'refuses receipt generation when order status is %s (not confirmed)',
+      (status) => {
+        expect(() =>
+          buildOrderReceipt({
+            ...baseOrder,
+            status,
+            verifiedAt: status === 'REFUNDED' ? verifiedAt : null,
+          }),
+        ).toThrow(
+          expect.objectContaining({
+            info: expect.objectContaining({ reason: 'NOT_VERIFIED' }),
+          }),
+        );
+      },
+    );
   });
 });
