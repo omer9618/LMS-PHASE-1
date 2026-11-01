@@ -1,12 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { OrderStatus, UserStatus } from '@prisma/client';
+import { OrderStatus, Prisma, UserStatus } from '@prisma/client';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { adminScope } from '../../../common/auth/scope';
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
 import type { TransactionClient } from '../../../prisma/prisma.types';
 import { TransactionService } from '../../../prisma/transaction.service';
+import { AuditService } from '../../audit/services/audit.service';
 import { CourseService } from '../../courses/services/course.service';
 import { EmailService } from '../../email/services/email.service';
 import { EnrollmentAccessService } from '../../enrollment/services/enrollment-access.service';
@@ -19,8 +20,11 @@ import {
   CartQuote,
   computeOrderExpiry,
   formatPaymentReference,
+  OrderAction,
+  OrderTransitionResult,
   PaymentInstructions,
   PurchasableCourseFacts,
+  transitionOrder,
 } from '../domain/order.rules';
 import type { CartPreviewInput, CreateOrderInput } from '../schemas/order.schema';
 
@@ -66,8 +70,9 @@ export interface StudentOrderView {
 }
 
 /**
- * Orders and cart (#54, #55, #56). Validates multi-teacher carts, creates orders with unique
- * payment references, and persists frozen price and commission snapshots on every line item.
+ * Orders and cart (#54, #55, #56, #57). Validates multi-teacher carts, creates orders with unique
+ * payment references, persists frozen price and commission snapshots on every line item, and
+ * enforces the order lifecycle state machine with audit attribution.
  */
 @Injectable()
 export class OrderService {
@@ -78,6 +83,7 @@ export class OrderService {
     private readonly platformSettings: PlatformSettingsService,
     private readonly transactions: TransactionService,
     private readonly email: EmailService,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -102,9 +108,9 @@ export class OrderService {
   }
 
   /**
-   * #55, #56: creates an order with a unique payment reference, stores frozen price, commission
-   * rate, commission amount and net teacher earning snapshots on each line item, and emails
-   * transfer instructions.
+   * #55, #56, #57: creates an order with a unique payment reference, stores frozen price,
+   * commission rate, commission amount and net teacher earning snapshots on each line item,
+   * records the initial ORDER_CREATED audit entry, and emails transfer instructions.
    */
   async createOrder(user: AuthUser, input: CreateOrderInput): Promise<StudentOrderView> {
     assertEmailVerifiedForOrder(user.isEmailVerified);
@@ -115,7 +121,7 @@ export class OrderService {
     const order = await this.transactions.run(async (tx) => {
       const quote = await this.quoteCart(user, input.courseIds, tx);
       const paymentReference = await this.generateUniquePaymentReference(now, tx);
-      return this.orderDao.createOrder(
+      const created = await this.orderDao.createOrder(
         {
           studentId: user.id,
           paymentReference,
@@ -134,6 +140,24 @@ export class OrderService {
         },
         tx,
       );
+      await this.audit.record(
+        {
+          actorUserId: user.id,
+          action: 'ORDER_CREATED',
+          entityType: 'order',
+          entityId: created.id,
+          details: {
+            to: OrderStatus.PENDING,
+            transitionedAt: now.toISOString(),
+            paymentReference: created.paymentReference,
+            totalMinor: created.totalMinor.toString(),
+            currency: created.currency,
+            courseIds: created.items.map((item) => item.courseId),
+          },
+        },
+        tx,
+      );
+      return created;
     });
 
     const view = this.toStudentOrderView(order);
@@ -150,6 +174,52 @@ export class OrderService {
     });
 
     return view;
+  }
+
+  /**
+   * #57: validates and applies a state transition on an order inside a caller-owned transaction,
+   * recording the actor, timestamp, and from/to state in `audit_log`.
+   */
+  async applyOrderTransition(
+    order: { id: string; status: OrderStatus },
+    action: OrderAction,
+    actorUserId: string | null,
+    details: Prisma.InputJsonObject,
+    now: Date,
+    tx: TransactionClient,
+  ): Promise<OrderTransitionResult> {
+    const transition = transitionOrder(order.status, action, now);
+    const updated = await this.orderDao.updateOrderStatusIfCurrent(
+      order.id,
+      order.status,
+      {
+        status: transition.to as OrderStatus,
+        ...(transition.verifiedAt ? { verifiedAt: transition.verifiedAt } : {}),
+      },
+      tx,
+    );
+    if (!updated) {
+      throw new AppException(ErrorCode.INVALID_STATE_TRANSITION, {
+        orderId: order.id,
+        action,
+      });
+    }
+    await this.audit.record(
+      {
+        actorUserId,
+        action: transition.auditAction,
+        entityType: 'order',
+        entityId: order.id,
+        details: {
+          from: transition.from,
+          to: transition.to,
+          transitionedAt: transition.transitionedAt.toISOString(),
+          ...details,
+        },
+      },
+      tx,
+    );
+    return transition;
   }
 
   /** #56: admin view of an order including frozen line-item snapshots (commission bps, net, etc.). */

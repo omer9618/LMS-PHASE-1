@@ -1,9 +1,121 @@
 import { DomainError } from '../../../common/errors/domain.error';
 
 /**
- * Cart and order rules (#54, #55). Pure: no Nest, no Prisma, no I/O.
+ * Cart and order rules (#54, #55, #56, #57). Pure: no Nest, no Prisma, no I/O.
  * All money is BigInt minor units; commission rates are integer basis points (10000 = 100%).
  */
+export type OrderStatusValue =
+  'PENDING' | 'PROOF_SUBMITTED' | 'VERIFIED' | 'REJECTED' | 'LAPSED' | 'REFUNDED';
+
+export type OrderAction =
+  'SUBMIT_PROOF' | 'VERIFY' | 'REQUEST_TOP_UP' | 'REJECT' | 'LAPSE' | 'REFUND';
+
+export type OrderAuditAction =
+  | 'ORDER_CREATED'
+  | 'ORDER_PROOF_SUBMITTED'
+  | 'ORDER_VERIFIED'
+  | 'ORDER_TOP_UP_REQUESTED'
+  | 'ORDER_REJECTED'
+  | 'ORDER_LAPSED'
+  | 'ORDER_REFUNDED';
+
+/**
+ * #57: Order lifecycle state machine.
+ * - PENDING -> PROOF_SUBMITTED when the student submits payment proof (#58). Multiple proofs on a
+ *   PROOF_SUBMITTED order keep it in PROOF_SUBMITTED.
+ * - PENDING -> LAPSED when the expiry window passes without proof (#61). Once proof is submitted,
+ *   the order is waiting on an admin and never lapses by timer.
+ * - PROOF_SUBMITTED -> VERIFIED when an admin confirms payment (#64).
+ * - PROOF_SUBMITTED -> PENDING when an admin requests a top-up for a short payment (#66), allowing
+ *   the student to submit an additional proof.
+ * - PROOF_SUBMITTED -> REJECTED when an admin rejects payment (#65).
+ * - VERIFIED -> REFUNDED when an admin records a refund (#82).
+ * - REJECTED, LAPSED and REFUNDED are terminal.
+ */
+export const ORDER_TRANSITIONS: Readonly<
+  Record<
+    OrderAction,
+    {
+      from: readonly OrderStatusValue[];
+      to: OrderStatusValue;
+      auditAction: OrderAuditAction;
+    }
+  >
+> = {
+  SUBMIT_PROOF: {
+    from: ['PENDING', 'PROOF_SUBMITTED'],
+    to: 'PROOF_SUBMITTED',
+    auditAction: 'ORDER_PROOF_SUBMITTED',
+  },
+  VERIFY: {
+    from: ['PROOF_SUBMITTED'],
+    to: 'VERIFIED',
+    auditAction: 'ORDER_VERIFIED',
+  },
+  REQUEST_TOP_UP: {
+    from: ['PROOF_SUBMITTED'],
+    to: 'PENDING',
+    auditAction: 'ORDER_TOP_UP_REQUESTED',
+  },
+  REJECT: {
+    from: ['PROOF_SUBMITTED'],
+    to: 'REJECTED',
+    auditAction: 'ORDER_REJECTED',
+  },
+  LAPSE: {
+    from: ['PENDING'],
+    to: 'LAPSED',
+    auditAction: 'ORDER_LAPSED',
+  },
+  REFUND: {
+    from: ['VERIFIED'],
+    to: 'REFUNDED',
+    auditAction: 'ORDER_REFUNDED',
+  },
+};
+
+export interface OrderTransitionResult {
+  from: OrderStatusValue;
+  to: OrderStatusValue;
+  auditAction: OrderAuditAction;
+  transitionedAt: Date;
+  verifiedAt?: Date;
+}
+
+export class InvalidOrderTransitionError extends DomainError {
+  readonly code = 'INVALID_STATE_TRANSITION';
+
+  constructor(from: OrderStatusValue, action: OrderAction) {
+    super(`Cannot ${action.toLowerCase().replace(/_/g, ' ')} an order that is ${from}`, {
+      from,
+      action,
+      allowedFrom: ORDER_TRANSITIONS[action].from,
+    });
+  }
+}
+
+/**
+ * #57: validates and computes an order state transition, stamping the transition time (and
+ * `verifiedAt` when transitioning to VERIFIED).
+ */
+export function transitionOrder(
+  current: OrderStatusValue,
+  action: OrderAction,
+  now: Date,
+): OrderTransitionResult {
+  const spec = ORDER_TRANSITIONS[action];
+  if (!spec.from.includes(current)) {
+    throw new InvalidOrderTransitionError(current, action);
+  }
+  return {
+    from: current,
+    to: spec.to,
+    auditAction: spec.auditAction,
+    transitionedAt: now,
+    ...(spec.to === 'VERIFIED' ? { verifiedAt: now } : {}),
+  };
+}
+
 export interface PurchasableCourseFacts {
   id: string;
   title: string;
