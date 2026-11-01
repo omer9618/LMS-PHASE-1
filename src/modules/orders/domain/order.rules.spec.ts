@@ -2,6 +2,7 @@ import {
   assertCoursePurchasable,
   assertEmailVerifiedForOrder,
   buildCartQuote,
+  buildDuplicateTransactionIdWarning,
   buildPaymentInstructions,
   computeLineSplit,
   computeOrderExpiry,
@@ -259,6 +260,28 @@ describe('Order domain rules (#54, #55, #57)', () => {
       ['REFUNDED', 'REFUND'],
     ])('rejects invalid transition from %s via %s', (from, action) => {
       expect(() => transitionOrder(from, action, now)).toThrow(InvalidOrderTransitionError);
+    });
+  });
+  describe('duplicate transaction ID detection (#59)', () => {
+    it('returns null when no other order uses the same transaction ID (ignoring same-order resubmissions)', () => {
+      expect(
+        buildDuplicateTransactionIdWarning('order-1', 'TXN-100', [
+          { orderId: 'order-1', paymentReference: 'LMS-20261102-AAAAAA', transactionId: 'TXN-100' },
+        ]),
+      ).toBeNull();
+    });
+
+    it('returns a warning with conflicting order IDs and references when another order uses the transaction ID', () => {
+      const warning = buildDuplicateTransactionIdWarning('order-2', 'TXN-100', [
+        { orderId: 'order-1', paymentReference: 'LMS-20261102-AAAAAA', transactionId: 'txn-100' },
+        { orderId: 'order-2', paymentReference: 'LMS-20261102-BBBBBB', transactionId: 'TXN-100' },
+      ]);
+      expect(warning).toEqual({
+        transactionId: 'TXN-100',
+        conflictingOrderIds: ['order-1'],
+        conflictingPaymentReferences: ['LMS-20261102-AAAAAA'],
+        message: expect.stringContaining('LMS-20261102-AAAAAA'),
+      });
     });
   });
 });

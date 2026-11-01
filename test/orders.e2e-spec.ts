@@ -453,4 +453,71 @@ describe('Orders and Cart (#54, #55, #56)', () => {
       expect(rejected.body.error.name).toBe('INVALID_STATE_TRANSITION');
     });
   });
+  describe('Duplicate transaction ID detection (#59)', () => {
+    it('warns when a transaction ID exists on another order without blocking submission, and surfaces warnings to admins', async () => {
+      const courseId = await publishPaidCourse(teacherA, 'Duplicate Tx Course', '180000', 2000);
+      const student1 = await newStudent(true);
+      const student2 = await newStudent(true);
+
+      const order1Res = await http()
+        .post('/orders')
+        .set('Cookie', student1.cookie)
+        .send({ courseIds: [courseId] })
+        .expect(201);
+      const order1Id = order1Res.body.data.id as string;
+      const order1Ref = order1Res.body.data.paymentReference as string;
+
+      const order2Res = await http()
+        .post('/orders')
+        .set('Cookie', student2.cookie)
+        .send({ courseIds: [courseId] })
+        .expect(201);
+      const order2Id = order2Res.body.data.id as string;
+
+      // Order 1 submits TXN-SHARED-999 -> no warning
+      const firstProof = await http()
+        .post(`/orders/${order1Id}/proofs`)
+        .set('Cookie', student1.cookie)
+        .send({ transactionId: 'TXN-SHARED-999', amountClaimedMinor: '180000' })
+        .expect(201);
+      expect(firstProof.body.data.duplicateTransactionIdWarning).toBeNull();
+
+      // Order 1 resubmits the same TXN-SHARED-999 on the SAME order -> no cross-order warning, not blocked
+      const sameOrderResubmit = await http()
+        .post(`/orders/${order1Id}/proofs`)
+        .set('Cookie', student1.cookie)
+        .send({ transactionId: 'TXN-SHARED-999', amountClaimedMinor: '180000' })
+        .expect(201);
+      expect(sameOrderResubmit.body.data.duplicateTransactionIdWarning).toBeNull();
+
+      // Order 2 submits 'txn-shared-999' (case-insensitive match with Order 1) -> succeeds (201) with warning!
+      const secondOrderProof = await http()
+        .post(`/orders/${order2Id}/proofs`)
+        .set('Cookie', student2.cookie)
+        .send({ transactionId: 'txn-shared-999', amountClaimedMinor: '180000' })
+        .expect(201);
+
+      expect(secondOrderProof.body.data.orderStatus).toBe('PROOF_SUBMITTED');
+      expect(secondOrderProof.body.data.duplicateTransactionIdWarning).toEqual({
+        transactionId: 'txn-shared-999',
+        conflictingOrderIds: [order1Id],
+        conflictingPaymentReferences: [order1Ref],
+        message: expect.stringContaining(order1Ref),
+      });
+
+      // Admin view of Order 2 surfaces the duplicate transaction warning
+      const adminView = await http()
+        .get(`/admin/orders/${order2Id}`)
+        .set('Cookie', admin)
+        .expect(200);
+      expect(adminView.body.data.duplicateTransactionIdWarnings).toEqual([
+        {
+          transactionId: 'txn-shared-999',
+          conflictingOrderIds: [order1Id],
+          conflictingPaymentReferences: [order1Ref],
+          message: expect.stringContaining(order1Ref),
+        },
+      ]);
+    });
+  });
 });
