@@ -305,6 +305,11 @@ export class CourseService {
 
   // ── For other modules ─────────────────────────────────────────────
 
+  /** Sale facts for enrollment and checkout (see CourseDao.getCourseSaleFacts). */
+  getSaleFacts(courseIds: string[], tx?: TransactionClient) {
+    return this.courseDao.getCourseSaleFacts(courseIds, tx);
+  }
+
   /**
    * #22: courses a teacher is committed to, meaning students currently hold an active enrollment.
    * Teacher deactivation is blocked while this is above zero.

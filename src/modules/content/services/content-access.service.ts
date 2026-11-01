@@ -54,21 +54,23 @@ export class ContentAccessService {
     if (!lesson) throw new AppException(ErrorCode.NOT_FOUND, { entity: 'lesson', id: lessonId });
     const course = lesson.section.course;
 
+    const enrollment = user ? await this.enrollments.accessState(user.id, course.id) : 'NONE';
     const decision = decide({
       courseStatus: course.status,
       isFreePreview: lesson.isFreePreview,
       isCourseTeacher: user?.id === course.teacherId,
       isAdmin: user?.roles.has(Role.ADMIN) ?? false,
-      hasActiveEnrollment: user
-        ? await this.enrollments.hasActiveEnrollment(user.id, course.id)
-        : false,
+      hasActiveEnrollment: enrollment === 'ACTIVE',
     });
     if (decision.allowed) return lesson;
     if (decision.reason === 'NOT_AVAILABLE') {
       throw new AppException(ErrorCode.NOT_FOUND, { entity: 'lesson', id: lessonId });
     }
-    throw new AppException(user ? ErrorCode.ENROLLMENT_REQUIRED : ErrorCode.UNAUTHENTICATED, {
-      courseId,
-    });
+    if (!user) throw new AppException(ErrorCode.UNAUTHENTICATED, { courseId });
+    // #51: an ended enrollment gets its own message, distinct from "enrol to watch".
+    throw new AppException(
+      enrollment === 'EXPIRED' ? ErrorCode.ENROLLMENT_EXPIRED : ErrorCode.ENROLLMENT_REQUIRED,
+      { courseId },
+    );
   }
 }

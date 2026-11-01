@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EnrollmentDao } from '../dao/enrollment.dao';
-import { isEnrollmentActive } from '../domain/enrollment.rules';
+import { AccessState, accessState } from '../domain/enrollment.rules';
 
 /**
  * The one place that answers "may this student use this course right now?" (#39, #46, #51).
@@ -10,12 +10,16 @@ import { isEnrollmentActive } from '../domain/enrollment.rules';
 export class EnrollmentAccessService {
   constructor(private readonly enrollmentDao: EnrollmentDao) {}
 
+  async accessState(studentId: string, courseId: string, now = new Date()): Promise<AccessState> {
+    const enrollment = await this.enrollmentDao.getEnrollmentState(studentId, courseId);
+    return accessState(enrollment, now);
+  }
+
   async hasActiveEnrollment(
     studentId: string,
     courseId: string,
     now = new Date(),
   ): Promise<boolean> {
-    const enrollment = await this.enrollmentDao.getEnrollmentForAccess(studentId, courseId);
-    return enrollment !== null && isEnrollmentActive(enrollment, now);
+    return (await this.accessState(studentId, courseId, now)) === 'ACTIVE';
   }
 }

@@ -94,6 +94,31 @@ export class CourseDao {
     return (tx ?? this.prisma).course.count({ where: { AND: [where, scopeWhere(scope)] } });
   }
 
+  /**
+   * Sale facts for enrollment and checkout (#46, #54): status, audience, price, commission and
+   * whether the teacher is active. Like the lesson access context, this is a read of teacher-owned
+   * data without a TeacherScope; it returns no content and callers only use it to decide whether a
+   * course can be enrolled in or bought.
+   */
+  getCourseSaleFacts(courseIds: string[], tx?: TransactionClient) {
+    return (tx ?? this.prisma).course.findMany({
+      where: { id: { in: courseIds } },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        audienceType: true,
+        isFree: true,
+        isEnrollmentOpen: true,
+        priceMinor: true,
+        currency: true,
+        commissionRateBps: true,
+        teacherId: true,
+        teacher: { select: { status: true, fullName: true } },
+      },
+    });
+  }
+
   /** What depends on a course: used to refuse hard deletes (#26). */
   async countCourseDependents(
     scope: TeacherScope,
