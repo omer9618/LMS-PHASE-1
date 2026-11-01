@@ -79,6 +79,23 @@ export class OrderDao {
   }
 
   /**
+   * #57: conditionally transitions an order from `expectedStatus` to `nextStatus`, returning
+   * true only if the row was still in `expectedStatus` at write time.
+   */
+  async updateOrderStatusIfCurrent(
+    orderId: string,
+    expectedStatus: OrderStatus,
+    data: { status: OrderStatus; verifiedAt?: Date | null },
+    tx?: TransactionClient,
+  ): Promise<boolean> {
+    const res = await (tx ?? this.prisma).order.updateMany({
+      where: { id: orderId, status: expectedStatus },
+      data,
+    });
+    return res.count === 1;
+  }
+
+  /**
    * #56: teacher-scoped read of order line items with their frozen price, commission rate,
    * commission amount, and net teacher earning snapshots.
    */

@@ -7,9 +7,13 @@ import {
   computeOrderExpiry,
   EmailNotVerifiedError,
   formatPaymentReference,
+  InvalidOrderTransitionError,
+  OrderAction,
   OrderRefusedError,
+  OrderStatusValue,
   PurchasableCourseFacts,
   RECEIVING_BANK_ACCOUNT,
+  transitionOrder,
 } from './order.rules';
 
 function course(overrides: Partial<PurchasableCourseFacts> = {}): PurchasableCourseFacts {
@@ -30,7 +34,7 @@ function course(overrides: Partial<PurchasableCourseFacts> = {}): PurchasableCou
   };
 }
 
-describe('Order domain rules (#54, #55)', () => {
+describe('Order domain rules (#54, #55, #57)', () => {
   describe('computeLineSplit', () => {
     it('computes commission and net teacher earning in BigInt minor units without rounding drift', () => {
       expect(computeLineSplit(150000n, 2000)).toEqual({
@@ -180,6 +184,81 @@ describe('Order domain rules (#54, #55)', () => {
         expiresAt,
         instructions: expect.stringContaining('LMS-20261101-ABCDEF'),
       });
+    });
+  });
+
+  describe('order lifecycle state machine (#57)', () => {
+    const now = new Date('2026-11-01T12:00:00.000Z');
+
+    it('allows valid transitions and records the transition timestamp and audit action', () => {
+      expect(transitionOrder('PENDING', 'SUBMIT_PROOF', now)).toEqual({
+        from: 'PENDING',
+        to: 'PROOF_SUBMITTED',
+        auditAction: 'ORDER_PROOF_SUBMITTED',
+        transitionedAt: now,
+      });
+      expect(transitionOrder('PROOF_SUBMITTED', 'SUBMIT_PROOF', now)).toEqual({
+        from: 'PROOF_SUBMITTED',
+        to: 'PROOF_SUBMITTED',
+        auditAction: 'ORDER_PROOF_SUBMITTED',
+        transitionedAt: now,
+      });
+      expect(transitionOrder('PROOF_SUBMITTED', 'VERIFY', now)).toEqual({
+        from: 'PROOF_SUBMITTED',
+        to: 'VERIFIED',
+        auditAction: 'ORDER_VERIFIED',
+        transitionedAt: now,
+        verifiedAt: now,
+      });
+      expect(transitionOrder('PROOF_SUBMITTED', 'REQUEST_TOP_UP', now)).toEqual({
+        from: 'PROOF_SUBMITTED',
+        to: 'PENDING',
+        auditAction: 'ORDER_TOP_UP_REQUESTED',
+        transitionedAt: now,
+      });
+      expect(transitionOrder('PROOF_SUBMITTED', 'REJECT', now)).toEqual({
+        from: 'PROOF_SUBMITTED',
+        to: 'REJECTED',
+        auditAction: 'ORDER_REJECTED',
+        transitionedAt: now,
+      });
+      expect(transitionOrder('PENDING', 'LAPSE', now)).toEqual({
+        from: 'PENDING',
+        to: 'LAPSED',
+        auditAction: 'ORDER_LAPSED',
+        transitionedAt: now,
+      });
+      expect(transitionOrder('VERIFIED', 'REFUND', now)).toEqual({
+        from: 'VERIFIED',
+        to: 'REFUNDED',
+        auditAction: 'ORDER_REFUNDED',
+        transitionedAt: now,
+      });
+    });
+
+    it.each<[OrderStatusValue, OrderAction]>([
+      ['PENDING', 'VERIFY'],
+      ['PENDING', 'REQUEST_TOP_UP'],
+      ['PENDING', 'REJECT'],
+      ['PENDING', 'REFUND'],
+      ['PROOF_SUBMITTED', 'LAPSE'],
+      ['PROOF_SUBMITTED', 'REFUND'],
+      ['VERIFIED', 'SUBMIT_PROOF'],
+      ['VERIFIED', 'VERIFY'],
+      ['VERIFIED', 'REQUEST_TOP_UP'],
+      ['VERIFIED', 'REJECT'],
+      ['VERIFIED', 'LAPSE'],
+      ['REJECTED', 'SUBMIT_PROOF'],
+      ['REJECTED', 'VERIFY'],
+      ['REJECTED', 'LAPSE'],
+      ['LAPSED', 'SUBMIT_PROOF'],
+      ['LAPSED', 'VERIFY'],
+      ['LAPSED', 'LAPSE'],
+      ['REFUNDED', 'SUBMIT_PROOF'],
+      ['REFUNDED', 'VERIFY'],
+      ['REFUNDED', 'REFUND'],
+    ])('rejects invalid transition from %s via %s', (from, action) => {
+      expect(() => transitionOrder(from, action, now)).toThrow(InvalidOrderTransitionError);
     });
   });
 });
