@@ -474,11 +474,12 @@ describe('Orders and Cart (#54, #55, #56)', () => {
         .expect(201);
       const order2Id = order2Res.body.data.id as string;
 
-      // Order 1 submits TXN-SHARED-999 -> no warning
+      const sharedTxId = 'TXN-SHARED-' + String(Date.now());
+      // Order 1 submits sharedTxId -> no warning
       const firstProof = await http()
         .post(`/orders/${order1Id}/proofs`)
         .set('Cookie', student1.cookie)
-        .send({ transactionId: 'TXN-SHARED-999', amountClaimedMinor: '180000' })
+        .send({ transactionId: sharedTxId, amountClaimedMinor: '180000' })
         .expect(201);
       expect(firstProof.body.data.duplicateTransactionIdWarning).toBeNull();
 
@@ -486,7 +487,7 @@ describe('Orders and Cart (#54, #55, #56)', () => {
       const sameOrderResubmit = await http()
         .post(`/orders/${order1Id}/proofs`)
         .set('Cookie', student1.cookie)
-        .send({ transactionId: 'TXN-SHARED-999', amountClaimedMinor: '180000' })
+        .send({ transactionId: sharedTxId, amountClaimedMinor: '180000' })
         .expect(201);
       expect(sameOrderResubmit.body.data.duplicateTransactionIdWarning).toBeNull();
 
@@ -494,12 +495,12 @@ describe('Orders and Cart (#54, #55, #56)', () => {
       const secondOrderProof = await http()
         .post(`/orders/${order2Id}/proofs`)
         .set('Cookie', student2.cookie)
-        .send({ transactionId: 'txn-shared-999', amountClaimedMinor: '180000' })
+        .send({ transactionId: sharedTxId.toLowerCase(), amountClaimedMinor: '180000' })
         .expect(201);
 
       expect(secondOrderProof.body.data.orderStatus).toBe('PROOF_SUBMITTED');
       expect(secondOrderProof.body.data.duplicateTransactionIdWarning).toEqual({
-        transactionId: 'txn-shared-999',
+        transactionId: sharedTxId.toLowerCase(),
         conflictingOrderIds: [order1Id],
         conflictingPaymentReferences: [order1Ref],
         message: expect.stringContaining(order1Ref),
@@ -512,12 +513,95 @@ describe('Orders and Cart (#54, #55, #56)', () => {
         .expect(200);
       expect(adminView.body.data.duplicateTransactionIdWarnings).toEqual([
         {
-          transactionId: 'txn-shared-999',
+          transactionId: sharedTxId.toLowerCase(),
           conflictingOrderIds: [order1Id],
           conflictingPaymentReferences: [order1Ref],
           message: expect.stringContaining(order1Ref),
         },
       ]);
+    });
+  });
+  describe('Pending order status screen for students (#60)', () => {
+    const pngBuffer = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(32, 0),
+    ]);
+
+    it('shows student order status, submitted proofs with signed download URLs, and what is expected of them next across lifecycle states', async () => {
+      const courseId = await publishPaidCourse(teacherA, 'Status Screen Course', '200000', 2000);
+      const student = await newStudent(true);
+      const otherStudent = await newStudent(true);
+
+      const created = await http()
+        .post('/orders')
+        .set('Cookie', student.cookie)
+        .send({ courseIds: [courseId] })
+        .expect(201);
+      const orderId = created.body.data.id as string;
+      const paymentReference = created.body.data.paymentReference as string;
+
+      // 1. PENDING state (no proofs yet): student is expected to transfer funds and submit proof
+      const pendingView = await http()
+        .get(`/me/orders/${orderId}`)
+        .set('Cookie', student.cookie)
+        .expect(200);
+      expect(pendingView.body.data).toMatchObject({
+        id: orderId,
+        paymentReference,
+        status: 'PENDING',
+        proofs: [],
+        guidance: {
+          statusLabel: 'Awaiting Payment & Proof',
+          actionRequired: 'SUBMIT_PROOF',
+          canSubmitProof: true,
+          nextStepMessage: expect.stringContaining(paymentReference),
+        },
+      });
+
+      // Also accessible via GET /orders/:orderId and listed in GET /me/orders
+      await http().get(`/orders/${orderId}`).set('Cookie', student.cookie).expect(200);
+      const listRes = await http().get('/me/orders').set('Cookie', student.cookie).expect(200);
+      expect(listRes.body.data).toEqual([
+        expect.objectContaining({
+          id: orderId,
+          status: 'PENDING',
+        }),
+      ]);
+
+      // Another student cannot view this order
+      await http().get(`/me/orders/${orderId}`).set('Cookie', otherStudent.cookie).expect(404);
+
+      // 2. Submit proof with file -> PROOF_SUBMITTED state: guidance tells student admin review is in progress
+      await http()
+        .post(`/orders/${orderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .field('transactionId', 'STATUS-TXN-001')
+        .field('amountClaimedMinor', '200000')
+        .attach('proof', pngBuffer, { filename: 'slip.png', contentType: 'image/png' })
+        .expect(201);
+
+      const submittedView = await http()
+        .get(`/me/orders/${orderId}`)
+        .set('Cookie', student.cookie)
+        .expect(200);
+      expect(submittedView.body.data).toMatchObject({
+        id: orderId,
+        status: 'PROOF_SUBMITTED',
+        proofs: [
+          expect.objectContaining({
+            transactionId: 'STATUS-TXN-001',
+            amountClaimedMinor: '200000',
+            hasProofFile: true,
+            proofDownloadUrl: expect.stringContaining('/dev-files/'),
+          }),
+        ],
+        guidance: {
+          statusLabel: 'Payment Proof Under Review',
+          actionRequired: 'AWAIT_ADMIN_VERIFICATION',
+          canSubmitProof: true,
+          nextStepMessage: expect.stringContaining('administrator is verifying'),
+        },
+      });
     });
   });
 });

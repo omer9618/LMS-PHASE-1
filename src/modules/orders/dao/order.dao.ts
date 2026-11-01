@@ -114,6 +114,14 @@ export class OrderDao {
     });
   }
 
+  getOrdersBy(where: Prisma.OrderWhereInput, tx?: TransactionClient): Promise<OrderRecord[]> {
+    return (tx ?? this.prisma).order.findMany({
+      where,
+      select: orderSelect,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   /**
    * #57: conditionally transitions an order from `expectedStatus` to `nextStatus`, returning
    * true only if the row was still in `expectedStatus` at write time.

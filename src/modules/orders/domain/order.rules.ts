@@ -422,3 +422,83 @@ export function buildDuplicateTransactionIdWarning(
     message: `Transaction ID "${transactionId}" also appears on ${conflictingOrderIds.length} other order(s) (${conflictingPaymentReferences.join(', ')}).`,
   };
 }
+export type StudentOrderActionRequired = 'SUBMIT_PROOF' | 'AWAIT_ADMIN_VERIFICATION' | 'NONE';
+
+export interface StudentOrderStatusGuidance {
+  statusLabel: string;
+  actionRequired: StudentOrderActionRequired;
+  canSubmitProof: boolean;
+  nextStepMessage: string;
+}
+
+/**
+ * #60: describes the current status of a student's order and what is expected of them next.
+ */
+export function describeStudentOrderNextStep(input: {
+  status: OrderStatusValue;
+  paymentReference: string;
+  totalMinor: bigint;
+  currency: string;
+  expiresAt: Date | null;
+  proofCount: number;
+}): StudentOrderStatusGuidance {
+  switch (input.status) {
+    case 'PENDING': {
+      const expirySuffix = input.expiresAt ? ` before ${input.expiresAt.toISOString()}` : '';
+      if (input.proofCount > 0) {
+        return {
+          statusLabel: 'Additional Payment Required',
+          actionRequired: 'SUBMIT_PROOF',
+          canSubmitProof: true,
+          nextStepMessage: `An additional payment is required for order ${input.paymentReference}. Please transfer the remaining balance with reference ${input.paymentReference} and submit your new transaction ID and proof of payment${expirySuffix}.`,
+        };
+      }
+      return {
+        statusLabel: 'Awaiting Payment & Proof',
+        actionRequired: 'SUBMIT_PROOF',
+        canSubmitProof: true,
+        nextStepMessage: `Transfer ${input.currency} ${input.totalMinor.toString()} (minor units) to the receiving bank account using payment reference ${input.paymentReference}${expirySuffix}, then submit your bank transaction ID and proof of payment.`,
+      };
+    }
+    case 'PROOF_SUBMITTED':
+      return {
+        statusLabel: 'Payment Proof Under Review',
+        actionRequired: 'AWAIT_ADMIN_VERIFICATION',
+        canSubmitProof: true,
+        nextStepMessage:
+          'We have received your proof of payment. An administrator is verifying your bank transfer; you will be enrolled and notified by email once confirmed. You may submit an additional proof if you made a split or top-up transfer.',
+      };
+    case 'VERIFIED':
+      return {
+        statusLabel: 'Confirmed',
+        actionRequired: 'NONE',
+        canSubmitProof: false,
+        nextStepMessage:
+          'Your payment has been confirmed and your courses are now unlocked in your library.',
+      };
+    case 'REJECTED':
+      return {
+        statusLabel: 'Payment Rejected',
+        actionRequired: 'NONE',
+        canSubmitProof: false,
+        nextStepMessage:
+          'Your payment proof could not be verified and this order is closed. Please check the rejection email for details or place a new order.',
+      };
+    case 'LAPSED':
+      return {
+        statusLabel: 'Order Expired',
+        actionRequired: 'NONE',
+        canSubmitProof: false,
+        nextStepMessage:
+          'This order expired because no payment proof was submitted within the payment window. Please place a new order if you still wish to enrol.',
+      };
+    case 'REFUNDED':
+      return {
+        statusLabel: 'Refunded',
+        actionRequired: 'NONE',
+        canSubmitProof: false,
+        nextStepMessage:
+          'This order has been refunded and access to the associated courses has been revoked.',
+      };
+  }
+}

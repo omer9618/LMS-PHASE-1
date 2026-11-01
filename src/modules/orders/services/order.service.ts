@@ -12,7 +12,11 @@ import { CourseService } from '../../courses/services/course.service';
 import { EmailService } from '../../email/services/email.service';
 import { EnrollmentAccessService } from '../../enrollment/services/enrollment-access.service';
 import { PlatformSettingsService } from '../../platform-settings/services/platform-settings.service';
-import { IncomingFile, StorageService } from '../../storage/services/storage.service';
+import {
+  contentTypeForKey,
+  IncomingFile,
+  StorageService,
+} from '../../storage/services/storage.service';
 import { OrderDao, OrderItemRecord, OrderRecord, PaymentProofRecord } from '../dao/order.dao';
 import {
   assertEmailVerifiedForOrder,
@@ -21,12 +25,14 @@ import {
   buildPaymentInstructions,
   CartQuote,
   computeOrderExpiry,
+  describeStudentOrderNextStep,
   DuplicateTransactionIdWarning,
   formatPaymentReference,
   OrderAction,
   OrderTransitionResult,
   PaymentInstructions,
   PurchasableCourseFacts,
+  StudentOrderStatusGuidance,
   transitionOrder,
 } from '../domain/order.rules';
 import type {
@@ -68,6 +74,7 @@ export interface StudentPaymentProofView {
   transactionId: string;
   amountClaimedMinor: bigint | null;
   hasProofFile: boolean;
+  proofDownloadUrl: string | null;
   submittedAt: Date;
 }
 
@@ -83,6 +90,7 @@ export interface StudentOrderView {
   items: StudentOrderItemView[];
   proofs: StudentPaymentProofView[];
   paymentInstructions: PaymentInstructions;
+  guidance: StudentOrderStatusGuidance;
 }
 
 export interface SubmittedPaymentProofView {
@@ -91,6 +99,7 @@ export interface SubmittedPaymentProofView {
   proof: StudentPaymentProofView;
   proofs: StudentPaymentProofView[];
   duplicateTransactionIdWarning: DuplicateTransactionIdWarning | null;
+  guidance: StudentOrderStatusGuidance;
 }
 
 export interface AdminOrderDetailView extends OrderRecord {
@@ -98,10 +107,11 @@ export interface AdminOrderDetailView extends OrderRecord {
 }
 
 /**
- * Orders and cart (#54, #55, #56, #57, #58, #59). Validates multi-teacher carts, creates orders
- * with unique payment references, persists frozen price and commission snapshots on every line
- * item, enforces the order lifecycle state machine with audit attribution, records payment proofs,
- * and warns on duplicate transaction IDs across orders without blocking submission.
+ * Orders and cart (#54, #55, #56, #57, #58, #59, #60). Validates multi-teacher carts, creates
+ * orders with unique payment references, persists frozen price and commission snapshots on every
+ * line item, enforces the order lifecycle state machine with audit attribution, records payment
+ * proofs, warns on duplicate transaction IDs across orders, and serves the student order status
+ * screen with next-step guidance.
  */
 @Injectable()
 export class OrderService {
@@ -190,7 +200,7 @@ export class OrderService {
       return created;
     });
 
-    const view = this.toStudentOrderView(order);
+    const view = await this.toStudentOrderView(order);
     await this.email.send(user.email, 'ORDER_CREATED', {
       paymentReference: view.paymentReference,
       totalMinor: view.totalMinor.toString(),
@@ -204,6 +214,27 @@ export class OrderService {
     });
 
     return view;
+  }
+
+  /**
+   * #60: lists all orders placed by the current student, newest first, including status,
+   * submitted proofs, payment instructions, and next-step guidance.
+   */
+  async listStudentOrders(user: AuthUser): Promise<StudentOrderView[]> {
+    const orders = await this.orderDao.getOrdersBy({ studentId: user.id });
+    return Promise.all(orders.map((order) => this.toStudentOrderView(order)));
+  }
+
+  /**
+   * #60: returns a single order owned by the current student with its current status, submitted
+   * proofs, payment instructions, and what is expected of the student next.
+   */
+  async getStudentOrder(user: AuthUser, orderId: string): Promise<StudentOrderView> {
+    const order = await this.orderDao.getOrderBy({ id: orderId, studentId: user.id });
+    if (!order) {
+      throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
+    }
+    return this.toStudentOrderView(order);
   }
 
   /**
@@ -230,7 +261,7 @@ export class OrderService {
     const stored = file ? await this.storage.store('PAYMENT_PROOF', 'payment-proof', file) : null;
 
     try {
-      return await this.transactions.run(async (tx) => {
+      const txResult = await this.transactions.run(async (tx) => {
         const order = await this.orderDao.getOrderBy({ id: orderId, studentId: user.id }, tx);
         if (!order) {
           throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
@@ -283,13 +314,34 @@ export class OrderService {
 
         const allProofs = await this.orderDao.getPaymentProofsBy({ orderId: order.id }, tx);
         return {
-          orderId: order.id,
+          order,
           orderStatus: transition.to as OrderStatus,
-          proof: this.toStudentProofView(proof),
-          proofs: allProofs.map((p) => this.toStudentProofView(p)),
-          duplicateTransactionIdWarning: duplicateWarning,
+          proof,
+          allProofs,
+          duplicateWarning,
         };
       });
+
+      const [proofView, proofsView] = await Promise.all([
+        this.toStudentProofView(txResult.proof),
+        Promise.all(txResult.allProofs.map((p) => this.toStudentProofView(p))),
+      ]);
+
+      return {
+        orderId: txResult.order.id,
+        orderStatus: txResult.orderStatus,
+        proof: proofView,
+        proofs: proofsView,
+        duplicateTransactionIdWarning: txResult.duplicateWarning,
+        guidance: describeStudentOrderNextStep({
+          status: txResult.orderStatus,
+          paymentReference: txResult.order.paymentReference,
+          totalMinor: txResult.order.totalMinor,
+          currency: txResult.order.currency,
+          expiresAt: txResult.order.expiresAt,
+          proofCount: proofsView.length,
+        }),
+      };
     } catch (error) {
       if (stored) {
         await this.storage.delete(stored.key).catch(() => undefined);
@@ -433,17 +485,27 @@ export class OrderService {
     throw new AppException(ErrorCode.INTERNAL);
   }
 
-  private toStudentProofView(proof: PaymentProofRecord): StudentPaymentProofView {
+  private async toStudentProofView(proof: PaymentProofRecord): Promise<StudentPaymentProofView> {
+    const ext = proof.proofFileUrl?.split('.').pop() ?? 'bin';
+    const proofDownloadUrl = proof.proofFileUrl
+      ? await this.storage.downloadUrl(
+          proof.proofFileUrl,
+          `payment-proof-${proof.id}.${ext}`,
+          contentTypeForKey(proof.proofFileUrl),
+        )
+      : null;
     return {
       id: proof.id,
       transactionId: proof.transactionId,
       amountClaimedMinor: proof.amountClaimedMinor,
       hasProofFile: proof.proofFileUrl !== null,
+      proofDownloadUrl,
       submittedAt: proof.submittedAt,
     };
   }
 
-  private toStudentOrderView(order: OrderRecord): StudentOrderView {
+  private async toStudentOrderView(order: OrderRecord): Promise<StudentOrderView> {
+    const proofs = await Promise.all(order.proofs.map((proof) => this.toStudentProofView(proof)));
     return {
       id: order.id,
       paymentReference: order.paymentReference,
@@ -462,12 +524,20 @@ export class OrderService {
         priceMinor: item.priceMinor,
         currency: order.currency,
       })),
-      proofs: order.proofs.map((proof) => this.toStudentProofView(proof)),
+      proofs,
       paymentInstructions: buildPaymentInstructions({
         paymentReference: order.paymentReference,
         totalMinor: order.totalMinor,
         currency: order.currency,
         expiresAt: order.expiresAt,
+      }),
+      guidance: describeStudentOrderNextStep({
+        status: order.status,
+        paymentReference: order.paymentReference,
+        totalMinor: order.totalMinor,
+        currency: order.currency,
+        expiresAt: order.expiresAt,
+        proofCount: proofs.length,
       }),
     };
   }
