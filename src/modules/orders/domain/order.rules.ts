@@ -1,7 +1,7 @@
 import { DomainError } from '../../../common/errors/domain.error';
 
 /**
- * Cart and order rules (#54). Pure: no Nest, no Prisma, no I/O.
+ * Cart and order rules (#54, #55). Pure: no Nest, no Prisma, no I/O.
  * All money is BigInt minor units; commission rates are integer basis points (10000 = 100%).
  */
 export interface PurchasableCourseFacts {
@@ -38,8 +38,89 @@ export interface CartQuote {
   teacherCount: number;
 }
 
+export interface BankAccountDetails {
+  bankName: string;
+  accountTitle: string;
+  accountNumber: string;
+  iban: string;
+}
+
+export interface PaymentInstructions {
+  bank: BankAccountDetails;
+  paymentReference: string;
+  amountMinor: bigint;
+  currency: string;
+  expiresAt: Date | null;
+  instructions: string;
+}
+
+/** Receiving bank account for manual bank transfers (#55; subject to client confirmation #127). */
+export const RECEIVING_BANK_ACCOUNT: BankAccountDetails = {
+  bankName: 'Meezan Bank',
+  accountTitle: 'LMS Education Pvt Ltd',
+  accountNumber: '01010105432101',
+  iban: 'PK36MEZN0001010105432101',
+};
+
+/** Unambiguous uppercase alphanumeric alphabet (no 0/O or 1/I/L) for bank references. */
+export const PAYMENT_REFERENCE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+
 export class OrderRefusedError extends DomainError {
   readonly code = 'ORDER_REFUSED';
+}
+
+export class EmailNotVerifiedError extends DomainError {
+  readonly code = 'EMAIL_NOT_VERIFIED';
+}
+
+/** #11 / #55: a student must verify their email address before creating a paid order. */
+export function assertEmailVerifiedForOrder(isEmailVerified: boolean): void {
+  if (!isEmailVerified) {
+    throw new EmailNotVerifiedError('Please verify your email address before purchasing a course');
+  }
+}
+
+/**
+ * #55: formats a unique, human-readable payment reference (`LMS-YYYYMMDD-XXXXXX`) from a UTC date
+ * and random bytes, using an unambiguous uppercase alphabet for bank transfer remarks.
+ */
+export function formatPaymentReference(now: Date, randomBytes: Uint8Array): string {
+  if (randomBytes.length < 6) {
+    throw new Error('formatPaymentReference requires at least 6 random bytes');
+  }
+  const yyyy = now.getUTCFullYear().toString().padStart(4, '0');
+  const mm = (now.getUTCMonth() + 1).toString().padStart(2, '0');
+  const dd = now.getUTCDate().toString().padStart(2, '0');
+  let suffix = '';
+  for (let i = 0; i < 6; i += 1) {
+    suffix += PAYMENT_REFERENCE_ALPHABET[randomBytes[i]! % PAYMENT_REFERENCE_ALPHABET.length];
+  }
+  return `LMS-${yyyy}${mm}${dd}-${suffix}`;
+}
+
+/** #55 / #61: computes the UTC instant when a pending order lapses. */
+export function computeOrderExpiry(now: Date, expiryWindowHours: number): Date {
+  return new Date(now.getTime() + expiryWindowHours * 60 * 60 * 1000);
+}
+
+/** #55: builds the bank transfer instructions displayed on checkout and order status screens. */
+export function buildPaymentInstructions(
+  order: {
+    paymentReference: string;
+    totalMinor: bigint;
+    currency: string;
+    expiresAt: Date | null;
+  },
+  bank: BankAccountDetails = RECEIVING_BANK_ACCOUNT,
+): PaymentInstructions {
+  return {
+    bank,
+    paymentReference: order.paymentReference,
+    amountMinor: order.totalMinor,
+    currency: order.currency,
+    expiresAt: order.expiresAt,
+    instructions: `Transfer the exact amount and enter reference ${order.paymentReference} in the bank transfer remarks, then submit your transaction ID.`,
+  };
 }
 
 /**
