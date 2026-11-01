@@ -12,7 +12,8 @@ import { CourseService } from '../../courses/services/course.service';
 import { EmailService } from '../../email/services/email.service';
 import { EnrollmentAccessService } from '../../enrollment/services/enrollment-access.service';
 import { PlatformSettingsService } from '../../platform-settings/services/platform-settings.service';
-import { OrderDao, OrderItemRecord, OrderRecord } from '../dao/order.dao';
+import { IncomingFile, StorageService } from '../../storage/services/storage.service';
+import { OrderDao, OrderItemRecord, OrderRecord, PaymentProofRecord } from '../dao/order.dao';
 import {
   assertEmailVerifiedForOrder,
   buildCartQuote,
@@ -26,9 +27,13 @@ import {
   PurchasableCourseFacts,
   transitionOrder,
 } from '../domain/order.rules';
-import type { CartPreviewInput, CreateOrderInput } from '../schemas/order.schema';
+import type {
+  CartPreviewInput,
+  CreateOrderInput,
+  SubmitPaymentProofInput,
+} from '../schemas/order.schema';
 
-export type { OrderItemRecord, OrderRecord };
+export type { OrderItemRecord, OrderRecord, PaymentProofRecord };
 
 export interface CartPreviewItemView {
   courseId: string;
@@ -56,6 +61,14 @@ export interface StudentOrderItemView {
   currency: string;
 }
 
+export interface StudentPaymentProofView {
+  id: string;
+  transactionId: string;
+  amountClaimedMinor: bigint | null;
+  hasProofFile: boolean;
+  submittedAt: Date;
+}
+
 export interface StudentOrderView {
   id: string;
   paymentReference: string;
@@ -66,13 +79,21 @@ export interface StudentOrderView {
   expiresAt: Date | null;
   verifiedAt: Date | null;
   items: StudentOrderItemView[];
+  proofs: StudentPaymentProofView[];
   paymentInstructions: PaymentInstructions;
 }
 
+export interface SubmittedPaymentProofView {
+  orderId: string;
+  orderStatus: OrderStatus;
+  proof: StudentPaymentProofView;
+  proofs: StudentPaymentProofView[];
+}
+
 /**
- * Orders and cart (#54, #55, #56, #57). Validates multi-teacher carts, creates orders with unique
- * payment references, persists frozen price and commission snapshots on every line item, and
- * enforces the order lifecycle state machine with audit attribution.
+ * Orders and cart (#54, #55, #56, #57, #58). Validates multi-teacher carts, creates orders with
+ * unique payment references, persists frozen price and commission snapshots on every line item,
+ * enforces the order lifecycle state machine with audit attribution, and records payment proofs.
  */
 @Injectable()
 export class OrderService {
@@ -84,6 +105,7 @@ export class OrderService {
     private readonly transactions: TransactionService,
     private readonly email: EmailService,
     private readonly audit: AuditService,
+    private readonly storage: StorageService,
   ) {}
 
   /**
@@ -174,6 +196,77 @@ export class OrderService {
     });
 
     return view;
+  }
+
+  /**
+   * #58: submits a proof of payment for an order owned by the student. Requires a bank transaction
+   * ID, accepts an optional screenshot/PDF (`PAYMENT_PROOF`), supports multiple proofs per order
+   * (e.g. top-ups after a short payment), and transitions the order to `PROOF_SUBMITTED`.
+   */
+  async submitPaymentProof(
+    user: AuthUser,
+    orderId: string,
+    input: SubmitPaymentProofInput,
+    file?: IncomingFile,
+  ): Promise<SubmittedPaymentProofView> {
+    const existing = await this.orderDao.getOrderBy({ id: orderId, studentId: user.id });
+    if (!existing) {
+      throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
+    }
+
+    const now = new Date();
+    // Validate the state transition upfront before storing any uploaded file.
+    transitionOrder(existing.status, 'SUBMIT_PROOF', now);
+
+    const stored = file ? await this.storage.store('PAYMENT_PROOF', 'payment-proof', file) : null;
+
+    try {
+      return await this.transactions.run(async (tx) => {
+        const order = await this.orderDao.getOrderBy({ id: orderId, studentId: user.id }, tx);
+        if (!order) {
+          throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
+        }
+
+        const proof = await this.orderDao.createPaymentProof(
+          {
+            orderId: order.id,
+            transactionId: input.transactionId,
+            proofFileUrl: stored?.key ?? null,
+            amountClaimedMinor: input.amountClaimedMinor ?? null,
+          },
+          tx,
+        );
+
+        const transition = await this.applyOrderTransition(
+          order,
+          'SUBMIT_PROOF',
+          user.id,
+          {
+            proofId: proof.id,
+            transactionId: proof.transactionId,
+            hasProofFile: proof.proofFileUrl !== null,
+            ...(proof.amountClaimedMinor !== null
+              ? { amountClaimedMinor: proof.amountClaimedMinor.toString() }
+              : {}),
+          },
+          now,
+          tx,
+        );
+
+        const allProofs = await this.orderDao.getPaymentProofsBy({ orderId: order.id }, tx);
+        return {
+          orderId: order.id,
+          orderStatus: transition.to as OrderStatus,
+          proof: this.toStudentProofView(proof),
+          proofs: allProofs.map((p) => this.toStudentProofView(p)),
+        };
+      });
+    } catch (error) {
+      if (stored) {
+        await this.storage.delete(stored.key).catch(() => undefined);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -281,6 +374,16 @@ export class OrderService {
     throw new AppException(ErrorCode.INTERNAL);
   }
 
+  private toStudentProofView(proof: PaymentProofRecord): StudentPaymentProofView {
+    return {
+      id: proof.id,
+      transactionId: proof.transactionId,
+      amountClaimedMinor: proof.amountClaimedMinor,
+      hasProofFile: proof.proofFileUrl !== null,
+      submittedAt: proof.submittedAt,
+    };
+  }
+
   private toStudentOrderView(order: OrderRecord): StudentOrderView {
     return {
       id: order.id,
@@ -300,6 +403,7 @@ export class OrderService {
         priceMinor: item.priceMinor,
         currency: order.currency,
       })),
+      proofs: order.proofs.map((proof) => this.toStudentProofView(proof)),
       paymentInstructions: buildPaymentInstructions({
         paymentReference: order.paymentReference,
         totalMinor: order.totalMinor,
