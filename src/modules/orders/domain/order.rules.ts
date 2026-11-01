@@ -385,3 +385,40 @@ export function buildCartQuote(
     teacherCount,
   };
 }
+export interface DuplicateTransactionMatch {
+  orderId: string;
+  paymentReference: string;
+  transactionId: string;
+}
+
+export interface DuplicateTransactionIdWarning {
+  transactionId: string;
+  conflictingOrderIds: string[];
+  conflictingPaymentReferences: string[];
+  message: string;
+}
+
+/**
+ * #59: detects when a bank transaction ID has already been submitted on another order.
+ * Returns a non-blocking warning (or null if no other order uses the same transaction ID).
+ */
+export function buildDuplicateTransactionIdWarning(
+  currentOrderId: string,
+  transactionId: string,
+  matches: readonly DuplicateTransactionMatch[],
+): DuplicateTransactionIdWarning | null {
+  const normalized = transactionId.trim().toLowerCase();
+  const otherOrders = matches.filter(
+    (m) => m.orderId !== currentOrderId && m.transactionId.trim().toLowerCase() === normalized,
+  );
+  if (otherOrders.length === 0) return null;
+
+  const conflictingOrderIds = [...new Set(otherOrders.map((m) => m.orderId))];
+  const conflictingPaymentReferences = [...new Set(otherOrders.map((m) => m.paymentReference))];
+  return {
+    transactionId,
+    conflictingOrderIds,
+    conflictingPaymentReferences,
+    message: `Transaction ID "${transactionId}" also appears on ${conflictingOrderIds.length} other order(s) (${conflictingPaymentReferences.join(', ')}).`,
+  };
+}

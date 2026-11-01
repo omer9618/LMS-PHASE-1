@@ -17,9 +17,11 @@ import { OrderDao, OrderItemRecord, OrderRecord, PaymentProofRecord } from '../d
 import {
   assertEmailVerifiedForOrder,
   buildCartQuote,
+  buildDuplicateTransactionIdWarning,
   buildPaymentInstructions,
   CartQuote,
   computeOrderExpiry,
+  DuplicateTransactionIdWarning,
   formatPaymentReference,
   OrderAction,
   OrderTransitionResult,
@@ -88,12 +90,18 @@ export interface SubmittedPaymentProofView {
   orderStatus: OrderStatus;
   proof: StudentPaymentProofView;
   proofs: StudentPaymentProofView[];
+  duplicateTransactionIdWarning: DuplicateTransactionIdWarning | null;
+}
+
+export interface AdminOrderDetailView extends OrderRecord {
+  duplicateTransactionIdWarnings: DuplicateTransactionIdWarning[];
 }
 
 /**
- * Orders and cart (#54, #55, #56, #57, #58). Validates multi-teacher carts, creates orders with
- * unique payment references, persists frozen price and commission snapshots on every line item,
- * enforces the order lifecycle state machine with audit attribution, and records payment proofs.
+ * Orders and cart (#54, #55, #56, #57, #58, #59). Validates multi-teacher carts, creates orders
+ * with unique payment references, persists frozen price and commission snapshots on every line
+ * item, enforces the order lifecycle state machine with audit attribution, records payment proofs,
+ * and warns on duplicate transaction IDs across orders without blocking submission.
  */
 @Injectable()
 export class OrderService {
@@ -199,9 +207,10 @@ export class OrderService {
   }
 
   /**
-   * #58: submits a proof of payment for an order owned by the student. Requires a bank transaction
-   * ID, accepts an optional screenshot/PDF (`PAYMENT_PROOF`), supports multiple proofs per order
-   * (e.g. top-ups after a short payment), and transitions the order to `PROOF_SUBMITTED`.
+   * #58, #59: submits a proof of payment for an order owned by the student. Requires a bank
+   * transaction ID, accepts an optional screenshot/PDF (`PAYMENT_PROOF`), supports multiple proofs
+   * per order, transitions the order to `PROOF_SUBMITTED`, and returns a non-blocking warning when
+   * the transaction ID already exists on another order.
    */
   async submitPaymentProof(
     user: AuthUser,
@@ -227,6 +236,21 @@ export class OrderService {
           throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
         }
 
+        const otherMatches = await this.orderDao.getOtherOrderProofsByTransactionIds(
+          order.id,
+          [input.transactionId],
+          tx,
+        );
+        const duplicateWarning = buildDuplicateTransactionIdWarning(
+          order.id,
+          input.transactionId,
+          otherMatches.map((m) => ({
+            orderId: m.order.id,
+            paymentReference: m.order.paymentReference,
+            transactionId: m.transactionId,
+          })),
+        );
+
         const proof = await this.orderDao.createPaymentProof(
           {
             orderId: order.id,
@@ -245,6 +269,10 @@ export class OrderService {
             proofId: proof.id,
             transactionId: proof.transactionId,
             hasProofFile: proof.proofFileUrl !== null,
+            duplicateTransactionId: duplicateWarning !== null,
+            ...(duplicateWarning
+              ? { conflictingOrderIds: duplicateWarning.conflictingOrderIds }
+              : {}),
             ...(proof.amountClaimedMinor !== null
               ? { amountClaimedMinor: proof.amountClaimedMinor.toString() }
               : {}),
@@ -259,6 +287,7 @@ export class OrderService {
           orderStatus: transition.to as OrderStatus,
           proof: this.toStudentProofView(proof),
           proofs: allProofs.map((p) => this.toStudentProofView(p)),
+          duplicateTransactionIdWarning: duplicateWarning,
         };
       });
     } catch (error) {
@@ -315,12 +344,42 @@ export class OrderService {
     return transition;
   }
 
-  /** #56: admin view of an order including frozen line-item snapshots (commission bps, net, etc.). */
-  async getOrderForAdmin(admin: AuthUser, orderId: string): Promise<OrderRecord> {
+  /**
+   * #56, #59: admin view of an order including frozen line-item snapshots and any duplicate
+   * transaction ID warnings across other orders.
+   */
+  async getOrderForAdmin(admin: AuthUser, orderId: string): Promise<AdminOrderDetailView> {
     adminScope(admin);
     const order = await this.orderDao.getOrderBy({ id: orderId });
     if (!order) throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
-    return order;
+
+    const otherMatches = await this.orderDao.getOtherOrderProofsByTransactionIds(
+      order.id,
+      order.proofs.map((p) => p.transactionId),
+    );
+    const matchInputs = otherMatches.map((m) => ({
+      orderId: m.order.id,
+      paymentReference: m.order.paymentReference,
+      transactionId: m.transactionId,
+    }));
+    const seenTxIds = new Set<string>();
+    const duplicateTransactionIdWarnings: DuplicateTransactionIdWarning[] = [];
+    for (const proof of order.proofs) {
+      const key = proof.transactionId.trim().toLowerCase();
+      if (seenTxIds.has(key)) continue;
+      seenTxIds.add(key);
+      const warning = buildDuplicateTransactionIdWarning(
+        order.id,
+        proof.transactionId,
+        matchInputs,
+      );
+      if (warning) duplicateTransactionIdWarnings.push(warning);
+    }
+
+    return {
+      ...order,
+      duplicateTransactionIdWarnings,
+    };
   }
 
   /** Computes the full cart quote (including frozen commission splits for order creation). */

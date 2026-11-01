@@ -26,6 +26,16 @@ const paymentProofSelect = {
   submittedAt: true,
 } satisfies Prisma.PaymentProofSelect;
 
+const paymentProofWithOrderSelect = {
+  ...paymentProofSelect,
+  order: {
+    select: {
+      id: true,
+      paymentReference: true,
+    },
+  },
+} satisfies Prisma.PaymentProofSelect;
+
 const orderSelect = {
   id: true,
   studentId: true,
@@ -51,6 +61,9 @@ export type OrderRecord = Prisma.OrderGetPayload<{ select: typeof orderSelect }>
 export type OrderItemRecord = Prisma.OrderItemGetPayload<{ select: typeof orderItemSelect }>;
 export type PaymentProofRecord = Prisma.PaymentProofGetPayload<{
   select: typeof paymentProofSelect;
+}>;
+export type PaymentProofWithOrderRecord = Prisma.PaymentProofGetPayload<{
+  select: typeof paymentProofWithOrderSelect;
 }>;
 
 export interface CreateOrderData {
@@ -141,6 +154,26 @@ export class OrderDao {
     return (tx ?? this.prisma).paymentProof.findMany({
       where,
       select: paymentProofSelect,
+      orderBy: { submittedAt: 'asc' },
+    });
+  }
+
+  /** #59: finds proofs on other orders matching any of the given transaction IDs (case-insensitive). */
+  getOtherOrderProofsByTransactionIds(
+    excludeOrderId: string,
+    transactionIds: readonly string[],
+    tx?: TransactionClient,
+  ): Promise<PaymentProofWithOrderRecord[]> {
+    const unique = [...new Set(transactionIds.map((t) => t.trim()).filter(Boolean))];
+    if (unique.length === 0) return Promise.resolve([]);
+    return (tx ?? this.prisma).paymentProof.findMany({
+      where: {
+        orderId: { not: excludeOrderId },
+        OR: unique.map((txId) => ({
+          transactionId: { equals: txId, mode: 'insensitive' as const },
+        })),
+      },
+      select: paymentProofWithOrderSelect,
       orderBy: { submittedAt: 'asc' },
     });
   }
