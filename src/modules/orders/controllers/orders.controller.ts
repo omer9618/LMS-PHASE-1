@@ -28,7 +28,7 @@ import {
 } from '../schemas/order.schema';
 import {
   CartPreviewView,
-  OrderRecord,
+  AdminOrderDetailView,
   OrderService,
   StudentOrderView,
   SubmittedPaymentProofView,
@@ -88,7 +88,7 @@ export class AdminOrdersController {
   getOrder(
     @CurrentUser() admin: AuthUser,
     @Param(new ZodValidationPipe(orderParamsSchema)) params: OrderParams,
-  ): Promise<OrderRecord> {
+  ): Promise<AdminOrderDetailView> {
     return this.orderService.getOrderForAdmin(admin, params.orderId);
   }
 }
