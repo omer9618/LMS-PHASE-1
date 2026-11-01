@@ -773,4 +773,336 @@ describe('Orders and Cart (#54, #55, #56)', () => {
       });
     });
   });
+  describe('Exhaustive end-to-end Orders workflow & edge-case matrix (#54-#62)', () => {
+    const validPdfBuffer = Buffer.concat([
+      Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a]),
+      Buffer.alloc(32, 0),
+    ]);
+    const validJpegBuffer = Buffer.concat([
+      Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]),
+      Buffer.alloc(32, 0),
+    ]);
+    const validWebpBuffer = Buffer.concat([
+      Buffer.from([0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50]),
+      Buffer.alloc(32, 0),
+    ]);
+    const fakeExeBuffer = Buffer.concat([
+      Buffer.from([0x4d, 0x5a, 0x90, 0x00]),
+      Buffer.alloc(32, 0),
+    ]);
+
+    it('runs the complete multi-teacher lifecycle: cart -> order -> short proof -> top-up request -> top-up proof -> confirm -> receipt -> refund, plus rejection & upload validation', async () => {
+      const course1 = await publishPaidCourse(teacherA, 'Full Workflow Chem', '150000', 2000);
+      const course2 = await publishPaidCourse(teacherB, 'Full Workflow Math', '225000', 1500);
+      const student = await newStudent(true);
+      const stranger = await newStudent(true);
+      const adminUser = await prisma.user.findUniqueOrThrow({
+        where: { email: SEEDED.admin.email },
+      });
+
+      // 0. Unauthenticated requests are rejected with 401 across all order endpoints
+      await http()
+        .post('/orders/cart/preview')
+        .send({ courseIds: [course1] })
+        .expect(401);
+      await http()
+        .post('/orders')
+        .send({ courseIds: [course1] })
+        .expect(401);
+      await http().get('/orders').expect(401);
+      await http().get('/me/orders').expect(401);
+
+      // 1. Cart & Order input validation: empty array, invalid UUID, and non-existent course ID
+      await http()
+        .post('/orders/cart/preview')
+        .set('Cookie', student.cookie)
+        .send({ courseIds: [] })
+        .expect(400);
+      await http()
+        .post('/orders/cart/preview')
+        .set('Cookie', student.cookie)
+        .send({ courseIds: ['not-a-uuid'] })
+        .expect(400);
+      await http()
+        .post('/orders/cart/preview')
+        .set('Cookie', student.cookie)
+        .send({ courseIds: ['00000000-0000-4000-8000-000000000000'] })
+        .expect(404);
+
+      // 2. Cart preview across 2 teachers (150,000 + 225,000 = 375,000 PKR minor units)
+      const preview = await http()
+        .post('/orders/cart/preview')
+        .set('Cookie', student.cookie)
+        .send({ courseIds: [course1, course2] })
+        .expect(200);
+      expect(preview.body.data).toMatchObject({
+        currency: 'PKR',
+        totalMinor: '375000',
+        teacherCount: 2,
+      });
+
+      // 3. Create order -> PENDING, guidance requires SUBMIT_PROOF, receipt refused
+      const created = await http()
+        .post('/orders')
+        .set('Cookie', student.cookie)
+        .send({ courseIds: [course1, course2] })
+        .expect(201);
+      const orderId = created.body.data.id as string;
+      const paymentReference = created.body.data.paymentReference as string;
+      expect(created.body.data.status).toBe('PENDING');
+      expect(created.body.data.guidance).toMatchObject({
+        statusLabel: 'Awaiting Payment & Proof',
+        actionRequired: 'SUBMIT_PROOF',
+        canSubmitProof: true,
+      });
+      await http().get(`/me/orders/${orderId}/receipt`).set('Cookie', student.cookie).expect(409);
+
+      // 4. Upload validation on proof submission: invalid amountClaimedMinor, spoofed executable file
+      await http()
+        .post(`/orders/${orderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .send({ transactionId: 'BAD-AMOUNT', amountClaimedMinor: '0' })
+        .expect(400);
+      await http()
+        .post(`/orders/${orderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .send({ transactionId: 'BAD-AMOUNT', amountClaimedMinor: '-500' })
+        .expect(400);
+      await http()
+        .post(`/orders/${orderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .field('transactionId', 'BAD-FILE-TXN')
+        .attach('proof', fakeExeBuffer, { filename: 'slip.png', contentType: 'image/png' })
+        .expect(400);
+
+      // 5. Submit initial partial payment proof with PDF attachment (200,000 of 375,000) -> PROOF_SUBMITTED
+      const tx1 = 'WF-PARTIAL-1-' + String(Date.now());
+      const proof1 = await http()
+        .post(`/orders/${orderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .field('transactionId', tx1)
+        .field('amountClaimedMinor', '200000')
+        .attach('proof', validPdfBuffer, {
+          filename: 'transfer-1.pdf',
+          contentType: 'application/pdf',
+        })
+        .expect(201);
+      expect(proof1.body.data.orderStatus).toBe('PROOF_SUBMITTED');
+      expect(proof1.body.data.proof.proofDownloadUrl).toContain('/dev-files/');
+      expect(proof1.body.data.guidance).toMatchObject({
+        statusLabel: 'Payment Proof Under Review',
+        actionRequired: 'AWAIT_ADMIN_VERIFICATION',
+        canSubmitProof: true,
+      });
+
+      // Download the stored PDF via the signed URL and verify its bytes match
+      const pdfUrl = new URL(proof1.body.data.proof.proofDownloadUrl as string);
+      const downloadedPdf = await http()
+        .get(pdfUrl.pathname + pdfUrl.search)
+        .expect(200);
+      expect(downloadedPdf.headers['content-type']).toContain('application/pdf');
+
+      // 6. Admin requests top-up for short payment (PROOF_SUBMITTED -> PENDING)
+      const orderService = app.get(OrderService);
+      const transactions = app.get(TransactionService);
+      await transactions.run((tx) =>
+        orderService.applyOrderTransition(
+          { id: orderId, status: 'PROOF_SUBMITTED' },
+          'REQUEST_TOP_UP',
+          adminUser.id,
+          { shortfallMinor: '175000', reason: 'Short by 175,000 minor units' },
+          new Date(),
+          tx,
+        ),
+      );
+
+      // Student order status screen now shows "Additional Payment Required" (PENDING with proofCount > 0)
+      const topUpStatus = await http()
+        .get(`/me/orders/${orderId}`)
+        .set('Cookie', student.cookie)
+        .expect(200);
+      expect(topUpStatus.body.data.status).toBe('PENDING');
+      expect(topUpStatus.body.data.proofs).toHaveLength(1);
+      expect(topUpStatus.body.data.guidance).toMatchObject({
+        statusLabel: 'Additional Payment Required',
+        actionRequired: 'SUBMIT_PROOF',
+        canSubmitProof: true,
+        nextStepMessage: expect.stringContaining('additional payment is required'),
+      });
+
+      // 7. Student submits top-up proof with JPEG attachment (175,000) -> back to PROOF_SUBMITTED
+      const tx2 = 'WF-PARTIAL-2-' + String(Date.now());
+      const proof2 = await http()
+        .post(`/orders/${orderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .field('transactionId', tx2)
+        .field('amountClaimedMinor', '175000')
+        .attach('proof', validJpegBuffer, {
+          filename: 'transfer-2.jpg',
+          contentType: 'image/jpeg',
+        })
+        .expect(201);
+      expect(proof2.body.data.orderStatus).toBe('PROOF_SUBMITTED');
+      expect(proof2.body.data.proofs).toHaveLength(2);
+
+      // Student also submits a 3rd supplemental WEBP proof to verify WEBP support
+      const tx3 = 'WF-SUPP-3-' + String(Date.now());
+      const proof3 = await http()
+        .post(`/orders/${orderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .field('transactionId', tx3)
+        .attach('proof', validWebpBuffer, {
+          filename: 'transfer-3.webp',
+          contentType: 'image/webp',
+        })
+        .expect(201);
+      expect(proof3.body.data.proofs).toHaveLength(3);
+
+      // 8. Admin confirms payment (PROOF_SUBMITTED -> VERIFIED)
+      const verifiedAt = new Date();
+      await transactions.run((tx) =>
+        orderService.applyOrderTransition(
+          { id: orderId, status: 'PROOF_SUBMITTED' },
+          'VERIFY',
+          adminUser.id,
+          { verifiedAmountMinor: '375000' },
+          verifiedAt,
+          tx,
+        ),
+      );
+
+      // Student status screen shows Confirmed, canSubmitProof: false
+      const verifiedStatus = await http()
+        .get(`/me/orders/${orderId}`)
+        .set('Cookie', student.cookie)
+        .expect(200);
+      expect(verifiedStatus.body.data.status).toBe('VERIFIED');
+      expect(verifiedStatus.body.data.verifiedAt).toBe(verifiedAt.toISOString());
+      expect(verifiedStatus.body.data.guidance).toMatchObject({
+        statusLabel: 'Confirmed',
+        actionRequired: 'NONE',
+        canSubmitProof: false,
+      });
+
+      // Proof submission on a VERIFIED order is refused with 409 INVALID_STATE_TRANSITION
+      await http()
+        .post(`/orders/${orderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .send({ transactionId: 'LATE-TXN' })
+        .expect(409);
+
+      // Official receipt is now available to the student AND to the admin, but 404 to another student
+      const studentReceipt = await http()
+        .get(`/me/orders/${orderId}/receipt`)
+        .set('Cookie', student.cookie)
+        .expect(200);
+      expect(studentReceipt.body.data).toMatchObject({
+        receiptNumber: `RCT-${paymentReference}`,
+        orderId,
+        paymentReference,
+        issuedAt: verifiedAt.toISOString(),
+        totalMinor: '375000',
+        currency: 'PKR',
+        transactionIds: [tx1, tx2, tx3],
+      });
+      expect(studentReceipt.body.data.items).toHaveLength(2);
+
+      const adminReceipt = await http()
+        .get(`/orders/${orderId}/receipt`)
+        .set('Cookie', admin)
+        .expect(200);
+      expect(adminReceipt.body.data.receiptNumber).toBe(`RCT-${paymentReference}`);
+
+      await http().get(`/orders/${orderId}/receipt`).set('Cookie', stranger.cookie).expect(404);
+
+      // 9. Admin records a refund (VERIFIED -> REFUNDED)
+      await transactions.run((tx) =>
+        orderService.applyOrderTransition(
+          { id: orderId, status: 'VERIFIED' },
+          'REFUND',
+          adminUser.id,
+          { refundReason: 'Requested by student' },
+          new Date(),
+          tx,
+        ),
+      );
+
+      const refundedStatus = await http()
+        .get(`/me/orders/${orderId}`)
+        .set('Cookie', student.cookie)
+        .expect(200);
+      expect(refundedStatus.body.data.status).toBe('REFUNDED');
+      expect(refundedStatus.body.data.guidance).toMatchObject({
+        statusLabel: 'Refunded',
+        actionRequired: 'NONE',
+        canSubmitProof: false,
+      });
+
+      // Receipt is refused once an order is REFUNDED
+      await http().get(`/me/orders/${orderId}/receipt`).set('Cookie', student.cookie).expect(409);
+
+      // Audit log contains the complete 7-step trail for this order
+      const auditTrail = await http()
+        .get(`/admin/audit-log?entityType=order&entityId=${orderId}&limit=20`)
+        .set('Cookie', admin)
+        .expect(200);
+      const actions = auditTrail.body.data.items.map((a: { action: string }) => a.action);
+      expect(actions).toEqual(
+        expect.arrayContaining([
+          'ORDER_CREATED',
+          'ORDER_PROOF_SUBMITTED',
+          'ORDER_TOP_UP_REQUESTED',
+          'ORDER_VERIFIED',
+          'ORDER_REFUNDED',
+        ]),
+      );
+
+      // 10. Separate order exercising the REJECTED terminal path (PENDING -> PROOF_SUBMITTED -> REJECTED)
+      const rejectedOrderRes = await http()
+        .post('/orders')
+        .set('Cookie', student.cookie)
+        .send({ courseIds: [course1] })
+        .expect(201);
+      const rejectedOrderId = rejectedOrderRes.body.data.id as string;
+
+      await http()
+        .post(`/orders/${rejectedOrderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .send({ transactionId: 'INVALID-BANK-REF-' + String(Date.now()) })
+        .expect(201);
+
+      await transactions.run((tx) =>
+        orderService.applyOrderTransition(
+          { id: rejectedOrderId, status: 'PROOF_SUBMITTED' },
+          'REJECT',
+          adminUser.id,
+          { reason: 'Invalid transaction reference' },
+          new Date(),
+          tx,
+        ),
+      );
+
+      const rejectedStatus = await http()
+        .get(`/me/orders/${rejectedOrderId}`)
+        .set('Cookie', student.cookie)
+        .expect(200);
+      expect(rejectedStatus.body.data.status).toBe('REJECTED');
+      expect(rejectedStatus.body.data.guidance).toMatchObject({
+        statusLabel: 'Payment Rejected',
+        actionRequired: 'NONE',
+        canSubmitProof: false,
+      });
+
+      // Terminal REJECTED order refuses new proofs and refuses receipts
+      await http()
+        .post(`/orders/${rejectedOrderId}/proofs`)
+        .set('Cookie', student.cookie)
+        .send({ transactionId: 'RETRY-AFTER-REJECT' })
+        .expect(409);
+      await http()
+        .get(`/me/orders/${rejectedOrderId}/receipt`)
+        .set('Cookie', student.cookie)
+        .expect(409);
+    });
+  });
 });
