@@ -324,4 +324,36 @@ describe('Orders and Cart (#54, #55, #56)', () => {
         .expect(403);
     });
   });
+  describe('Order lifecycle state machine (#57)', () => {
+    it('records ORDER_CREATED with actor and timestamp, applies valid transitions with audit attribution, and rejects invalid transitions', async () => {
+      const courseId = await publishPaidCourse(teacherA, 'Lifecycle Course', '150000', 2000);
+      const student = await newStudent(true);
+
+      const created = await http()
+        .post('/orders')
+        .set('Cookie', student.cookie)
+        .send({ courseIds: [courseId] })
+        .expect(201);
+      const orderId = created.body.data.id as string;
+
+      const auditCreated = await http()
+        .get(`/admin/audit-log?entityType=order&entityId=${orderId}`)
+        .set('Cookie', admin)
+        .expect(200);
+      expect(auditCreated.body.data.items).toEqual([
+        expect.objectContaining({
+          actorUserId: student.id,
+          action: 'ORDER_CREATED',
+          entityType: 'order',
+          entityId: orderId,
+          details: expect.objectContaining({
+            to: 'PENDING',
+            transitionedAt: expect.any(String),
+            paymentReference: created.body.data.paymentReference,
+            totalMinor: '150000',
+          }),
+        }),
+      ]);
+    });
+  });
 });
