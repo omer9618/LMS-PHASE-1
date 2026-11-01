@@ -9,7 +9,7 @@ import { createTestApp } from './utils/test-app';
 
 const PASSWORD = 'student passphrase for orders';
 
-describe('Orders and Cart (#54, #55)', () => {
+describe('Orders and Cart (#54, #55, #56)', () => {
   let app: NestExpressApplication;
   let teacherA: string;
   let teacherB: string;
@@ -257,6 +257,71 @@ describe('Orders and Cart (#54, #55)', () => {
         .send({ courseIds: [courseA] })
         .expect(403);
       expect(res.body.error.name).toBe('EMAIL_NOT_VERIFIED');
+    });
+  });
+
+  describe('Frozen order line snapshots (#56, #31)', () => {
+    it('stores frozen price, commission rate, commission amount and net teacher earning at purchase, unaffected by later repricing', async () => {
+      const courseId = await publishPaidCourse(teacherA, 'Snapshot Chemistry', '150000', 2000);
+      const student1 = await newStudent(true);
+      const student2 = await newStudent(true);
+
+      // Order 1 placed at 150,000 minor units, 2000 bps (20% = 30,000 commission, 120,000 net).
+      const order1 = await http()
+        .post('/orders')
+        .set('Cookie', student1.cookie)
+        .send({ courseIds: [courseId] })
+        .expect(201);
+
+      // Admin changes published course price to 200,000 minor units and commission to 2500 bps (25%).
+      await http()
+        .put(`/admin/courses/${courseId}/pricing`)
+        .set('Cookie', admin)
+        .send({ isFree: false, priceMinor: '200000', currency: 'PKR', commissionRateBps: 2500 })
+        .expect(200);
+
+      // Order 2 placed after repricing captures the new values.
+      const order2 = await http()
+        .post('/orders')
+        .set('Cookie', student2.cookie)
+        .send({ courseIds: [courseId] })
+        .expect(201);
+
+      const detail1 = await http()
+        .get(`/admin/orders/${order1.body.data.id}`)
+        .set('Cookie', admin)
+        .expect(200);
+      expect(detail1.body.data.totalMinor).toBe('150000');
+      expect(detail1.body.data.items).toEqual([
+        expect.objectContaining({
+          courseId,
+          priceMinor: '150000',
+          commissionRateBps: 2000,
+          commissionMinor: '30000',
+          netTeacherMinor: '120000',
+        }),
+      ]);
+
+      const detail2 = await http()
+        .get(`/admin/orders/${order2.body.data.id}`)
+        .set('Cookie', admin)
+        .expect(200);
+      expect(detail2.body.data.totalMinor).toBe('200000');
+      expect(detail2.body.data.items).toEqual([
+        expect.objectContaining({
+          courseId,
+          priceMinor: '200000',
+          commissionRateBps: 2500,
+          commissionMinor: '50000',
+          netTeacherMinor: '150000',
+        }),
+      ]);
+
+      // Non-admin cannot view admin order detail
+      await http()
+        .get(`/admin/orders/${order1.body.data.id}`)
+        .set('Cookie', student1.cookie)
+        .expect(403);
     });
   });
 });
