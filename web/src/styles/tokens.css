@@ -1,0 +1,124 @@
+/*
+ * Design tokens (#7). Every colour, size and space in the app comes from here.
+ *
+ * The palette is a neutral placeholder until the client supplies branding (open question). Text
+ * and interactive colours meet WCAG 2.2 AA on --color-bg and --color-surface (contrast ratios noted).
+ *
+ * Density: "comfortable" (students, teachers) is the default. Set data-density="compact" on any
+ * element (the admin area sets it on its layout) to tighten the controls and tables inside it.
+ * Only the density-dependent tokens at the bottom change; colours and type scale never do.
+ */
+:root {
+  /* ── Colour: neutrals ── */
+  --color-bg: #ffffff;
+  --color-surface: #f6f7f9;
+  --color-surface-sunken: #eceef2;
+  --color-border: #d0d5dd;
+  --color-border-strong: #8a93a3; /* 3.3:1 on bg: the minimum for control borders (1.4.11) */
+  --color-text: #161b26; /* 17.4:1 */
+  --color-text-muted: #4b5565; /* 7.4:1 */
+  --color-text-inverse: #ffffff;
+
+  /* ── Colour: brand placeholder (slate blue) ── */
+  --color-primary: #2c4a9a; /* 8.4:1, white text on it 8.4:1 */
+  --color-primary-hover: #223a7a;
+  --color-primary-subtle: #e8edf8;
+  --color-on-primary: #ffffff;
+
+  /* ── Colour: status ── */
+  --color-success: #17643a; /* 7.0:1 */
+  --color-success-subtle: #e6f4ec;
+  --color-warning: #8a4b00; /* 6.6:1 */
+  --color-warning-subtle: #fdf1df;
+  --color-danger: #b42318; /* 6.4:1 */
+  --color-danger-hover: #912018;
+  --color-danger-subtle: #fdecea;
+  --color-info: #1f5a85; /* 7.3:1 */
+  --color-info-subtle: #e5f0f8;
+
+  /* ── Focus ── */
+  --focus-ring-color: #1a56db;
+  --focus-ring: 0 0 0 3px var(--color-bg), 0 0 0 5px var(--focus-ring-color);
+
+  /* ── Typography ── */
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ── Spacing (4px scale) ── */
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* ── Shape and depth ── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.06);
+  --shadow-md: 0 2px 8px rgb(16 24 40 / 0.1);
+
+  /* ── Layout ── */
+  --content-max-width: 72rem;
+  --form-max-width: 28rem;
+  --page-gutter: var(--space-4);
+
+  /* ── Density: comfortable (default) ── */
+  --density-body-size: var(--text-md);
+  --control-height: 2.75rem; /* 44px: a comfortable touch target */
+  --control-height-sm: 2.25rem;
+  --control-height-lg: 3.25rem;
+  --control-padding-x: var(--space-4);
+  --control-font-size: var(--text-md);
+  --control-gap: var(--space-2);
+  --field-gap: var(--space-1);
+  --stack-gap: var(--space-4);
+  --table-cell-padding-y: var(--space-3);
+  --table-cell-padding-x: var(--space-4);
+  --table-font-size: var(--text-md);
+  --badge-padding: 0.125rem var(--space-2);
+  --badge-font-size: var(--text-sm);
+}
+
+[data-density='compact'] {
+  --density-body-size: var(--text-sm);
+  --control-height: 2rem; /* 32px: still above the 24px minimum target (2.5.8) */
+  --control-height-sm: 1.75rem;
+  --control-height-lg: 2.5rem;
+  --control-padding-x: var(--space-3);
+  --control-font-size: var(--text-sm);
+  --control-gap: var(--space-1);
+  --field-gap: 0.125rem;
+  --stack-gap: var(--space-3);
+  --table-cell-padding-y: var(--space-1);
+  --table-cell-padding-x: var(--space-2);
+  --table-font-size: var(--text-sm);
+  --badge-padding: 0 var(--space-1);
+  --badge-font-size: var(--text-xs);
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --page-gutter: var(--space-6);
+  }
+}
