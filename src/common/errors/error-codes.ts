@@ -42,6 +42,10 @@ export enum ErrorCode {
 
   // Orders and verification
   ORDER_REFUSED = 'ORDER_REFUSED',
+
+  // Progress and progression (#90–#97, #77)
+  LESSON_LOCKED = 'LESSON_LOCKED',
+  PROGRESS_REFUSED = 'PROGRESS_REFUSED',
 }
 
 export interface ErrorDefinition {
@@ -109,6 +113,15 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
   [ErrorCode.ORDER_REFUSED]: {
     status: 409,
     message: 'This order cannot be placed',
+  },
+  // Progress and progression (#90–#97, #77)
+  [ErrorCode.LESSON_LOCKED]: {
+    status: 403,
+    message: 'This lesson is locked',
+  },
+  [ErrorCode.PROGRESS_REFUSED]: {
+    status: 409,
+    message: 'This progress cannot be recorded',
   },
 };
 

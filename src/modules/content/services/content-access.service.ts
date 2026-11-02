@@ -5,6 +5,7 @@ import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
 import { OutlineService } from '../../courses/services/outline.service';
 import { EnrollmentAccessService } from '../../enrollment/services/enrollment-access.service';
+import { ProgressAccessService } from '../../progress/services/progress-access.service';
 import {
   decideLessonAccess,
   decideResourceAccess,
@@ -19,13 +20,15 @@ export type LessonContext = NonNullable<
 /**
  * Server-side gate for lesson content (#37, #39). Loads the facts, asks the pure rules, and throws
  * before anything is returned. Not-available lessons are 404 (existence not revealed); lessons
- * that need an enrollment are 403 with a reason the UI can act on ("enrol to watch").
+ * that need an enrollment are 403 with a reason the UI can act on ("enrol to watch"). Locked lessons
+ * (sequential order or an unpassed checkpoint) are 403 LESSON_LOCKED with the cause (#96, #97, #77).
  */
 @Injectable()
 export class ContentAccessService {
   constructor(
     private readonly outline: OutlineService,
     private readonly enrollments: EnrollmentAccessService,
+    private readonly progress: ProgressAccessService,
   ) {}
 
   async assertCanPlay(
@@ -62,7 +65,14 @@ export class ContentAccessService {
       isAdmin: user?.roles.has(Role.ADMIN) ?? false,
       hasActiveEnrollment: enrollment === 'ACTIVE',
     });
-    if (decision.allowed) return lesson;
+    if (decision.allowed) {
+      // #96, #77: students are held to the unlock order (403 LESSON_LOCKED with the cause);
+      // staff and free-preview visitors are never locked.
+      if (decision.via === 'ENROLLMENT' && user) {
+        await this.progress.assertLessonUnlocked(user.id, course.id, lessonId);
+      }
+      return lesson;
+    }
     if (decision.reason === 'NOT_AVAILABLE') {
       throw new AppException(ErrorCode.NOT_FOUND, { entity: 'lesson', id: lessonId });
     }

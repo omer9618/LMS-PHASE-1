@@ -63,18 +63,19 @@ curl -b cookies.txt http://localhost:3000/auth/me
 
 ## What's built
 
-| Module (`src/modules/`)       | Issues         | What it does                                                                                                                                                      |
-| ----------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth`                        | #10–#17        | Registration with email verification, login and logout, server-side sessions, password reset, enforced TOTP MFA for admins, admin account management, rate limits |
-| `teachers`                    | #18–#23        | Public teacher application with CV and captcha, admin review queue, accounts from applications, deactivation, retention purge                                     |
-| `courses`                     | #24–#34        | Course state machine, authoring, sections and lessons, review queue, pricing and commission, unpublish, archive, demo (free previews)                             |
-| `content`                     | #35–#39        | Bunny Stream video (direct upload, webhooks, signed playback), PDF resources, server-side access gate                                                             |
-| `catalogue`                   | #40–#44        | Public catalogue: search, filters, stated ordering, course detail                                                                                                 |
-| `enrollment`                  | #46–#52        | Free enrollment, admin grants and revokes, expiry, teacher roster (view only), student dashboard with completion                                                  |
-| `audit`                       | #107, #108     | Audit log for sensitive actions, admin search                                                                                                                     |
-| `platform-settings`           | #8             | Admin-editable settings (thresholds, windows, retention)                                                                                                          |
-| `reference-data`              | #24            | Boards, levels, subjects                                                                                                                                          |
-| `email`, `storage`, `captcha` | #110, #19, #18 | Infrastructure adapters (SMTP/log/memory, S3/local disk, Turnstile/disabled)                                                                                      |
+| Module (`src/modules/`)       | Issues         | What it does                                                                                                                                                               |
+| ----------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth`                        | #10–#17        | Registration with email verification, login and logout, server-side sessions, password reset, enforced TOTP MFA for admins, admin account management, rate limits          |
+| `teachers`                    | #18–#23        | Public teacher application with CV and captcha, admin review queue, accounts from applications, deactivation, retention purge                                              |
+| `courses`                     | #24–#34        | Course state machine, authoring, sections and lessons, review queue, pricing and commission, unpublish, archive, demo (free previews)                                      |
+| `content`                     | #35–#39        | Bunny Stream video (direct upload, webhooks, signed playback), PDF resources, server-side access gate                                                                      |
+| `catalogue`                   | #40–#44        | Public catalogue: search, filters, stated ordering, course detail                                                                                                          |
+| `enrollment`                  | #46–#52        | Free enrollment, admin grants and revokes, expiry, teacher roster (view only), student dashboard with completion                                                           |
+| `progress`                    | #90–#97, #77   | Lesson completion (AUTO/MANUAL/QUIZ), skip-resistant watch positions, learner outline with derived unlock states and lock causes, checkpoint gating, teacher progress view |
+| `audit`                       | #107, #108     | Audit log for sensitive actions, admin search                                                                                                                              |
+| `platform-settings`           | #8             | Admin-editable settings (thresholds, windows, retention)                                                                                                                   |
+| `reference-data`              | #24            | Boards, levels, subjects                                                                                                                                                   |
+| `email`, `storage`, `captcha` | #110, #19, #18 | Infrastructure adapters (SMTP/log/memory, S3/local disk, Turnstile/disabled)                                                                                               |
 
 ### Still to do
 

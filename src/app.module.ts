@@ -19,6 +19,7 @@ import { CoursesModule } from './modules/courses/courses.module';
 import { EmailModule } from './modules/email/email.module';
 import { EnrollmentModule } from './modules/enrollment/enrollment.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { ProgressModule } from './modules/progress/progress.module';
 import { PlatformSettingsModule } from './modules/platform-settings/platform-settings.module';
 import { ReferenceDataModule } from './modules/reference-data/reference-data.module';
 import { StorageModule } from './modules/storage/storage.module';
@@ -52,6 +53,8 @@ import { PrismaModule } from './prisma/prisma.module';
     CatalogueModule,
     EnrollmentModule,
     OrdersModule,
+    // Progress and progression (#90–#97, #77)
+    ProgressModule,
     // Scheduled jobs (@Cron) run only when enabled; the e2e suite turns them off.
     ...(loadEnv().JOBS_ENABLED ? [ScheduleModule.forRoot()] : []),
   ],
