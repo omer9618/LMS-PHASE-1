@@ -5,6 +5,7 @@ import { ErrorCode } from '../../../common/errors/error-codes';
 import { CatalogueDao, CourseCardRecord, CourseDetailRecord } from '../dao/catalogue.dao';
 import { describePriceFilter, ORDERING_STATEMENTS, sortKeys } from '../domain/catalogue.rules';
 import type { CatalogueQuery } from '../schemas/catalogue.schema';
+import { contentTypeForKey, StorageService } from '../../storage/services/storage.service';
 
 export type CourseCard = CourseCardRecord;
 
@@ -45,7 +46,10 @@ export interface CourseDetail extends Omit<CourseDetailRecord, 'teacher' | 'sect
 /** Public catalogue (#40–#44). Read-only, no authentication, published student courses only. */
 @Injectable()
 export class CatalogueService {
-  constructor(private readonly catalogueDao: CatalogueDao) {}
+  constructor(
+    private readonly catalogueDao: CatalogueDao,
+    private readonly storage: StorageService,
+  ) {}
 
   async list(query: CatalogueQuery): Promise<CatalogueListing> {
     const where = this.buildWhere(query);
@@ -71,6 +75,22 @@ export class CatalogueService {
       offset: query.offset,
       ordering: ORDERING_STATEMENTS[query.sort],
     };
+  }
+
+  /**
+   * #99: a teacher's public courses, newest first, for their public profile page. Exported for
+   * the Profiles module so the public scope (PUBLIC_COURSE_WHERE) is applied in one place.
+   */
+  async listForTeacher(
+    teacherId: string,
+    page: { limit: number; offset: number },
+  ): Promise<CatalogueListing> {
+    const where: Prisma.CourseWhereInput = { teacherId };
+    const [items, total] = await Promise.all([
+      this.catalogueDao.getCourseCardsBy(where, [{ publishedAt: 'desc' }], page),
+      this.catalogueDao.countCoursesBy(where),
+    ]);
+    return { items, total, ...page, ordering: ORDERING_STATEMENTS.newest };
   }
 
   subjects() {
@@ -106,7 +126,18 @@ export class CatalogueService {
         id: teacher.id,
         fullName: teacher.fullName,
         profile: profile
-          ? { bio: profile.bio, photoUrl: profile.photoUrl, qualifications: profile.qualifications }
+          ? {
+              bio: profile.bio,
+              // The column holds a storage key (#98); clients get a short-lived signed URL.
+              photoUrl: profile.photoUrl
+                ? await this.storage.downloadUrl(
+                    profile.photoUrl,
+                    `profile.${profile.photoUrl.split('.').pop()}`,
+                    contentTypeForKey(profile.photoUrl),
+                  )
+                : null,
+              qualifications: profile.qualifications,
+            }
           : null,
       },
       outline,

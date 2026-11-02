@@ -50,6 +50,10 @@ export enum ErrorCode {
   QUIZ_LOCKED = 'QUIZ_LOCKED',
   QUIZ_ATTEMPT_REFUSED = 'QUIZ_ATTEMPT_REFUSED',
   QUIZ_ATTEMPT_CLOSED = 'QUIZ_ATTEMPT_CLOSED',
+
+  // Profiles (#98-#100) and role context (#109)
+  PROFILE_INCOMPLETE = 'PROFILE_INCOMPLETE',
+  ROLE_CONTEXT_REQUIRED = 'ROLE_CONTEXT_REQUIRED',
 }
 
 export interface ErrorDefinition {
@@ -137,6 +141,15 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
     message: 'You cannot start an attempt at this quiz',
   },
   [ErrorCode.QUIZ_ATTEMPT_CLOSED]: { status: 409, message: 'This attempt has ended' },
+  // Profiles (#98-#100) and role context (#109)
+  [ErrorCode.PROFILE_INCOMPLETE]: {
+    status: 422,
+    message: 'The profile needs more detail before it can be published',
+  },
+  [ErrorCode.ROLE_CONTEXT_REQUIRED]: {
+    status: 403,
+    message: 'Switch to the required context (Admin or Teacher) to do this',
+  },
 };
 
 export function isErrorCode(value: string): value is ErrorCode {
