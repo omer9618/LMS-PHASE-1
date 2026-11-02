@@ -6,9 +6,14 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Public } from '../../../common/decorators/public.decorator';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { RateLimit } from '../../../common/rate-limit/rate-limits';
-import { LoginInput, loginSchema } from '../schemas/auth.schema';
+import {
+  LoginInput,
+  loginSchema,
+  SwitchContextInput,
+  switchContextSchema,
+} from '../schemas/auth.schema';
 import { MfaLoginInput, mfaLoginSchema } from '../schemas/mfa.schema';
-import { AuthService, UserView } from '../services/auth.service';
+import { AuthService, MeView, UserView } from '../services/auth.service';
 import { MfaService } from '../services/mfa.service';
 import { SessionCookie } from '../session-cookie';
 
@@ -76,7 +81,17 @@ export class AuthController {
 
   @AllowWithoutMfa()
   @Get('me')
-  me(@CurrentUser() user: AuthUser): UserView & { mfaEnabled: boolean; mfaVerified: boolean } {
+  me(@CurrentUser() user: AuthUser): MeView {
     return this.authService.describe(user);
+  }
+
+  /** #109: switch an ADMIN+TEACHER session between the Admin and Teacher contexts. Audited. */
+  @Post('context')
+  @HttpCode(200)
+  switchContext(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(switchContextSchema)) body: SwitchContextInput,
+  ): Promise<MeView> {
+    return this.authService.switchContext(user, body.role);
   }
 }

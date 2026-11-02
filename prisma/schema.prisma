@@ -246,6 +246,9 @@ model Session {
   userAgent     String?   @map("user_agent")
   // Set when this session passed MFA (#16). Admin routes require it.
   mfaVerifiedAt DateTime? @map("mfa_verified_at") @db.Timestamptz(3)
+  // Role context (#109): the active context (ADMIN or TEACHER) of an account holding both.
+  // Null means the default (ADMIN). Ignored for single-role accounts.
+  activeRole    Role?     @map("active_role")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

@@ -32,3 +32,7 @@ export type RequestPasswordResetInput = z.infer<typeof requestPasswordResetSchem
 
 export const confirmPasswordResetSchema = z.strictObject({ token, password });
 export type ConfirmPasswordResetInput = z.infer<typeof confirmPasswordResetSchema>;
+
+/** #109: the explicit switch between the Admin and Teacher contexts of a dual-role account. */
+export const switchContextSchema = z.strictObject({ role: z.enum(['ADMIN', 'TEACHER']) });
+export type SwitchContextInput = z.infer<typeof switchContextSchema>;

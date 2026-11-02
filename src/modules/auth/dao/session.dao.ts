@@ -9,6 +9,7 @@ const sessionWithUserSelect = {
   lastSeenAt: true,
   revokedAt: true,
   mfaVerifiedAt: true,
+  activeRole: true,
   user: {
     select: {
       id: true,
