@@ -73,6 +73,7 @@ curl -b cookies.txt http://localhost:3000/auth/me
 | `catalogue`                   | #40–#44        | Public catalogue: search, filters, stated ordering, course detail                                                                                                          |
 | `enrollment`                  | #46–#52        | Free enrollment, admin grants and revokes, expiry, teacher roster (view only), student dashboard with completion                                                           |
 | `progress`                    | #90–#97, #77   | Lesson completion (AUTO/MANUAL/QUIZ), skip-resistant watch positions, learner outline with derived unlock states and lock causes, checkpoint gating, teacher progress view |
+| `assessment`                  | #68–#74, #76   | Quiz builder (MCQ, numeric with exact-decimal tolerance, LaTeX text, question images), server-timed attempts, attempt limits, answer reveal rules                          |
 | `audit`                       | #107, #108     | Audit log for sensitive actions, admin search                                                                                                                              |
 | `platform-settings`           | #8             | Admin-editable settings (thresholds, windows, retention)                                                                                                                   |
 | `reference-data`              | #24            | Boards, levels, subjects                                                                                                                                                   |
@@ -80,7 +81,7 @@ curl -b cookies.txt http://localhost:3000/auth/me
 
 ### Still to do
 
-- **M2:** cart and orders with frozen price snapshots (#54–#62), payment verification and amount mismatches (#63–#67), quizzes and assessment (#68–#77).
+- **M2:** cart and orders with frozen price snapshots (#54–#62), payment verification and amount mismatches (#63–#67), quiz checkpoint gating (#77).
 - **M3:** teacher ledger, refunds and payouts (#78–#89), progress and sequential unlock (#90–#97), teacher profiles (#98–#101), admin dashboards and finance reports (#102–#106), remaining email templates (#111–#113), test and hardening tickets (#114–#119).
 - **Web app:** Next.js in `/web` (decided), covering the UI tickets (#7, #45, #53, #75, #101, #102, #109, #114) and the screens for everything above.
 - **Deployment:** VPS + Docker + GitHub Actions (decided) for staging and production (#5, #6, #120–#123).

@@ -46,6 +46,10 @@ export enum ErrorCode {
   // Progress and progression (#90–#97, #77)
   LESSON_LOCKED = 'LESSON_LOCKED',
   PROGRESS_REFUSED = 'PROGRESS_REFUSED',
+  // Assessment (#68-#76)
+  QUIZ_LOCKED = 'QUIZ_LOCKED',
+  QUIZ_ATTEMPT_REFUSED = 'QUIZ_ATTEMPT_REFUSED',
+  QUIZ_ATTEMPT_CLOSED = 'QUIZ_ATTEMPT_CLOSED',
 }
 
 export interface ErrorDefinition {
@@ -123,6 +127,16 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
     status: 409,
     message: 'This progress cannot be recorded',
   },
+  // Assessment (#68-#76)
+  [ErrorCode.QUIZ_LOCKED]: {
+    status: 409,
+    message: 'Students have attempted this quiz, so this cannot be removed',
+  },
+  [ErrorCode.QUIZ_ATTEMPT_REFUSED]: {
+    status: 409,
+    message: 'You cannot start an attempt at this quiz',
+  },
+  [ErrorCode.QUIZ_ATTEMPT_CLOSED]: { status: 409, message: 'This attempt has ended' },
 };
 
 export function isErrorCode(value: string): value is ErrorCode {

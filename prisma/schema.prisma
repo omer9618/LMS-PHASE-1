@@ -539,6 +539,8 @@ model QuestionResponse {
   attempt  QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question Question    @relation(fields: [questionId], references: [id])
 
+  // Assessment (#73, #74): one response per question per attempt, so saves can upsert.
+  @@unique([attemptId, questionId])
   @@map("question_responses")
 }
 
