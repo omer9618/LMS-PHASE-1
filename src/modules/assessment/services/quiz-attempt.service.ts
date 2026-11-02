@@ -15,13 +15,11 @@ import {
   canRevealAnswers,
   decideStartAttempt,
   DEADLINE_GRACE_SECONDS,
-  GradableQuestion,
-  gradeAttempt,
   InvalidAnswerError,
   normaliseAnswer,
 } from '../domain/attempt.rules';
 import { readOptions } from '../domain/quiz.rules';
-import type { QuestionRecord } from '../dao/quiz.dao';
+import { AttemptGradingService, gradable } from './attempt-grading.service';
 import { QuestionImageService } from './question-image.service';
 
 type AttemptStatus = 'IN_PROGRESS' | 'SUBMITTED';
@@ -101,6 +99,7 @@ export class QuizAttemptService {
     private readonly attemptDao: AttemptDao,
     private readonly access: ContentAccessService,
     private readonly images: QuestionImageService,
+    private readonly grading: AttemptGradingService,
     private readonly transactions: TransactionService,
   ) {}
 
@@ -169,7 +168,7 @@ export class QuizAttemptService {
   ): Promise<AttemptView> {
     const { quiz } = await this.authorise(user, courseId, lessonId);
     const attempt = await this.loadAttempt(user.id, quiz, attemptId);
-    await this.closeIfExpired(quiz, attempt, new Date());
+    await this.grading.closeIfExpired(quiz, attempt, new Date());
     return this.attemptView(user.id, quiz, attemptId);
   }
 
@@ -187,7 +186,7 @@ export class QuizAttemptService {
     if (attempt.submittedAt !== null) {
       throw new AttemptClosedError('This attempt has already been submitted', { attemptId });
     }
-    if (await this.closeIfExpired(quiz, attempt, now)) {
+    if (await this.grading.closeIfExpired(quiz, attempt, now)) {
       throw new AttemptClosedError(
         'Time is up. Answers sent after the deadline are not counted; the attempt has been submitted.',
         { attemptId },
@@ -224,31 +223,10 @@ export class QuizAttemptService {
       await this.transactions.run(async (tx) => {
         if (!(await this.attemptDao.lockOpenAttempt(attemptId, tx))) return;
         await this.saveAll(attemptId, normalised, tx);
-        await this.grade(quiz, attemptId, now, tx);
+        await this.grading.gradeAndClose(quiz, attemptId, now, tx);
       });
     }
     return this.attemptView(user.id, quiz, attemptId);
-  }
-
-  /**
-   * Closes the student's open attempts in a course whose deadline has passed. Used before
-   * reporting passed quizzes to other modules, so an abandoned timed attempt still counts.
-   */
-  async closeExpiredAttemptsInCourse(
-    studentId: string,
-    courseId: string,
-    now: Date,
-  ): Promise<void> {
-    const open = await this.attemptDao.getOpenTimedAttempts(studentId, courseId);
-    for (const attempt of open) {
-      if (acceptsAnswers(attempt.startedAt, attempt.quiz.timeLimitSeconds, now)) continue;
-      const quiz = await this.attemptDao.getQuizForTaking(attempt.quiz.lessonId);
-      if (!quiz) continue;
-      await this.transactions.run(async (tx) => {
-        if (!(await this.attemptDao.lockOpenAttempt(attempt.id, tx))) return;
-        await this.grade(quiz, attempt.id, now, tx);
-      });
-    }
   }
 
   // ── Internals ─────────────────────────────────────────────────────
@@ -280,46 +258,9 @@ export class QuizAttemptService {
     const attempts = await this.attemptDao.getAttemptsBy(studentId, quiz.id);
     let closed = false;
     for (const attempt of attempts) {
-      closed = (await this.closeIfExpired(quiz, attempt, now)) || closed;
+      closed = (await this.grading.closeIfExpired(quiz, attempt, now)) || closed;
     }
     return closed ? this.attemptDao.getAttemptsBy(studentId, quiz.id) : attempts;
-  }
-
-  /** True if this call closed the attempt because its time had run out. */
-  private async closeIfExpired(
-    quiz: TakingQuizRecord,
-    attempt: AttemptRecord,
-    now: Date,
-  ): Promise<boolean> {
-    if (attempt.submittedAt !== null) return false;
-    if (acceptsAnswers(attempt.startedAt, quiz.timeLimitSeconds, now)) return false;
-    return this.transactions.run(async (tx) => {
-      if (!(await this.attemptDao.lockOpenAttempt(attempt.id, tx))) return false;
-      await this.grade(quiz, attempt.id, now, tx);
-      return true;
-    });
-  }
-
-  /** Grades the saved answers against the current questions and closes the attempt. */
-  private async grade(
-    quiz: TakingQuizRecord,
-    attemptId: string,
-    now: Date,
-    tx: TransactionClient,
-  ): Promise<void> {
-    const saved = new Map(
-      (await this.attemptDao.getSavedAnswers(attemptId, tx)).map((r) => [
-        r.questionId,
-        r.studentAnswer,
-      ]),
-    );
-    const grade = gradeAttempt(quiz.questions.map(gradable), saved, quiz.passingScorePct);
-    await this.attemptDao.replaceResponses(attemptId, grade.responses, tx);
-    await this.attemptDao.closeAttempt(
-      attemptId,
-      { submittedAt: now, scorePct: grade.scorePct, isPassed: grade.isPassed },
-      tx,
-    );
   }
 
   private async saveAll(
@@ -398,17 +339,6 @@ function summary(attempt: AttemptRecord): AttemptSummary {
     submittedAt: attempt.submittedAt,
     scorePct: attempt.scorePct,
     isPassed: attempt.isPassed,
-  };
-}
-
-function gradable(question: QuestionRecord): GradableQuestion {
-  return {
-    id: question.id,
-    type: question.type,
-    optionIds: readOptions(question.options).map((o) => o.id),
-    correctAnswer: question.correctAnswer,
-    numericTolerance: question.numericTolerance?.toFixed() ?? null,
-    marks: question.marks,
   };
 }
 

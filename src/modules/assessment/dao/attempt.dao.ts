@@ -163,6 +163,20 @@ export class AttemptDao {
     });
   }
 
+  /** The student's passing attempts at the course's quizzes, oldest first. */
+  getPassingAttempts(studentId: string, courseId: string) {
+    return this.prisma.quizAttempt.findMany({
+      where: {
+        studentId,
+        isPassed: true,
+        submittedAt: { not: null },
+        quiz: { lesson: { section: { courseId } } },
+      },
+      select: { submittedAt: true, quiz: { select: { lessonId: true } } },
+      orderBy: { submittedAt: 'asc' },
+    });
+  }
+
   /** Lesson ids of the course's quizzes where the student has a closed attempt (passed if asked). */
   async getAttemptedLessonIds(
     studentId: string,

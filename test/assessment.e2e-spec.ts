@@ -675,7 +675,7 @@ describe('Assessment: quiz builder and attempts (#68–#74, #76)', () => {
       const service = app.get(AssessmentService);
 
       expect(await service.breakpointQuizLessonIds(q.courseId)).toEqual(new Set([q.lessonId]));
-      expect(await service.passedQuizLessonIds(s.id, q.courseId)).toEqual(new Set());
+      expect((await service.passedQuizLessonIds(s.id, q.courseId)).size).toBe(0);
 
       const a = await http().post(`${q.taking}/attempts`).set('Cookie', s.cookie).expect(201);
       await http()
@@ -690,7 +690,9 @@ describe('Assessment: quiz builder and attempts (#68–#74, #76)', () => {
         where: { id: a.body.data.id },
         data: { startedAt: new Date(Date.now() - 10 * 60_000) },
       });
-      expect(await service.passedQuizLessonIds(s.id, q.courseId)).toEqual(new Set([q.lessonId]));
+      expect([...(await service.passedQuizLessonIds(s.id, q.courseId)).keys()]).toEqual([
+        q.lessonId,
+      ]);
       expect(await service.submittedQuizLessonIds(s.id, q.courseId)).toEqual(new Set([q.lessonId]));
     });
   });

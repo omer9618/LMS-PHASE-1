@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CompletionSource } from '@prisma/client';
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
+import { AssessmentService } from '../../assessment/services/assessment.service';
 import { CompletionRecord, CourseStructureRecord, ProgressDao } from '../dao/progress.dao';
 import {
   deriveLessonStates,
@@ -73,7 +74,10 @@ export function lockedException(lessonId: string, lock: LessonLock): AppExceptio
  */
 @Injectable()
 export class ProgressAccessService {
-  constructor(private readonly progressDao: ProgressDao) {}
+  constructor(
+    private readonly progressDao: ProgressDao,
+    private readonly assessment: AssessmentService,
+  ) {}
 
   /**
    * Throws 403 LESSON_LOCKED (info: cause, blockingLessonId, blockingLessonTitle) when the lesson
@@ -147,11 +151,8 @@ export class ProgressAccessService {
     };
   }
 
-  /**
-   * Swap point for the assessment module: replace the DAO call with
-   * `AssessmentService.passedQuizLessonIds(studentId, courseId)` once it is merged.
-   */
+  /** Passed quizzes (lesson id → first passing submission), from the assessment module's grader. */
   private passedQuizzes(studentId: string, courseId: string): Promise<Map<string, Date>> {
-    return this.progressDao.passedQuizLessonIds(studentId, courseId);
+    return this.assessment.passedQuizLessonIds(studentId, courseId);
   }
 }

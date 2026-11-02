@@ -187,31 +187,6 @@ export class ProgressDao {
     });
   }
 
-  // ── Quiz results (read-only) ──────────────────────────────────────
-
-  /**
-   * Lessons whose quiz the student has passed, with the time of the first passing submission.
-   *
-   * Stand-in for the assessment module's service (agent B, #68–#77), expected as
-   * `AssessmentService.passedQuizLessonIds(studentId, courseId)`. "Passed" is whatever the grader
-   * stored in `quiz_attempts.is_passed` (it applies the quiz's `passing_score_pct`). When that
-   * service exists, ProgressAccessService.passedQuizzes should call it and this method should go.
-   */
-  async passedQuizLessonIds(studentId: string, courseId: string): Promise<Map<string, Date>> {
-    const rows = await this.prisma.quizAttempt.findMany({
-      where: { studentId, isPassed: true, quiz: { lesson: inCourse(courseId) } },
-      select: { submittedAt: true, startedAt: true, quiz: { select: { lessonId: true } } },
-      orderBy: { startedAt: 'asc' },
-    });
-    const passed = new Map<string, Date>();
-    for (const row of rows) {
-      if (!passed.has(row.quiz.lessonId)) {
-        passed.set(row.quiz.lessonId, row.submittedAt ?? row.startedAt);
-      }
-    }
-    return passed;
-  }
-
   // ── Teacher view (#95), scoped ────────────────────────────────────
 
   getRoster(
