@@ -10,6 +10,7 @@ Backend for a learning platform where independent teachers publish courses for C
 | [docs/PRISMA_SETUP.md](docs/PRISMA_SETUP.md)           | Schema rules (money, ledger, publish guard) and schema additions |
 | [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)           | Bunny, SMTP, S3, Turnstile and MFA key setup for production      |
 | [docs/backlog/](docs/backlog/)                         | How the GitHub issues were imported; issue-number notes          |
+| [web/README.md](web/README.md)                         | The Next.js web app: running it against the API on :3000         |
 
 ## Quick start
 

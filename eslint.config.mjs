@@ -81,6 +81,7 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['node_modules/', 'dist/', 'build/', 'coverage/', 'prisma/migrations/'],
+    // web/ is its own package with its own ESLint config (web/eslint.config.mjs).
+    ignores: ['node_modules/', 'dist/', 'build/', 'coverage/', 'prisma/migrations/', 'web/'],
   },
 );
