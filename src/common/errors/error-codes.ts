@@ -25,6 +25,7 @@ export enum ErrorCode {
   INVALID_TOKEN = 'INVALID_TOKEN',
   MFA_REQUIRED = 'MFA_REQUIRED',
   INVALID_MFA_CODE = 'INVALID_MFA_CODE',
+  EMAIL_NOT_VERIFIED = 'EMAIL_NOT_VERIFIED',
 
   // Courses
   INVALID_STATE_TRANSITION = 'INVALID_STATE_TRANSITION',
@@ -38,6 +39,13 @@ export enum ErrorCode {
   ENROLLMENT_EXPIRED = 'ENROLLMENT_EXPIRED',
   ENROLLMENT_REFUSED = 'ENROLLMENT_REFUSED',
   VIDEO_NOT_READY = 'VIDEO_NOT_READY',
+
+  // Orders and verification
+  ORDER_REFUSED = 'ORDER_REFUSED',
+
+  // Progress and progression (#90–#97, #77)
+  LESSON_LOCKED = 'LESSON_LOCKED',
+  PROGRESS_REFUSED = 'PROGRESS_REFUSED',
 }
 
 export interface ErrorDefinition {
@@ -74,6 +82,10 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
     message: 'Two-factor authentication is required for admin accounts',
   },
   [ErrorCode.INVALID_MFA_CODE]: { status: 401, message: 'Invalid authentication code' },
+  [ErrorCode.EMAIL_NOT_VERIFIED]: {
+    status: 403,
+    message: 'Please verify your email address before purchasing a course',
+  },
   [ErrorCode.INVALID_STATE_TRANSITION]: {
     status: 409,
     message: 'This action is not allowed in the current state',
@@ -97,6 +109,19 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
   [ErrorCode.COURSE_NOT_PRICEABLE]: {
     status: 409,
     message: 'Pricing can only be set on a course awaiting approval or published',
+  },
+  [ErrorCode.ORDER_REFUSED]: {
+    status: 409,
+    message: 'This order cannot be placed',
+  },
+  // Progress and progression (#90–#97, #77)
+  [ErrorCode.LESSON_LOCKED]: {
+    status: 403,
+    message: 'This lesson is locked',
+  },
+  [ErrorCode.PROGRESS_REFUSED]: {
+    status: 409,
+    message: 'This progress cannot be recorded',
   },
 };
 

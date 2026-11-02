@@ -3,6 +3,7 @@ import { ENV } from '../../config/config.module';
 import type { Env } from '../../config/env.schema';
 import { CoursesModule } from '../courses/courses.module';
 import { EnrollmentModule } from '../enrollment/enrollment.module';
+import { ProgressModule } from '../progress/progress.module';
 import { BunnyStreamProvider } from './adapters/bunny-stream.provider';
 import { FakeVideoProvider } from './adapters/fake-video.provider';
 import { VIDEO_PROVIDERS, VideoProvider } from './adapters/video-provider';
@@ -34,7 +35,7 @@ function createVideoProviders(env: Env): VideoProvider[] {
 
 /** Content (#35–#39): lesson videos and resources, and the server-side access gate. */
 @Module({
-  imports: [CoursesModule, EnrollmentModule],
+  imports: [CoursesModule, EnrollmentModule, ProgressModule],
   controllers: [TeacherContentController, LessonContentController, VideoWebhookController],
   providers: [
     { provide: VIDEO_PROVIDERS, inject: [ENV], useFactory: createVideoProviders },

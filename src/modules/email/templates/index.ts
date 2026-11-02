@@ -1,7 +1,7 @@
 import { renderEmail, RenderedTemplate } from './layout';
 
 /**
- * Every email the platform sends (#111–#113). Each template takes typed data and returns subject,
+ * Every email the platform sends (#111-#113). Each template takes typed data and returns subject,
  * text and HTML. Add a template here; EmailService.send is typed against this map.
  */
 export const EMAIL_TEMPLATES = {
@@ -67,6 +67,58 @@ export const EMAIL_TEMPLATES = {
       ],
       details: [['Reason', data.reason]],
       action: { label: 'Edit course', url: data.courseUrl },
+    }),
+
+  ORDER_CREATED: (data: {
+    paymentReference: string;
+    totalMinor: string;
+    currency: string;
+    bankName: string;
+    accountTitle: string;
+    accountNumber: string;
+    iban: string;
+    expiresAt: string;
+    orderUrl: string;
+  }) =>
+    renderEmail({
+      subject: `Order ${data.paymentReference}: bank transfer instructions`,
+      heading: 'Complete your bank transfer',
+      paragraphs: [
+        'Your order has been created. Transfer the exact total below and include your payment reference in the transfer remarks.',
+        'Once you have made the transfer, submit your transaction ID on the order page.',
+      ],
+      details: [
+        ['Payment reference', data.paymentReference],
+        ['Amount (minor units)', `${data.currency} ${data.totalMinor}`],
+        ['Bank', data.bankName],
+        ['Account title', data.accountTitle],
+        ['Account number', data.accountNumber],
+        ['IBAN', data.iban],
+        ['Expires at (UTC)', data.expiresAt],
+      ],
+      action: { label: 'Submit payment proof', url: data.orderUrl },
+    }),
+
+  ORDER_LAPSED: (data: {
+    paymentReference: string;
+    totalMinor: string;
+    currency: string;
+    expiredAt: string;
+    catalogueUrl: string;
+  }) =>
+    renderEmail({
+      subject: `Order ${data.paymentReference} has expired`,
+      heading: 'Your order has expired',
+      paragraphs: [
+        `Your pending order (${data.paymentReference}) expired because no proof of payment was received before the deadline.`,
+        'If you still wish to enrol in these courses, please place a new order from the catalogue.',
+      ],
+      details: [
+        ['Payment reference', data.paymentReference],
+        ['Amount (minor units)', `${data.currency} ${data.totalMinor}`],
+        ['Expired at (UTC)', data.expiredAt],
+      ],
+      action: { label: 'Browse courses', url: data.catalogueUrl },
     }),
 } satisfies Record<string, (data: never) => RenderedTemplate>;
 
