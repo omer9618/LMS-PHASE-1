@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { OrderStatus, Prisma } from '@prisma/client';
-import { scopeWhere, TeacherScope } from '../../../common/auth/scope';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { TransactionClient } from '../../../prisma/prisma.types';
 
@@ -54,6 +53,20 @@ const orderSelect = {
   proofs: {
     select: paymentProofSelect,
     orderBy: { submittedAt: 'asc' as const },
+  },
+  verifications: {
+    select: {
+      id: true,
+      proofId: true,
+      outcome: true,
+      amountReceivedMinor: true,
+      valueDate: true,
+      mismatchAction: true,
+      rejectionReason: true,
+      notes: true,
+      verifiedAt: true,
+    },
+    orderBy: { verifiedAt: 'asc' as const },
   },
 } satisfies Prisma.OrderSelect;
 
@@ -118,8 +131,36 @@ export class OrderDao {
     return (tx ?? this.prisma).order.findMany({
       where,
       select: orderSelect,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
     });
+  }
+
+  /** #61: ids only, so the expiry job can process each order in its own transaction. */
+  async getOrderIdsBy(where: Prisma.OrderWhereInput): Promise<string[]> {
+    const rows = await this.prisma.order.findMany({
+      where,
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => row.id);
+  }
+
+  /** #54: which of these courses are already in one of the student's orders with these statuses. */
+  async getOrderedCourseIds(
+    studentId: string,
+    courseIds: readonly string[],
+    statuses: readonly OrderStatus[],
+    tx?: TransactionClient,
+  ): Promise<string[]> {
+    if (courseIds.length === 0) return [];
+    const rows = await (tx ?? this.prisma).orderItem.findMany({
+      where: {
+        courseId: { in: [...courseIds] },
+        order: { studentId, status: { in: [...statuses] } },
+      },
+      select: { courseId: true },
+    });
+    return [...new Set(rows.map((row) => row.courseId))];
   }
 
   /**
@@ -129,7 +170,7 @@ export class OrderDao {
   async updateOrderStatusIfCurrent(
     orderId: string,
     expectedStatus: OrderStatus,
-    data: { status: OrderStatus; verifiedAt?: Date | null },
+    data: { status: OrderStatus; verifiedAt?: Date; expiresAt?: Date },
     tx?: TransactionClient,
   ): Promise<boolean> {
     const res = await (tx ?? this.prisma).order.updateMany({
@@ -183,22 +224,6 @@ export class OrderDao {
       },
       select: paymentProofWithOrderSelect,
       orderBy: { submittedAt: 'asc' },
-    });
-  }
-
-  /**
-   * #56: teacher-scoped read of order line items with their frozen price, commission rate,
-   * commission amount, and net teacher earning snapshots.
-   */
-  getOrderItemsBy(
-    scope: TeacherScope,
-    where: Prisma.OrderItemWhereInput,
-    tx?: TransactionClient,
-  ): Promise<OrderItemRecord[]> {
-    return (tx ?? this.prisma).orderItem.findMany({
-      where: { AND: [where, scopeWhere(scope)] },
-      select: orderItemSelect,
-      orderBy: { id: 'asc' },
     });
   }
 }

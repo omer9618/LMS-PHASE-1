@@ -69,57 +69,157 @@ export const EMAIL_TEMPLATES = {
       action: { label: 'Edit course', url: data.courseUrl },
     }),
 
+  // ── Orders and payment (#112) ──
   ORDER_CREATED: (data: {
     paymentReference: string;
-    totalMinor: string;
-    currency: string;
-    bankName: string;
-    accountTitle: string;
-    accountNumber: string;
-    iban: string;
+    amount: string;
+    courses: string;
+    bankTransferInstructions: string;
     expiresAt: string;
     orderUrl: string;
   }) =>
     renderEmail({
-      subject: `Order ${data.paymentReference}: bank transfer instructions`,
+      subject: `Order ${data.paymentReference}: how to pay`,
       heading: 'Complete your bank transfer',
       paragraphs: [
-        'Your order has been created. Transfer the exact total below and include your payment reference in the transfer remarks.',
-        'Once you have made the transfer, submit your transaction ID on the order page.',
+        `Thanks for your order (${data.courses}). Transfer the exact amount below and use your payment reference as the transfer remark.`,
+        ...data.bankTransferInstructions.split(/\r?\n/).filter((line) => line.trim() !== ''),
+        'Once you have paid, submit your transaction ID on the order page.',
       ],
       details: [
         ['Payment reference', data.paymentReference],
-        ['Amount (minor units)', `${data.currency} ${data.totalMinor}`],
-        ['Bank', data.bankName],
-        ['Account title', data.accountTitle],
-        ['Account number', data.accountNumber],
-        ['IBAN', data.iban],
-        ['Expires at (UTC)', data.expiresAt],
+        ['Amount', data.amount],
+        ['Pay by (UTC)', data.expiresAt],
       ],
-      action: { label: 'Submit payment proof', url: data.orderUrl },
+      action: { label: 'View order', url: data.orderUrl },
+      footnote: 'Unpaid orders expire after the date above.',
+    }),
+
+  PAYMENT_PROOF_RECEIVED: (data: {
+    paymentReference: string;
+    transactionId: string;
+    turnaroundHours: number;
+    orderUrl: string;
+  }) =>
+    renderEmail({
+      subject: `Order ${data.paymentReference}: payment proof received`,
+      heading: 'We received your payment proof',
+      paragraphs: [
+        `We will check your transfer, usually within ${data.turnaroundHours} hours, and email you when it is confirmed.`,
+      ],
+      details: [
+        ['Payment reference', data.paymentReference],
+        ['Transaction ID', data.transactionId],
+      ],
+      action: { label: 'View order', url: data.orderUrl },
+    }),
+
+  PAYMENT_CONFIRMED: (data: { paymentReference: string; amount: string; orderUrl: string }) =>
+    renderEmail({
+      subject: `Order ${data.paymentReference}: payment confirmed`,
+      heading: 'Your payment is confirmed',
+      paragraphs: ['Thank you. Your payment has been verified and your courses are unlocked.'],
+      details: [
+        ['Payment reference', data.paymentReference],
+        ['Amount', data.amount],
+      ],
+      action: { label: 'View order', url: data.orderUrl },
+    }),
+
+  ORDER_RECEIPT: (data: {
+    receiptNumber: string;
+    paymentReference: string;
+    issuedAt: string;
+    lines: Array<[course: string, amount: string]>;
+    total: string;
+    receiptUrl: string;
+  }) =>
+    renderEmail({
+      subject: `Receipt ${data.receiptNumber}`,
+      heading: 'Your receipt',
+      paragraphs: [`Receipt for order ${data.paymentReference}.`],
+      details: [
+        ['Receipt number', data.receiptNumber],
+        ['Issued (UTC)', data.issuedAt],
+        ...data.lines,
+        ['Total paid', data.total],
+      ],
+      action: { label: 'View receipt', url: data.receiptUrl },
+    }),
+
+  ENROLLMENT_GRANTED: (data: { courses: string; libraryUrl: string }) =>
+    renderEmail({
+      subject: 'You are enrolled',
+      heading: 'Your courses are ready',
+      paragraphs: [`You now have access to: ${data.courses}.`],
+      action: { label: 'Start learning', url: data.libraryUrl },
+    }),
+
+  PAYMENT_REJECTED: (data: {
+    paymentReference: string;
+    reason: string;
+    notes: string;
+    expiresAt: string;
+    orderUrl: string;
+  }) =>
+    renderEmail({
+      subject: `Order ${data.paymentReference}: payment not accepted`,
+      heading: 'We could not verify your payment',
+      paragraphs: [
+        'Please check the reason below and submit a corrected transaction ID or proof on the same order.',
+      ],
+      details: [
+        ['Payment reference', data.paymentReference],
+        ['Reason', data.reason],
+        ...(data.notes ? ([['Notes', data.notes]] as Array<[string, string]>) : []),
+        ['Resubmit by (UTC)', data.expiresAt],
+      ],
+      action: { label: 'Resubmit proof', url: data.orderUrl },
+      footnote: 'If nothing is submitted by the date above, the order expires.',
+    }),
+
+  PAYMENT_TOP_UP_REQUESTED: (data: {
+    paymentReference: string;
+    total: string;
+    shortfall: string;
+    expiresAt: string;
+    orderUrl: string;
+  }) =>
+    renderEmail({
+      subject: `Order ${data.paymentReference}: top-up needed`,
+      heading: 'Your payment was short',
+      paragraphs: [
+        'We received less than the order total. Transfer the remaining amount with the same payment reference, then submit the new transaction ID.',
+      ],
+      details: [
+        ['Payment reference', data.paymentReference],
+        ['Order total', data.total],
+        ['Still to pay', data.shortfall],
+        ['Pay by (UTC)', data.expiresAt],
+      ],
+      action: { label: 'Submit top-up proof', url: data.orderUrl },
     }),
 
   ORDER_LAPSED: (data: {
     paymentReference: string;
-    totalMinor: string;
-    currency: string;
-    expiredAt: string;
+    amount: string;
+    courses: string;
     catalogueUrl: string;
   }) =>
     renderEmail({
       subject: `Order ${data.paymentReference} has expired`,
       heading: 'Your order has expired',
       paragraphs: [
-        `Your pending order (${data.paymentReference}) expired because no proof of payment was received before the deadline.`,
-        'If you still wish to enrol in these courses, please place a new order from the catalogue.',
+        `Your order for ${data.courses} expired because no payment was received in time.`,
+        'If you still want these courses, place a new order.',
       ],
       details: [
         ['Payment reference', data.paymentReference],
-        ['Amount (minor units)', `${data.currency} ${data.totalMinor}`],
-        ['Expired at (UTC)', data.expiredAt],
+        ['Amount', data.amount],
       ],
       action: { label: 'Browse courses', url: data.catalogueUrl },
     }),
+  // ── end Orders and payment ──
 } satisfies Record<string, (data: never) => RenderedTemplate>;
 
 export type EmailTemplateName = keyof typeof EMAIL_TEMPLATES;
