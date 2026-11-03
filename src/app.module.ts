@@ -26,6 +26,8 @@ import { ReferenceDataModule } from './modules/reference-data/reference-data.mod
 import { StorageModule } from './modules/storage/storage.module';
 import { TeachersModule } from './modules/teachers/teachers.module';
 import { PrismaModule } from './prisma/prisma.module';
+// Profiles (#98-#100)
+import { ProfilesModule } from './modules/profiles/profiles.module';
 
 @Module({
   imports: [
@@ -58,6 +60,8 @@ import { PrismaModule } from './prisma/prisma.module';
     ProgressModule,
     // Assessment (#68-#76)
     AssessmentModule,
+    // Profiles (#98-#100)
+    ProfilesModule,
     // Scheduled jobs (@Cron) run only when enabled; the e2e suite turns them off.
     ...(loadEnv().JOBS_ENABLED ? [ScheduleModule.forRoot()] : []),
   ],
