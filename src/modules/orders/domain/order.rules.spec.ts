@@ -427,5 +427,6 @@ describe('formatAmount (#112)', () => {
     expect(formatAmount(5n, 'USD')).toBe('USD 0.05');
     expect(formatAmount(1500n, 'JPY')).toBe('JPY 1,500');
     expect(formatAmount(-250n, 'GBP')).toBe('-GBP 2.50');
+    expect(formatAmount(1234567n, 'KWD')).toBe('KWD 1,234.567');
   });
 });

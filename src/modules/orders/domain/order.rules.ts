@@ -207,16 +207,38 @@ export function computeLineSplit(
   return { commissionMinor, netTeacherMinor: priceMinor - commissionMinor };
 }
 
-/** #112: amounts in emails. "PKR 1,500.00" from minor units, using the currency's own number of decimal places. */
+/** ISO 4217 minor-unit exponents that are not 2. Explicit, so ICU versions cannot change it. */
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  'BIF',
+  'CLP',
+  'DJF',
+  'GNF',
+  'ISK',
+  'JPY',
+  'KMF',
+  'KRW',
+  'PYG',
+  'RWF',
+  'UGX',
+  'UYI',
+  'VND',
+  'VUV',
+  'XAF',
+  'XOF',
+  'XPF',
+]);
+const THREE_DECIMAL_CURRENCIES = new Set(['BHD', 'IQD', 'JOD', 'KWD', 'LYD', 'OMR', 'TND']);
+
+/** Decimal places of a currency's minor unit (ISO 4217); 2 unless listed above. */
+export function currencyExponent(currency: string): number {
+  if (ZERO_DECIMAL_CURRENCIES.has(currency)) return 0;
+  if (THREE_DECIMAL_CURRENCIES.has(currency)) return 3;
+  return 2;
+}
+
+/** #112: amounts in emails. "PKR 1,500.00" from minor units, in the currency's ISO 4217 decimals. */
 export function formatAmount(minor: bigint, currency: string): string {
-  let digits = 2;
-  try {
-    digits =
-      new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions()
-        .maximumFractionDigits ?? 2;
-  } catch {
-    // Unknown code: keep two decimals.
-  }
+  const digits = currencyExponent(currency);
   const negative = minor < 0n;
   const abs = (negative ? -minor : minor).toString().padStart(digits + 1, '0');
   const major = abs.slice(0, abs.length - digits).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
