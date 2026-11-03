@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { SiteHeader } from '@/components/SiteHeader';
+import { SessionProvider } from '@/lib/session';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
@@ -17,13 +18,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" data-density="comfortable">
       <body>
-        <a className="skip-link" href="#main">
-          Skip to content
-        </a>
-        <SiteHeader />
-        <main id="main" tabIndex={-1}>
-          {children}
-        </main>
+        <SessionProvider>
+          <a className="skip-link" href="#main">
+            Skip to content
+          </a>
+          <SiteHeader />
+          <main id="main" tabIndex={-1}>
+            {children}
+          </main>
+        </SessionProvider>
       </body>
     </html>
   );
