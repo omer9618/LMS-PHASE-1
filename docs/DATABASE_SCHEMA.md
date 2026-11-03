@@ -310,6 +310,10 @@ Constraints and indexes:
 | `is_correct`     | boolean | yes  |                                        |
 | `marks_awarded`  | integer | yes  |                                        |
 
+Constraints and indexes:
+
+- `@@unique([attempt_id, question_id])`
+
 ## Enrollment
 
 ### enrollments

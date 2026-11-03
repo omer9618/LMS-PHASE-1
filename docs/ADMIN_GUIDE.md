@@ -50,6 +50,8 @@ Teachers apply through the public form (with their CV). Endpoints: `/admin/teach
 3. **Hired: create the account.** `POST /admin/teacher-applications/:id/account` creates a teacher account from the application; the teacher gets an email to set a password. If the person already has an account (for example as a student), link it instead: `POST /admin/teacher-applications/:id/link` `{ "userId": "..." }`, which adds the teacher role.
 4. **Rejected applications** and their CVs are deleted automatically after the retention period (setting `APPLICATION_RETENTION_DAYS`, default 180 days). An admin can run the purge early: `POST /admin/teacher-applications/purge`.
 
+**Teacher profiles** (the public page students see): `GET /admin/teachers/:teacherId/profile` to review it, `PUT /admin/teachers/:teacherId/profile` to correct it, `POST /admin/teachers/:teacherId/profile/unpublish` to hide it (with a reason), and `POST /admin/teachers/:teacherId/profile/photo/remove` to remove an unsuitable photo. Every change is audited.
+
 **Suspending a teacher** (temporary, e.g. during an investigation): suspend the account (above). **Deactivating** (permanent): `POST /admin/teachers/:teacherId/deactivate` with a reason. Students keep access to courses they already have.
 
 ## Course approval
@@ -57,7 +59,7 @@ Teachers apply through the public form (with their CV). Endpoints: `/admin/teach
 Teachers write courses and submit them for review. A course moves `DRAFT → PENDING_APPROVAL → PUBLISHED`, or `REJECTED` (final: the teacher must start a new course), and later `ARCHIVED`. Endpoints: `/admin/courses`.
 
 1. **Review queue:** `GET /admin/courses` (defaults to courses waiting for approval, oldest first). Filter with `?status=PUBLISHED` etc.
-2. **Check the course:** `GET /admin/courses/:courseId` (details, proposed price and commission) and `GET /admin/courses/:courseId/outline` (sections and lessons). Every course must have at least one **free preview video lesson**: it is the demo students see before buying, and submission is refused without one. Check that the preview is representative and the content matches the board, level and subject.
+2. **Check the course:** `GET /admin/courses/:courseId` (details, proposed price and commission) and `GET /admin/courses/:courseId/outline` (sections and lessons). Quizzes, with their correct answers: `GET /admin/courses/:courseId/lessons/:lessonId/quiz` (read only). Every course must have at least one **free preview video lesson**: it is the demo students see before buying, and submission is refused without one. Check that the preview is representative and the content matches the board, level and subject.
 3. **Set the price and commission** (paid courses): `PUT /admin/courses/:courseId/pricing` with `{ "isFree": false, "priceMinor": "150000", "currency": "PKR", "commissionRateBps": 2000 }`. Amounts are in minor units (150000 = 1,500.00) and commission in basis points (2000 = 20 %). The teacher proposed a commission when submitting; the admin's value is final. Free courses: `{ "isFree": true }`. A paid course cannot be approved without both a price and a commission.
 4. **Approve:** `POST /admin/courses/:courseId/approve`. The course appears in the catalogue.
 5. **Or reject:** `POST /admin/courses/:courseId/reject` with a reason the teacher will read. Rejection is final, so ask for changes informally first if the course is close.
