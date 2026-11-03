@@ -10,6 +10,7 @@ import { buildLoggerParams } from './common/logging/logger.config';
 import { ConfigModule, ENV } from './config/config.module';
 import { loadEnv, type Env } from './config/env.schema';
 import { HealthModule } from './health/health.module';
+import { AssessmentModule } from './modules/assessment/assessment.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CaptchaModule } from './modules/captcha/captcha.module';
@@ -55,6 +56,8 @@ import { PrismaModule } from './prisma/prisma.module';
     OrdersModule,
     // Progress and progression (#90–#97, #77)
     ProgressModule,
+    // Assessment (#68-#76)
+    AssessmentModule,
     // Scheduled jobs (@Cron) run only when enabled; the e2e suite turns them off.
     ...(loadEnv().JOBS_ENABLED ? [ScheduleModule.forRoot()] : []),
   ],

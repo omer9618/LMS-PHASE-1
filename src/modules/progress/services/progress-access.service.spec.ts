@@ -1,5 +1,6 @@
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
+import type { AssessmentService } from '../../assessment/services/assessment.service';
 import type { CourseStructureRecord, ProgressDao } from '../dao/progress.dao';
 import { ProgressAccessService } from './progress-access.service';
 
@@ -33,10 +34,16 @@ function setup(passed: Map<string, Date>) {
   const dao = {
     getCourseStructure: jest.fn().mockResolvedValue(course),
     getCompletions: jest.fn().mockResolvedValue([]),
-    passedQuizLessonIds: jest.fn().mockResolvedValue(passed),
     recordCompletions: jest.fn().mockResolvedValue(1),
   };
-  return { dao, service: new ProgressAccessService(dao as unknown as ProgressDao) };
+  const assessment = { passedQuizLessonIds: jest.fn().mockResolvedValue(passed) };
+  return {
+    dao,
+    service: new ProgressAccessService(
+      dao as unknown as ProgressDao,
+      assessment as unknown as AssessmentService,
+    ),
+  };
 }
 
 describe('ProgressAccessService', () => {

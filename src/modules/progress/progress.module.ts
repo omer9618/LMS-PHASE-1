@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AssessmentResultsModule } from '../assessment/assessment-results.module';
 import { EnrollmentModule } from '../enrollment/enrollment.module';
 import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
 import {
@@ -14,11 +15,11 @@ import { TeacherProgressService } from './services/teacher-progress.service';
 /**
  * Progress and progression (#90–#97) and checkpoint gating (#77).
  *
- * Dependency direction: content → progress → enrollment / platform-settings. Courses and
+ * Dependency direction: content → progress → enrollment / platform-settings / assessment results. Courses and
  * enrollment never import this module.
  */
 @Module({
-  imports: [EnrollmentModule, PlatformSettingsModule],
+  imports: [EnrollmentModule, PlatformSettingsModule, AssessmentResultsModule],
   controllers: [LearnerOutlineController, LessonProgressController, TeacherProgressController],
   providers: [ProgressService, TeacherProgressService, ProgressAccessService, ProgressDao],
   // Contract: the content gate asks ProgressAccessService.assertLessonUnlocked (#96, #77).
