@@ -4,13 +4,18 @@ Backend for a learning platform where independent teachers publish courses for C
 
 **Stack:** NestJS 11 · PostgreSQL · Prisma 7 (pg driver adapter) · Zod · Jest. HTTP-only cookie sessions. Background jobs with `@nestjs/schedule`. Video on Bunny Stream, files on S3-compatible storage, email over SMTP.
 
-| Read this                                              | For                                                              |
-| ------------------------------------------------------ | ---------------------------------------------------------------- |
-| [docs/BACKEND_STRUCTURE.md](docs/BACKEND_STRUCTURE.md) | Layer rules, scoping, errors, jobs: **read before writing code** |
-| [docs/PRISMA_SETUP.md](docs/PRISMA_SETUP.md)           | Schema rules (money, ledger, publish guard) and schema additions |
-| [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)           | Bunny, SMTP, S3, Turnstile and MFA key setup for production      |
-| [docs/backlog/](docs/backlog/)                         | How the GitHub issues were imported; issue-number notes          |
-| [web/README.md](web/README.md)                         | The Next.js web app: running it against the API on :3000         |
+| Read this                                              | For                                                                |
+| ------------------------------------------------------ | ------------------------------------------------------------------ |
+| [docs/BACKEND_STRUCTURE.md](docs/BACKEND_STRUCTURE.md) | Layer rules, scoping, errors, jobs: **read before writing code**   |
+| [docs/PRISMA_SETUP.md](docs/PRISMA_SETUP.md)           | Schema rules (money, ledger, publish guard) and schema additions   |
+| [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)           | Bunny, SMTP, S3, Turnstile and MFA key setup for production        |
+| [docs/backlog/](docs/backlog/)                         | How the GitHub issues were imported; issue-number notes            |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)               | Deploy runbook: Docker images, VPS setup, pipeline, rollback       |
+| [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md)           | Environments, server config files, secrets inventory               |
+| [docs/BACKUP_RESTORE.md](docs/BACKUP_RESTORE.md)       | Daily backups to S3, restore test, disaster recovery               |
+| [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)     | Every table and column (generated from the Prisma schema)          |
+| [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md)             | Administrator guide: verification, payouts, course approval, users |
+| [web/README.md](web/README.md)                         | The Next.js web app: running it against the API on :3000           |
 
 ## Quick start
 
@@ -117,6 +122,16 @@ curl -b cookies.txt http://localhost:3000/auth/me
 - Money is a string of minor units (`"150000"`). Never parse it into a float.
 - Field names are camelCase. Routes are grouped by caller: public (`/catalogue`, `/auth`), student (`/me`, `/courses/:id/...`), teacher (`/teacher/...`) and admin (`/admin/...`).
 - Everything requires a session unless marked public. Teacher data is scoped in the data layer, so another teacher's records answer 404.
+
+## Deployment
+
+Staging and production run in Docker on a VPS behind Caddy (automatic TLS), deployed by `.github/workflows/deploy.yml` over SSH: staging after CI passes on `main`, production by manual dispatch. The workflow does nothing until the `DEPLOY_SSH_KEY` secret is set. Everything for the server is in `deploy/`; the steps are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+```bash
+docker build -t lms-api .                   # the API image
+docker build --target tools -t lms-tools .  # migrations and seed
+node scripts/schema-doc.mjs > docs/DATABASE_SCHEMA.md && npx prettier --write docs/DATABASE_SCHEMA.md  # after a schema change
+```
 
 ## Working on it
 
