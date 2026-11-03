@@ -1,0 +1,41 @@
+# The edge proxy: one Caddy per VPS, in front of every LMS environment on that host.
+# Lives in /opt/lms/edge/. Caddy obtains and renews Let's Encrypt certificates on its own;
+# ports 80 and 443 must be open and each site's DNS must point at this server first.
+#
+#   docker network create edge   # once, before the first `up`
+#   docker compose up -d
+#   docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile   # after editing sites/
+name: lms-edge
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      # Let's Encrypt expiry notices go here.
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro
+      # Certificates and ACME account. Losing it only means re-issuing certificates.
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  edge:
+    external: true
