@@ -54,6 +54,8 @@ export enum ErrorCode {
   // Profiles (#98-#100) and role context (#109)
   PROFILE_INCOMPLETE = 'PROFILE_INCOMPLETE',
   ROLE_CONTEXT_REQUIRED = 'ROLE_CONTEXT_REQUIRED',
+
+  // Payment verification and ledger (#63-#67, #80)
   VERIFICATION_REFUSED = 'VERIFICATION_REFUSED',
   LEDGER_REFUSED = 'LEDGER_REFUSED',
 }
@@ -151,6 +153,8 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
   [ErrorCode.ROLE_CONTEXT_REQUIRED]: {
     status: 403,
     message: 'Switch to the required context (Admin or Teacher) to do this',
+  },
+  // Payment verification and ledger (#63-#67, #80)
   [ErrorCode.VERIFICATION_REFUSED]: {
     status: 422,
     message: 'This payment decision is not valid',
