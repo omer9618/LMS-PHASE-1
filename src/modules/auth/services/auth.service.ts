@@ -7,6 +7,7 @@ import { ENV } from '../../../config/config.module';
 import type { Env } from '../../../config/env.schema';
 import type { TransactionClient } from '../../../prisma/prisma.types';
 import { TransactionService } from '../../../prisma/transaction.service';
+import { AuditService } from '../../audit/services/audit.service';
 import { AuthTokenDao } from '../dao/auth-token.dao';
 import { SessionDao } from '../dao/session.dao';
 import { UserDao, UserRecord } from '../dao/user.dao';
@@ -22,6 +23,13 @@ import {
   sessionExpiry,
   shouldTouch,
 } from '../domain/session.rules';
+import {
+  CONTEXT_ROLES,
+  ContextRole,
+  decideContextSwitch,
+  effectiveRoles,
+  resolveContext,
+} from '../domain/role-context.rules';
 import type { LoginInput } from '../schemas/auth.schema';
 import { hashPassword, verifyPassword } from './passwords';
 
@@ -32,6 +40,16 @@ export interface UserView {
   fullName: string | null;
   isEmailVerified: boolean;
   roles: Role[];
+}
+
+/** What /auth/me returns: the account, its MFA state and (#109) its role context. */
+export interface MeView extends UserView {
+  mfaEnabled: boolean;
+  mfaVerified: boolean;
+  /** ADMIN or TEACHER for accounts holding both; null otherwise. */
+  activeContext: ContextRole | null;
+  /** Contexts this account can switch between with POST /auth/context ([] if single-role). */
+  availableContexts: ContextRole[];
 }
 
 export interface ClientContext {
@@ -68,6 +86,7 @@ export class AuthService {
     private readonly sessionDao: SessionDao,
     private readonly authTokenDao: AuthTokenDao,
     private readonly transactions: TransactionService,
+    private readonly audit: AuditService,
     @Inject(ENV) env: Env,
   ) {
     this.policy = {
@@ -177,28 +196,63 @@ export class AuthService {
       await this.sessionDao.updateSession(session.id, { lastSeenAt: now });
     }
 
+    const heldRoles = new Set(session.user.roles.map((r) => r.role));
+    const activeContext = resolveContext(heldRoles, session.activeRole);
     return {
       id: session.user.id,
       email: session.user.email,
       fullName: session.user.fullName,
       isEmailVerified: session.user.isEmailVerified,
-      roles: new Set(session.user.roles.map((r) => r.role)),
+      roles: effectiveRoles(heldRoles, activeContext),
+      heldRoles,
+      activeContext,
       sessionId: session.id,
       mfaEnabled: session.user.mfaEnabledAt !== null,
       mfaVerified: session.mfaVerifiedAt !== null,
     };
   }
 
-  describe(user: AuthUser): UserView & { mfaEnabled: boolean; mfaVerified: boolean } {
+  /** `roles` lists every role the account holds; `activeContext` says which is in effect. */
+  describe(user: AuthUser): MeView {
     return {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
       isEmailVerified: user.isEmailVerified,
-      roles: [...user.roles],
+      roles: [...user.heldRoles],
       mfaEnabled: user.mfaEnabled,
       mfaVerified: user.mfaVerified,
+      activeContext: user.activeContext,
+      availableContexts: user.activeContext === null ? [] : [...CONTEXT_ROLES],
     };
+  }
+
+  /**
+   * #109: the explicit, labelled switch between the Admin and Teacher contexts of an account
+   * holding both. Stored on this session only; audited when it changes.
+   */
+  async switchContext(user: AuthUser, requested: ContextRole): Promise<MeView> {
+    const { to, changed } = decideContextSwitch(user.heldRoles, user.activeContext, requested);
+    if (changed) {
+      await this.transactions.run(async (tx) => {
+        await this.sessionDao.updateSession(user.sessionId, { activeRole: to }, tx);
+        await this.audit.record(
+          {
+            actorUserId: user.id,
+            action: 'ROLE_CONTEXT_SWITCHED',
+            entityType: 'session',
+            entityId: user.sessionId,
+            details: { from: user.activeContext, to },
+          },
+          tx,
+        );
+      });
+    }
+    return this.describe({
+      ...user,
+      roles: effectiveRoles(user.heldRoles, to),
+      activeContext: to,
+    });
   }
 
   /** Marks the current session MFA-verified (right after enrolment proves the authenticator). */

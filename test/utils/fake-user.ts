@@ -9,6 +9,8 @@ export function fakeUser(id: string, ...roles: Role[]): AuthUser {
     fullName: `User ${id}`,
     isEmailVerified: true,
     roles: new Set(roles),
+    heldRoles: new Set(roles),
+    activeContext: null,
     sessionId: 'session',
     mfaEnabled: true,
     mfaVerified: true,

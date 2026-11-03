@@ -44,7 +44,8 @@ export class AuthGuard implements CanActivate {
 
     req.user = user;
 
-    if (user.roles.has(Role.ADMIN) && !user.mfaVerified) {
+    // Account-level: any account holding ADMIN needs MFA, whatever its active context (#109).
+    if (user.heldRoles.has(Role.ADMIN) && !user.mfaVerified) {
       const allowed = this.reflector.getAllAndOverride(AllowWithoutMfa, [
         context.getHandler(),
         context.getClass(),
