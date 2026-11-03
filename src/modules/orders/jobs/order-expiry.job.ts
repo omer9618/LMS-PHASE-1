@@ -4,8 +4,8 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { OrderService } from '../services/order.service';
 
 /**
- * #61: hourly sweep that marks PENDING orders past their configured expiry window as LAPSED
- * and notifies the student by email. Orders with submitted payment proofs are never lapsed.
+ * #61: hourly sweep that lapses PENDING and REJECTED orders past their payment window
+ * (ORDER_EXPIRY_WINDOW_HOURS) and emails each student. Orders awaiting an admin never lapse.
  */
 @Injectable()
 export class OrderExpiryJob {

@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-const courseId = z.uuid();
-
 /** Money arrives as a string of minor units ("150000") and becomes a positive bigint. */
 const positiveMoneyMinor = z
   .string()
@@ -13,19 +11,20 @@ export const orderParamsSchema = z.strictObject({
 });
 export type OrderParams = z.infer<typeof orderParamsSchema>;
 
-/** #54: cart preview body. Up to 20 courses per cart. */
-export const cartPreviewSchema = z.strictObject({
-  courseIds: z.array(courseId).min(1).max(20),
+/** #54: the cart lives on the client; the server validates and totals it. Up to 20 courses. */
+export const quoteCartSchema = z.strictObject({
+  courseIds: z.array(z.uuid()).min(1).max(20),
 });
-export type CartPreviewInput = z.infer<typeof cartPreviewSchema>;
+export type QuoteCartInput = z.infer<typeof quoteCartSchema>;
 
-/** #55: order creation body. Same shape as cart preview. */
-export const createOrderSchema = z.strictObject({
-  courseIds: z.array(courseId).min(1).max(20),
-});
+/** #55: same shape as the quote. */
+export const createOrderSchema = quoteCartSchema;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 
-/** #58: student payment proof submission. Transaction id is required; file and claimed amount are optional. */
+/**
+ * #58: multipart form fields (always strings). The transaction id is required; the file (field
+ * `file`) and the claimed amount are optional.
+ */
 export const submitPaymentProofSchema = z.strictObject({
   transactionId: z
     .string()

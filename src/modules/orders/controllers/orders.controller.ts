@@ -17,74 +17,83 @@ import { Roles } from '../../../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { UPLOAD_POLICIES } from '../../storage/domain/upload-policy';
 import {
-  CartPreviewInput,
-  cartPreviewSchema,
   CreateOrderInput,
   createOrderSchema,
   OrderParams,
   orderParamsSchema,
+  QuoteCartInput,
+  quoteCartSchema,
   SubmitPaymentProofInput,
   submitPaymentProofSchema,
 } from '../schemas/order.schema';
 import {
-  AdminOrderDetailView,
-  CartPreviewView,
+  AdminOrderView,
+  CartQuoteView,
   OrderReceipt,
   OrderService,
   StudentOrderView,
-  SubmittedPaymentProofView,
+  SubmittedProofView,
 } from '../services/order.service';
 
-/** #54, #55, #58, #60, #62: Student cart preview, order creation, status screen, proof submission, and receipt. */
+/** #54: cart quote. The cart itself lives on the client. Any signed-in user may buy. */
+@Controller('cart')
+export class CartController {
+  constructor(private readonly orderService: OrderService) {}
+
+  @Post('quote')
+  @HttpCode(HttpStatus.OK)
+  quote(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(quoteCartSchema)) body: QuoteCartInput,
+  ): Promise<CartQuoteView> {
+    return this.orderService.quote(user, body);
+  }
+}
+
+/** #55: place an order. */
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly orderService: OrderService) {}
 
-  @Post('cart/preview')
-  @HttpCode(HttpStatus.OK)
-  previewCart(
-    @CurrentUser() user: AuthUser,
-    @Body(new ZodValidationPipe(cartPreviewSchema)) body: CartPreviewInput,
-  ): Promise<CartPreviewView> {
-    return this.orderService.previewCart(user, body);
-  }
-
   @Post()
-  createOrder(
+  create(
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(createOrderSchema)) body: CreateOrderInput,
   ): Promise<StudentOrderView> {
     return this.orderService.createOrder(user, body);
   }
+}
 
-  /** #60: list the student's orders with current status and next-step guidance. */
+/** #58, #60, #62: the student's own orders. Another student's order is 404. */
+@Controller('me/orders')
+export class MyOrdersController {
+  constructor(private readonly orderService: OrderService) {}
+
   @Get()
-  listOrders(@CurrentUser() user: AuthUser): Promise<StudentOrderView[]> {
-    return this.orderService.listStudentOrders(user);
+  list(@CurrentUser() user: AuthUser): Promise<StudentOrderView[]> {
+    return this.orderService.listMyOrders(user);
   }
 
-  /** #60: student order status screen showing status, submitted proofs, and what is expected next. */
   @Get(':orderId')
-  getOrder(
+  get(
     @CurrentUser() user: AuthUser,
     @Param(new ZodValidationPipe(orderParamsSchema)) params: OrderParams,
   ): Promise<StudentOrderView> {
-    return this.orderService.getStudentOrder(user, params.orderId);
+    return this.orderService.getMyOrder(user, params.orderId);
   }
 
-  /** #62: official receipt, issued only after payment confirmation (`VERIFIED`). */
   @Get(':orderId/receipt')
-  getReceipt(
+  receipt(
     @CurrentUser() user: AuthUser,
     @Param(new ZodValidationPipe(orderParamsSchema)) params: OrderParams,
   ): Promise<OrderReceipt> {
-    return this.orderService.getOrderReceipt(user, params.orderId);
+    return this.orderService.getMyReceipt(user, params.orderId);
   }
 
-  /** #58: submit a proof of payment (required transactionId + optional screenshot/PDF). */
+  /** Multipart: `transactionId`, optional `amountClaimedMinor`, optional `file`. */
   @Post(':orderId/proofs')
   @UseInterceptors(
-    FileInterceptor('proof', {
+    FileInterceptor('file', {
       limits: {
         fileSize: UPLOAD_POLICIES.PAYMENT_PROOF.maxBytes,
         files: 1,
@@ -97,50 +106,23 @@ export class OrdersController {
     @CurrentUser() user: AuthUser,
     @Param(new ZodValidationPipe(orderParamsSchema)) params: OrderParams,
     @Body(new ZodValidationPipe(submitPaymentProofSchema)) body: SubmitPaymentProofInput,
-    @UploadedFile() proof: Express.Multer.File | undefined,
-  ): Promise<SubmittedPaymentProofView> {
-    return this.orderService.submitPaymentProof(user, params.orderId, body, proof);
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ): Promise<SubmittedProofView> {
+    return this.orderService.submitProof(user, params.orderId, body, file);
   }
 }
 
-/** #60, #62: `/me/orders` aliases for the student order status screen and receipt. */
-@Controller('me/orders')
-export class StudentOrdersController {
-  constructor(private readonly orderService: OrderService) {}
-
-  @Get()
-  listOrders(@CurrentUser() user: AuthUser): Promise<StudentOrderView[]> {
-    return this.orderService.listStudentOrders(user);
-  }
-
-  @Get(':orderId')
-  getOrder(
-    @CurrentUser() user: AuthUser,
-    @Param(new ZodValidationPipe(orderParamsSchema)) params: OrderParams,
-  ): Promise<StudentOrderView> {
-    return this.orderService.getStudentOrder(user, params.orderId);
-  }
-
-  @Get(':orderId/receipt')
-  getReceipt(
-    @CurrentUser() user: AuthUser,
-    @Param(new ZodValidationPipe(orderParamsSchema)) params: OrderParams,
-  ): Promise<OrderReceipt> {
-    return this.orderService.getOrderReceipt(user, params.orderId);
-  }
-}
-
-/** #56: Admin order detail showing frozen line-item snapshots. */
+/** Admin order detail: frozen line snapshots (#56), proofs, decisions, duplicate warnings (#59). */
 @Roles([Role.ADMIN])
 @Controller('admin/orders')
 export class AdminOrdersController {
   constructor(private readonly orderService: OrderService) {}
 
   @Get(':orderId')
-  getOrder(
+  get(
     @CurrentUser() admin: AuthUser,
     @Param(new ZodValidationPipe(orderParamsSchema)) params: OrderParams,
-  ): Promise<AdminOrderDetailView> {
+  ): Promise<AdminOrderView> {
     return this.orderService.getOrderForAdmin(admin, params.orderId);
   }
 }

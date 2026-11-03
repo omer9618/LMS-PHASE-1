@@ -30,6 +30,21 @@ export const SETTING_DEFINITIONS = {
     defaultValue: 180,
     description: 'Days a rejected teacher application (and its CV) is kept before it is purged.',
   },
+  // ── Orders and verification (#55, #67) ──
+  BANK_TRANSFER_INSTRUCTIONS: {
+    // Multi-line text shown on checkout and in the order email. Client question #127.
+    schema: z.string().trim().min(1).max(4000),
+    defaultValue:
+      'Bank: [to be confirmed]\nAccount title: [to be confirmed]\nAccount number / IBAN: [to be confirmed]\nUse your payment reference as the transfer remark.',
+    description:
+      'Bank account details and transfer steps shown to students at checkout (multi-line text).',
+  },
+  VERIFICATION_TURNAROUND_HOURS: {
+    // Published verification turnaround. Client question #131.
+    schema: z.coerce.number().int().min(1).max(720),
+    defaultValue: 48,
+    description: 'Hours within which payments are promised to be verified (published turnaround).',
+  },
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFINITIONS;

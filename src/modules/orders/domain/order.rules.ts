@@ -1,17 +1,21 @@
 import { DomainError } from '../../../common/errors/domain.error';
+import {
+  assertCourseEnrollable,
+  EnrollableCourseFacts,
+  EnrollmentRefusedError,
+} from '../../enrollment/domain/enrollment.rules';
 
 /**
- * Cart and order rules (#54, #55, #56, #57). Pure: no Nest, no Prisma, no I/O.
+ * Cart and order rules (#54-#62). Pure: no Nest, no Prisma, no I/O.
  * All money is BigInt minor units; commission rates are integer basis points (10000 = 100%).
  */
 export type OrderStatusValue =
   'PENDING' | 'PROOF_SUBMITTED' | 'VERIFIED' | 'REJECTED' | 'LAPSED' | 'REFUNDED';
 
 export type OrderAction =
-  'SUBMIT_PROOF' | 'VERIFY' | 'REQUEST_TOP_UP' | 'REJECT' | 'LAPSE' | 'REFUND';
+  'SUBMIT_PROOF' | 'CONFIRM' | 'REQUEST_TOP_UP' | 'REJECT' | 'LAPSE' | 'REFUND';
 
 export type OrderAuditAction =
-  | 'ORDER_CREATED'
   | 'ORDER_PROOF_SUBMITTED'
   | 'ORDER_VERIFIED'
   | 'ORDER_TOP_UP_REQUESTED'
@@ -19,60 +23,75 @@ export type OrderAuditAction =
   | 'ORDER_LAPSED'
   | 'ORDER_REFUNDED';
 
+interface TransitionSpec {
+  from: readonly OrderStatusValue[];
+  to: OrderStatusValue;
+  auditAction: OrderAuditAction;
+  /** The order gets a fresh payment window (now + ORDER_EXPIRY_WINDOW_HOURS). */
+  restartsExpiry: boolean;
+}
+
 /**
- * #57: Order lifecycle state machine.
- * - PENDING -> PROOF_SUBMITTED when the student submits payment proof (#58). Multiple proofs on a
- *   PROOF_SUBMITTED order keep it in PROOF_SUBMITTED.
- * - PENDING -> LAPSED when the expiry window passes without proof (#61). Once proof is submitted,
- *   the order is waiting on an admin and never lapses by timer.
- * - PROOF_SUBMITTED -> VERIFIED when an admin confirms payment (#64).
- * - PROOF_SUBMITTED -> PENDING when an admin requests a top-up for a short payment (#66), allowing
- *   the student to submit an additional proof.
- * - PROOF_SUBMITTED -> REJECTED when an admin rejects payment (#65).
- * - VERIFIED -> REFUNDED when an admin records a refund (#82).
- * - REJECTED, LAPSED and REFUNDED are terminal.
+ * #57: the order lifecycle.
+ * - PENDING -> PROOF_SUBMITTED: the student submits a proof (#58). Further proofs on a
+ *   PROOF_SUBMITTED order keep it there (split transfers, top-ups).
+ * - REJECTED -> PROOF_SUBMITTED: a rejected proof can be resubmitted on the same order (decided).
+ * - PROOF_SUBMITTED -> VERIFIED: an admin confirms payment (#64).
+ * - PROOF_SUBMITTED -> REJECTED: an admin rejects the payment (#65). The expiry clock restarts.
+ * - PROOF_SUBMITTED -> PENDING: an admin asks for a top-up of a short payment (#66). The order is
+ *   awaiting proof again and the expiry clock restarts.
+ * - PENDING or REJECTED -> LAPSED: the expiry job (#61). An order awaiting an admin never lapses.
+ * - VERIFIED -> REFUNDED: refunds (M3). The rule exists; no endpoint uses it yet.
+ * - LAPSED and REFUNDED are terminal.
  */
-export const ORDER_TRANSITIONS: Readonly<
-  Record<
-    OrderAction,
-    {
-      from: readonly OrderStatusValue[];
-      to: OrderStatusValue;
-      auditAction: OrderAuditAction;
-    }
-  >
-> = {
+export const ORDER_TRANSITIONS: Readonly<Record<OrderAction, TransitionSpec>> = {
   SUBMIT_PROOF: {
-    from: ['PENDING', 'PROOF_SUBMITTED'],
+    from: ['PENDING', 'PROOF_SUBMITTED', 'REJECTED'],
     to: 'PROOF_SUBMITTED',
     auditAction: 'ORDER_PROOF_SUBMITTED',
+    restartsExpiry: false,
   },
-  VERIFY: {
+  CONFIRM: {
     from: ['PROOF_SUBMITTED'],
     to: 'VERIFIED',
     auditAction: 'ORDER_VERIFIED',
+    restartsExpiry: false,
   },
   REQUEST_TOP_UP: {
     from: ['PROOF_SUBMITTED'],
     to: 'PENDING',
     auditAction: 'ORDER_TOP_UP_REQUESTED',
+    restartsExpiry: true,
   },
   REJECT: {
     from: ['PROOF_SUBMITTED'],
     to: 'REJECTED',
     auditAction: 'ORDER_REJECTED',
+    restartsExpiry: true,
   },
   LAPSE: {
-    from: ['PENDING'],
+    from: ['PENDING', 'REJECTED'],
     to: 'LAPSED',
     auditAction: 'ORDER_LAPSED',
+    restartsExpiry: false,
   },
   REFUND: {
     from: ['VERIFIED'],
     to: 'REFUNDED',
     auditAction: 'ORDER_REFUNDED',
+    restartsExpiry: false,
   },
 };
+
+/** Orders that still hold their courses: a student cannot order the same course again. */
+export const OPEN_ORDER_STATUSES: readonly OrderStatusValue[] = [
+  'PENDING',
+  'PROOF_SUBMITTED',
+  'REJECTED',
+];
+
+/** Orders the expiry job may lapse. */
+export const LAPSABLE_ORDER_STATUSES = ORDER_TRANSITIONS.LAPSE.from;
 
 export interface OrderTransitionResult {
   from: OrderStatusValue;
@@ -80,6 +99,7 @@ export interface OrderTransitionResult {
   auditAction: OrderAuditAction;
   transitionedAt: Date;
   verifiedAt?: Date;
+  expiresAt?: Date;
 }
 
 export class InvalidOrderTransitionError extends DomainError {
@@ -94,18 +114,27 @@ export class InvalidOrderTransitionError extends DomainError {
   }
 }
 
+/** #61: the instant a payment window opened at `now` closes. */
+export function computeOrderExpiry(now: Date, expiryWindowHours: number): Date {
+  return new Date(now.getTime() + expiryWindowHours * 60 * 60 * 1000);
+}
+
 /**
- * #57: validates and computes an order state transition, stamping the transition time (and
- * `verifiedAt` when transitioning to VERIFIED).
+ * #57: validates a transition and returns what changes: the new status, `verifiedAt` on
+ * confirmation, and a fresh `expiresAt` when the transition restarts the payment window.
  */
 export function transitionOrder(
   current: OrderStatusValue,
   action: OrderAction,
   now: Date,
+  expiryWindowHours?: number,
 ): OrderTransitionResult {
   const spec = ORDER_TRANSITIONS[action];
   if (!spec.from.includes(current)) {
     throw new InvalidOrderTransitionError(current, action);
+  }
+  if (spec.restartsExpiry && expiryWindowHours === undefined) {
+    throw new Error(`${action} restarts the expiry clock and needs the expiry window`);
   }
   return {
     from: current,
@@ -113,22 +142,138 @@ export function transitionOrder(
     auditAction: spec.auditAction,
     transitionedAt: now,
     ...(spec.to === 'VERIFIED' ? { verifiedAt: now } : {}),
+    ...(spec.restartsExpiry ? { expiresAt: computeOrderExpiry(now, expiryWindowHours!) } : {}),
   };
 }
 
-export interface PurchasableCourseFacts {
+/** #61: whether the expiry job should lapse this order now. */
+export function isOrderDueToLapse(
+  order: { status: OrderStatusValue; expiresAt: Date | null },
+  now: Date,
+): boolean {
+  return (
+    LAPSABLE_ORDER_STATUSES.includes(order.status) &&
+    order.expiresAt !== null &&
+    order.expiresAt.getTime() <= now.getTime()
+  );
+}
+
+// ── Payment reference (#55) ─────────────────────────────────────────
+
+/**
+ * Crockford base32: digits and uppercase letters without I, L, O and U, so a reference read out
+ * over the phone or typed into a bank app cannot be confused. 32 symbols: one byte mod 32 is
+ * unbiased.
+ */
+export const PAYMENT_REFERENCE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+export const PAYMENT_REFERENCE_PATTERN = /^LMS-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/;
+
+/** #55: `LMS-XXXX-XXXX` from 8 random bytes (40 bits). The service retries on collision. */
+export function formatPaymentReference(randomBytes: Uint8Array): string {
+  if (randomBytes.length < 8) {
+    throw new Error('formatPaymentReference needs at least 8 random bytes');
+  }
+  let symbols = '';
+  for (let i = 0; i < 8; i += 1) {
+    symbols += PAYMENT_REFERENCE_ALPHABET[randomBytes[i]! % 32];
+  }
+  return `LMS-${symbols.slice(0, 4)}-${symbols.slice(4)}`;
+}
+
+// ── Money (#56) ────────────────────────────────────────────────────
+
+export class OrderRefusedError extends DomainError {
+  readonly code = 'ORDER_REFUSED';
+}
+
+/**
+ * #56: splits a price into platform commission and teacher net, in minor units.
+ * Commission = price x bps / 10000, rounded half-up; net = price - commission, so the two always
+ * add back to the price exactly.
+ */
+export function computeLineSplit(
+  priceMinor: bigint,
+  commissionRateBps: number,
+): { commissionMinor: bigint; netTeacherMinor: bigint } {
+  if (priceMinor <= 0n) {
+    throw new OrderRefusedError('Paid course price must be positive', { reason: 'INVALID_PRICE' });
+  }
+  if (!Number.isInteger(commissionRateBps) || commissionRateBps < 0 || commissionRateBps > 10000) {
+    throw new OrderRefusedError('Commission rate must be between 0 and 10000 bps', {
+      reason: 'INVALID_COMMISSION_RATE',
+    });
+  }
+  const commissionMinor = (priceMinor * BigInt(commissionRateBps) + 5000n) / 10000n;
+  return { commissionMinor, netTeacherMinor: priceMinor - commissionMinor };
+}
+
+/** ISO 4217 minor-unit exponents that are not 2. Explicit, so ICU versions cannot change it. */
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  'BIF',
+  'CLP',
+  'DJF',
+  'GNF',
+  'ISK',
+  'JPY',
+  'KMF',
+  'KRW',
+  'PYG',
+  'RWF',
+  'UGX',
+  'UYI',
+  'VND',
+  'VUV',
+  'XAF',
+  'XOF',
+  'XPF',
+]);
+const THREE_DECIMAL_CURRENCIES = new Set(['BHD', 'IQD', 'JOD', 'KWD', 'LYD', 'OMR', 'TND']);
+
+/** Decimal places of a currency's minor unit (ISO 4217); 2 unless listed above. */
+export function currencyExponent(currency: string): number {
+  if (ZERO_DECIMAL_CURRENCIES.has(currency)) return 0;
+  if (THREE_DECIMAL_CURRENCIES.has(currency)) return 3;
+  return 2;
+}
+
+/** #112: amounts in emails. "PKR 1,500.00" from minor units, in the currency's ISO 4217 decimals. */
+export function formatAmount(minor: bigint, currency: string): string {
+  const digits = currencyExponent(currency);
+  const negative = minor < 0n;
+  const abs = (negative ? -minor : minor).toString().padStart(digits + 1, '0');
+  const major = abs.slice(0, abs.length - digits).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const fraction = digits > 0 ? `.${abs.slice(abs.length - digits)}` : '';
+  return `${negative ? '-' : ''}${currency} ${major}${fraction}`;
+}
+
+// ── Cart (#54) ─────────────────────────────────────────────────────
+
+/** #11: a student must verify their email before placing a paid order. */
+export class EmailNotVerifiedError extends DomainError {
+  readonly code = 'EMAIL_NOT_VERIFIED';
+}
+
+export function assertEmailVerifiedForOrder(isEmailVerified: boolean): void {
+  if (!isEmailVerified) {
+    throw new EmailNotVerifiedError('Please verify your email address before buying a course');
+  }
+}
+
+export interface PurchasableCourseFacts extends EnrollableCourseFacts {
   id: string;
   title: string;
-  status: 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'REJECTED' | 'ARCHIVED';
-  audienceType: 'STUDENT' | 'TEACHER_PD';
-  isFree: boolean;
-  isEnrollmentOpen: boolean;
   priceMinor: bigint | null;
   currency: string | null;
   commissionRateBps: number | null;
-  teacherId: string;
   teacherName: string | null;
-  teacherActive: boolean;
+}
+
+export interface BuyerFacts {
+  buyerId: string;
+  /** Courses the buyer has active access to now. */
+  activeCourseIds: ReadonlySet<string>;
+  /** Courses already in one of the buyer's open orders (PENDING, PROOF_SUBMITTED, REJECTED). */
+  openOrderCourseIds: ReadonlySet<string>;
 }
 
 export interface CartLineQuote {
@@ -150,155 +295,37 @@ export interface CartQuote {
   teacherCount: number;
 }
 
-export interface BankAccountDetails {
-  bankName: string;
-  accountTitle: string;
-  accountNumber: string;
-  iban: string;
+function refuse(courseId: string, message: string, reason: string): never {
+  throw new OrderRefusedError(message, { courseId, reason });
 }
 
-export interface PaymentInstructions {
-  bank: BankAccountDetails;
-  paymentReference: string;
-  amountMinor: bigint;
-  currency: string;
-  expiresAt: Date | null;
-  instructions: string;
-}
-
-/** Receiving bank account for manual bank transfers (#55; subject to client confirmation #127). */
-export const RECEIVING_BANK_ACCOUNT: BankAccountDetails = {
-  bankName: 'Meezan Bank',
-  accountTitle: 'LMS Education Pvt Ltd',
-  accountNumber: '01010105432101',
-  iban: 'PK36MEZN0001010105432101',
-};
-
-/** Unambiguous uppercase alphanumeric alphabet (no 0/O or 1/I/L) for bank references. */
-export const PAYMENT_REFERENCE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
-
-export class OrderRefusedError extends DomainError {
-  readonly code = 'ORDER_REFUSED';
-}
-
-export class EmailNotVerifiedError extends DomainError {
-  readonly code = 'EMAIL_NOT_VERIFIED';
-}
-
-/** #11 / #55: a student must verify their email address before creating a paid order. */
-export function assertEmailVerifiedForOrder(isEmailVerified: boolean): void {
-  if (!isEmailVerified) {
-    throw new EmailNotVerifiedError('Please verify your email address before purchasing a course');
-  }
-}
-
-/**
- * #55: formats a unique, human-readable payment reference (`LMS-YYYYMMDD-XXXXXX`) from a UTC date
- * and random bytes, using an unambiguous uppercase alphabet for bank transfer remarks.
- */
-export function formatPaymentReference(now: Date, randomBytes: Uint8Array): string {
-  if (randomBytes.length < 6) {
-    throw new Error('formatPaymentReference requires at least 6 random bytes');
-  }
-  const yyyy = now.getUTCFullYear().toString().padStart(4, '0');
-  const mm = (now.getUTCMonth() + 1).toString().padStart(2, '0');
-  const dd = now.getUTCDate().toString().padStart(2, '0');
-  let suffix = '';
-  for (let i = 0; i < 6; i += 1) {
-    suffix += PAYMENT_REFERENCE_ALPHABET[randomBytes[i]! % PAYMENT_REFERENCE_ALPHABET.length];
-  }
-  return `LMS-${yyyy}${mm}${dd}-${suffix}`;
-}
-
-/** #55 / #61: computes the UTC instant when a pending order lapses. */
-export function computeOrderExpiry(now: Date, expiryWindowHours: number): Date {
-  return new Date(now.getTime() + expiryWindowHours * 60 * 60 * 1000);
-}
-
-/** #55: builds the bank transfer instructions displayed on checkout and order status screens. */
-export function buildPaymentInstructions(
-  order: {
-    paymentReference: string;
-    totalMinor: bigint;
-    currency: string;
-    expiresAt: Date | null;
-  },
-  bank: BankAccountDetails = RECEIVING_BANK_ACCOUNT,
-): PaymentInstructions {
-  return {
-    bank,
-    paymentReference: order.paymentReference,
-    amountMinor: order.totalMinor,
-    currency: order.currency,
-    expiresAt: order.expiresAt,
-    instructions: `Transfer the exact amount and enter reference ${order.paymentReference} in the bank transfer remarks, then submit your transaction ID.`,
-  };
-}
-
-/**
- * Splits a course price into platform commission and teacher net earning in integer minor units.
- * Floor division on basis points ensures commissionMinor + netTeacherMinor === priceMinor always.
- */
-export function computeLineSplit(
-  priceMinor: bigint,
-  commissionRateBps: number,
-): { commissionMinor: bigint; netTeacherMinor: bigint } {
-  if (priceMinor <= 0n) {
-    throw new OrderRefusedError('Paid course price must be positive', {
-      reason: 'INVALID_PRICE',
-    });
-  }
-  if (!Number.isInteger(commissionRateBps) || commissionRateBps < 0 || commissionRateBps > 10000) {
-    throw new OrderRefusedError('Commission rate must be between 0 and 10000 bps', {
-      reason: 'INVALID_COMMISSION_RATE',
-    });
-  }
-  const commissionMinor = (priceMinor * BigInt(commissionRateBps)) / 10000n;
-  const netTeacherMinor = priceMinor - commissionMinor;
-  return { commissionMinor, netTeacherMinor };
-}
-
-/** Checks that a single course can be purchased by the buyer right now. */
+/** Checks that one course can be bought by this buyer now and returns its sale terms. */
 export function assertCoursePurchasable(
   course: PurchasableCourseFacts,
-  buyerId: string,
-  alreadyEnrolled: boolean,
+  buyer: BuyerFacts,
 ): { priceMinor: bigint; currency: string; commissionRateBps: number } {
-  if (course.status !== 'PUBLISHED' || course.audienceType !== 'STUDENT') {
-    throw new OrderRefusedError('This course is not available for purchase', {
-      courseId: course.id,
-      reason: 'NOT_AVAILABLE',
-    });
+  try {
+    assertCourseEnrollable(course);
+  } catch (error) {
+    if (error instanceof EnrollmentRefusedError) {
+      throw new OrderRefusedError(error.message, {
+        ...(error.info as object),
+        courseId: course.id,
+      });
+    }
+    throw error;
   }
-  if (!course.teacherActive) {
-    throw new OrderRefusedError('This course is not taking new enrollments', {
-      courseId: course.id,
-      reason: 'TEACHER_SUSPENDED',
-    });
-  }
-  if (!course.isEnrollmentOpen) {
-    throw new OrderRefusedError('Enrollment for this course is closed', {
-      courseId: course.id,
-      reason: 'ENROLLMENT_CLOSED',
-    });
-  }
-  if (course.teacherId === buyerId) {
-    throw new OrderRefusedError('You teach this course', {
-      courseId: course.id,
-      reason: 'OWN_COURSE',
-    });
+  if (course.teacherId === buyer.buyerId) {
+    refuse(course.id, 'You teach this course', 'OWN_COURSE');
   }
   if (course.isFree) {
-    throw new OrderRefusedError('This is a free course. Enrol directly without checkout.', {
-      courseId: course.id,
-      reason: 'FREE_COURSE',
-    });
+    refuse(course.id, 'This is a free course. Enroll directly without checkout.', 'FREE_COURSE');
   }
-  if (alreadyEnrolled) {
-    throw new OrderRefusedError('You already have active access to this course', {
-      courseId: course.id,
-      reason: 'ALREADY_ENROLLED',
-    });
+  if (buyer.activeCourseIds.has(course.id)) {
+    refuse(course.id, 'You already have access to this course', 'ALREADY_ENROLLED');
+  }
+  if (buyer.openOrderCourseIds.has(course.id)) {
+    refuse(course.id, 'This course is already in one of your open orders', 'IN_OPEN_ORDER');
   }
   if (
     course.priceMinor === null ||
@@ -306,10 +333,7 @@ export function assertCoursePurchasable(
     !course.currency ||
     course.commissionRateBps === null
   ) {
-    throw new OrderRefusedError('This course does not have complete pricing', {
-      courseId: course.id,
-      reason: 'NOT_PRICED',
-    });
+    refuse(course.id, 'This course has no price yet', 'NOT_PRICED');
   }
   return {
     priceMinor: course.priceMinor,
@@ -319,72 +343,92 @@ export function assertCoursePurchasable(
 }
 
 /**
- * #54: validates a multi-teacher cart and computes the line splits and total in minor units.
- * Duplicate course ids in the input are collapsed in order of first appearance.
+ * #54: validates a cart (courses from any number of teachers, one currency) and computes each
+ * line's split and the total. Duplicate ids collapse, keeping the first position.
  */
 export function buildCartQuote(
   requestedCourseIds: readonly string[],
   courses: readonly PurchasableCourseFacts[],
-  buyerId: string,
-  activeEnrolledCourseIds: ReadonlySet<string>,
+  buyer: BuyerFacts,
 ): CartQuote {
   const uniqueIds = [...new Set(requestedCourseIds)];
   if (uniqueIds.length === 0) {
-    throw new OrderRefusedError('Cart must contain at least one course', {
-      reason: 'EMPTY_CART',
-    });
+    throw new OrderRefusedError('Your cart is empty', { reason: 'EMPTY_CART' });
   }
-
   const byId = new Map(courses.map((c) => [c.id, c]));
   const items: CartLineQuote[] = [];
-  let cartCurrency: string | null = null;
+  let currency: string | null = null;
   let totalMinor = 0n;
 
   for (const courseId of uniqueIds) {
     const course = byId.get(courseId);
-    if (!course) {
-      throw new OrderRefusedError('Course is not available for purchase', {
+    if (!course) refuse(courseId, 'This course is not available for purchase', 'NOT_AVAILABLE');
+    const terms = assertCoursePurchasable(course, buyer);
+    if (currency === null) {
+      currency = terms.currency;
+    } else if (terms.currency !== currency) {
+      throw new OrderRefusedError('All courses in one order must be in the same currency', {
         courseId,
-        reason: 'NOT_AVAILABLE',
-      });
-    }
-    const priced = assertCoursePurchasable(course, buyerId, activeEnrolledCourseIds.has(course.id));
-    if (cartCurrency === null) {
-      cartCurrency = priced.currency;
-    } else if (priced.currency !== cartCurrency) {
-      throw new OrderRefusedError('All courses in one cart must use the same currency', {
-        courseId: course.id,
         reason: 'CURRENCY_MISMATCH',
-        expected: cartCurrency,
-        actual: priced.currency,
+        expected: currency,
+        actual: terms.currency,
       });
     }
-    const { commissionMinor, netTeacherMinor } = computeLineSplit(
-      priced.priceMinor,
-      priced.commissionRateBps,
-    );
+    const split = computeLineSplit(terms.priceMinor, terms.commissionRateBps);
     items.push({
-      courseId: course.id,
+      courseId,
       title: course.title,
       teacherId: course.teacherId,
       teacherName: course.teacherName,
-      priceMinor: priced.priceMinor,
-      currency: priced.currency,
-      commissionRateBps: priced.commissionRateBps,
-      commissionMinor,
-      netTeacherMinor,
+      priceMinor: terms.priceMinor,
+      currency: terms.currency,
+      commissionRateBps: terms.commissionRateBps,
+      ...split,
     });
-    totalMinor += priced.priceMinor;
+    totalMinor += terms.priceMinor;
   }
 
-  const teacherCount = new Set(items.map((item) => item.teacherId)).size;
   return {
     items,
-    currency: cartCurrency!,
+    currency: currency!,
     totalMinor,
-    teacherCount,
+    teacherCount: new Set(items.map((i) => i.teacherId)).size,
   };
 }
+
+// ── Payment instructions (#55) ─────────────────────────────────────
+
+export interface PaymentInstructions {
+  /** Bank account and transfer steps, from the BANK_TRANSFER_INSTRUCTIONS setting. */
+  bankTransferInstructions: string;
+  paymentReference: string;
+  amountMinor: bigint;
+  currency: string;
+  expiresAt: Date | null;
+  verificationTurnaroundHours: number;
+}
+
+export function buildPaymentInstructions(
+  order: { paymentReference: string; totalMinor: bigint; currency: string; expiresAt: Date | null },
+  bankTransferInstructions: string,
+  verificationTurnaroundHours: number,
+): PaymentInstructions {
+  return {
+    bankTransferInstructions,
+    paymentReference: order.paymentReference,
+    amountMinor: order.totalMinor,
+    currency: order.currency,
+    expiresAt: order.expiresAt,
+    verificationTurnaroundHours,
+  };
+}
+
+// ── Duplicate transaction ids (#59) ────────────────────────────────
+
+export function normaliseTransactionId(transactionId: string): string {
+  return transactionId.trim().toLowerCase();
+}
+
 export interface DuplicateTransactionMatch {
   orderId: string;
   paymentReference: string;
@@ -399,117 +443,181 @@ export interface DuplicateTransactionIdWarning {
 }
 
 /**
- * #59: detects when a bank transaction ID has already been submitted on another order.
- * Returns a non-blocking warning (or null if no other order uses the same transaction ID).
+ * #59: a warning (never a refusal) when a transaction id was also submitted on another order.
+ * Matching ignores case and surrounding spaces.
  */
 export function buildDuplicateTransactionIdWarning(
   currentOrderId: string,
   transactionId: string,
   matches: readonly DuplicateTransactionMatch[],
 ): DuplicateTransactionIdWarning | null {
-  const normalized = transactionId.trim().toLowerCase();
-  const otherOrders = matches.filter(
-    (m) => m.orderId !== currentOrderId && m.transactionId.trim().toLowerCase() === normalized,
+  const wanted = normaliseTransactionId(transactionId);
+  const others = matches.filter(
+    (m) => m.orderId !== currentOrderId && normaliseTransactionId(m.transactionId) === wanted,
   );
-  if (otherOrders.length === 0) return null;
-
-  const conflictingOrderIds = [...new Set(otherOrders.map((m) => m.orderId))];
-  const conflictingPaymentReferences = [...new Set(otherOrders.map((m) => m.paymentReference))];
+  if (others.length === 0) return null;
+  const conflictingOrderIds = [...new Set(others.map((m) => m.orderId))];
+  const conflictingPaymentReferences = [...new Set(others.map((m) => m.paymentReference))];
   return {
     transactionId,
     conflictingOrderIds,
     conflictingPaymentReferences,
-    message: `Transaction ID "${transactionId}" also appears on ${conflictingOrderIds.length} other order(s) (${conflictingPaymentReferences.join(', ')}).`,
+    message: `Transaction ID "${transactionId}" was also submitted on ${conflictingPaymentReferences.join(', ')}.`,
   };
 }
-export type StudentOrderActionRequired = 'SUBMIT_PROOF' | 'AWAIT_ADMIN_VERIFICATION' | 'NONE';
 
-export interface StudentOrderStatusGuidance {
-  statusLabel: string;
-  actionRequired: StudentOrderActionRequired;
-  canSubmitProof: boolean;
-  nextStepMessage: string;
+/** #59: one warning per distinct transaction id on the order. */
+export function buildDuplicateTransactionIdWarnings(
+  orderId: string,
+  transactionIds: readonly string[],
+  matches: readonly DuplicateTransactionMatch[],
+): DuplicateTransactionIdWarning[] {
+  const seen = new Set<string>();
+  const warnings: DuplicateTransactionIdWarning[] = [];
+  for (const id of transactionIds) {
+    const key = normaliseTransactionId(id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const warning = buildDuplicateTransactionIdWarning(orderId, id, matches);
+    if (warning) warnings.push(warning);
+  }
+  return warnings;
 }
 
-/**
- * #60: describes the current status of a student's order and what is expected of them next.
- */
+// ── Student status screen (#60) ────────────────────────────────────
+
+export type StudentNextAction = 'SUBMIT_PROOF' | 'WAIT_FOR_VERIFICATION' | 'NONE';
+
+/** The admin's most recent decision that did not confirm the order, if it is still current. */
+export type LastPaymentDecision =
+  | { kind: 'REJECTED'; reason: string; notes: string | null }
+  | { kind: 'TOP_UP_REQUESTED'; shortfallMinor: bigint };
+
+export interface StudentOrderGuidance {
+  statusLabel: string;
+  nextAction: StudentNextAction;
+  canSubmitProof: boolean;
+  whatHappensNext: string;
+}
+
+/** #60: the order's status in the student's words and what they should do next. */
 export function describeStudentOrderNextStep(input: {
   status: OrderStatusValue;
   paymentReference: string;
   totalMinor: bigint;
   currency: string;
   expiresAt: Date | null;
-  proofCount: number;
-}): StudentOrderStatusGuidance {
+  verificationTurnaroundHours: number;
+  lastDecision: LastPaymentDecision | null;
+}): StudentOrderGuidance {
+  const deadline = input.expiresAt ? ` by ${input.expiresAt.toISOString()}` : '';
   switch (input.status) {
-    case 'PENDING': {
-      const expirySuffix = input.expiresAt ? ` before ${input.expiresAt.toISOString()}` : '';
-      if (input.proofCount > 0) {
+    case 'PENDING':
+      if (input.lastDecision?.kind === 'TOP_UP_REQUESTED') {
         return {
-          statusLabel: 'Additional Payment Required',
-          actionRequired: 'SUBMIT_PROOF',
+          statusLabel: 'Top-up required',
+          nextAction: 'SUBMIT_PROOF',
           canSubmitProof: true,
-          nextStepMessage: `An additional payment is required for order ${input.paymentReference}. Please transfer the remaining balance with reference ${input.paymentReference} and submit your new transaction ID and proof of payment${expirySuffix}.`,
+          whatHappensNext: `We received less than the order total. Transfer the remaining ${input.currency} ${input.lastDecision.shortfallMinor.toString()} (minor units) with reference ${input.paymentReference}${deadline}, then submit the new transaction ID.`,
         };
       }
       return {
-        statusLabel: 'Awaiting Payment & Proof',
-        actionRequired: 'SUBMIT_PROOF',
+        statusLabel: 'Awaiting payment',
+        nextAction: 'SUBMIT_PROOF',
         canSubmitProof: true,
-        nextStepMessage: `Transfer ${input.currency} ${input.totalMinor.toString()} (minor units) to the receiving bank account using payment reference ${input.paymentReference}${expirySuffix}, then submit your bank transaction ID and proof of payment.`,
+        whatHappensNext: `Transfer ${input.currency} ${input.totalMinor.toString()} (minor units) using the bank details and reference ${input.paymentReference}${deadline}, then submit your transaction ID. Unpaid orders expire after that.`,
       };
-    }
     case 'PROOF_SUBMITTED':
       return {
-        statusLabel: 'Payment Proof Under Review',
-        actionRequired: 'AWAIT_ADMIN_VERIFICATION',
+        statusLabel: 'Payment under review',
+        nextAction: 'WAIT_FOR_VERIFICATION',
         canSubmitProof: true,
-        nextStepMessage:
-          'We have received your proof of payment. An administrator is verifying your bank transfer; you will be enrolled and notified by email once confirmed. You may submit an additional proof if you made a split or top-up transfer.',
+        whatHappensNext: `We are checking your transfer, usually within ${input.verificationTurnaroundHours} hours. You will get an email and access to your courses once it is confirmed. If you made more than one transfer, add each transaction ID.`,
       };
     case 'VERIFIED':
       return {
-        statusLabel: 'Confirmed',
-        actionRequired: 'NONE',
+        statusLabel: 'Paid',
+        nextAction: 'NONE',
         canSubmitProof: false,
-        nextStepMessage:
-          'Your payment has been confirmed and your courses are now unlocked in your library.',
+        whatHappensNext:
+          'Your payment is confirmed and your courses are in your library. Your receipt is available.',
       };
-    case 'REJECTED':
+    case 'REJECTED': {
+      const reason =
+        input.lastDecision?.kind === 'REJECTED'
+          ? ` Reason: ${input.lastDecision.reason}${input.lastDecision.notes ? ` (${input.lastDecision.notes})` : ''}.`
+          : '';
       return {
-        statusLabel: 'Payment Rejected',
-        actionRequired: 'NONE',
-        canSubmitProof: false,
-        nextStepMessage:
-          'Your payment proof could not be verified and this order is closed. Please check the rejection email for details or place a new order.',
+        statusLabel: 'Payment not accepted',
+        nextAction: 'SUBMIT_PROOF',
+        canSubmitProof: true,
+        whatHappensNext: `We could not verify your payment.${reason} Submit a corrected transaction ID or proof on this order${deadline}, or it will expire.`,
       };
+    }
     case 'LAPSED':
       return {
-        statusLabel: 'Order Expired',
-        actionRequired: 'NONE',
+        statusLabel: 'Expired',
+        nextAction: 'NONE',
         canSubmitProof: false,
-        nextStepMessage:
-          'This order expired because no payment proof was submitted within the payment window. Please place a new order if you still wish to enrol.',
+        whatHappensNext:
+          'This order expired before a payment was received. Place a new order if you still want these courses.',
       };
     case 'REFUNDED':
       return {
         statusLabel: 'Refunded',
-        actionRequired: 'NONE',
+        nextAction: 'NONE',
         canSubmitProof: false,
-        nextStepMessage:
-          'This order has been refunded and access to the associated courses has been revoked.',
+        whatHappensNext: 'This order was refunded.',
       };
   }
 }
+
+/** #65: the rejection reasons in the words a student reads. */
+export const REJECTION_REASON_LABELS: Readonly<Record<string, string>> = {
+  NO_PAYMENT_RECEIVED: 'No payment was received for this order',
+  AMOUNT_SHORT: 'The amount received was less than the order total',
+  INVALID_TRANSACTION_ID: 'The transaction ID could not be matched to a transfer',
+  DUPLICATE_TRANSACTION: 'This transaction was already used for another order',
+  OTHER: 'The payment could not be verified',
+};
+
+export interface PaymentDecisionFacts {
+  outcome: 'CONFIRMED' | 'REJECTED';
+  mismatchAction: 'CONFIRM_ANYWAY' | 'REQUEST_TOP_UP' | 'REJECT' | null;
+  rejectionReason: string | null;
+  notes: string | null;
+  amountReceivedMinor: bigint | null;
+}
+
+/**
+ * #60, #65, #66: what the admin last decided about the order, if it did not confirm it.
+ * `verifications` are in chronological order.
+ */
+export function lastPaymentDecision(
+  totalMinor: bigint,
+  verifications: readonly PaymentDecisionFacts[],
+): LastPaymentDecision | null {
+  const last = verifications.at(-1);
+  if (!last || last.outcome !== 'REJECTED') return null;
+  if (last.mismatchAction === 'REQUEST_TOP_UP') {
+    const received = last.amountReceivedMinor ?? 0n;
+    return { kind: 'TOP_UP_REQUESTED', shortfallMinor: totalMinor - received };
+  }
+  return {
+    kind: 'REJECTED',
+    reason:
+      REJECTION_REASON_LABELS[last.rejectionReason ?? 'OTHER'] ?? REJECTION_REASON_LABELS.OTHER!,
+    notes: last.notes,
+  };
+}
+
+// ── Receipt (#62) ──────────────────────────────────────────────────
+
 export interface OrderReceiptLineItem {
-  id: string;
   courseId: string;
   courseTitle: string;
-  teacherId: string;
   teacherName: string | null;
   priceMinor: bigint;
-  currency: string;
 }
 
 export interface OrderReceipt {
@@ -517,21 +625,13 @@ export interface OrderReceipt {
   orderId: string;
   paymentReference: string;
   issuedAt: Date;
-  student: {
-    id: string;
-    fullName: string | null;
-    email: string;
-  };
+  student: { fullName: string | null; email: string };
   items: OrderReceiptLineItem[];
   totalMinor: bigint;
   currency: string;
-  transactionIds: string[];
 }
 
-/**
- * #62: issues an official receipt for an order only after payment confirmation (`VERIFIED`).
- * Refuses unconfirmed orders so a receipt is never issued at checkout or before verification.
- */
+/** #62: a receipt exists only for a confirmed (VERIFIED) order, never at checkout. */
 export function buildOrderReceipt(order: {
   id: string;
   paymentReference: string;
@@ -539,19 +639,18 @@ export function buildOrderReceipt(order: {
   verifiedAt: Date | null;
   totalMinor: bigint;
   currency: string;
-  student: { id: string; fullName: string | null; email: string };
+  student: { fullName: string | null; email: string };
   items: OrderReceiptLineItem[];
-  transactionIds: readonly string[];
 }): OrderReceipt {
   if (order.status !== 'VERIFIED' || !order.verifiedAt) {
-    throw new OrderRefusedError('A receipt is only issued after payment confirmation', {
+    throw new OrderRefusedError('A receipt is issued only once the payment is confirmed', {
       orderId: order.id,
       status: order.status,
       reason: 'NOT_VERIFIED',
     });
   }
   return {
-    receiptNumber: `RCT-${order.paymentReference}`,
+    receiptNumber: `RCT-${order.paymentReference.slice(4)}`,
     orderId: order.id,
     paymentReference: order.paymentReference,
     issuedAt: order.verifiedAt,
@@ -559,6 +658,5 @@ export function buildOrderReceipt(order: {
     items: order.items,
     totalMinor: order.totalMinor,
     currency: order.currency,
-    transactionIds: [...new Set(order.transactionIds)],
   };
 }
