@@ -71,6 +71,8 @@ export interface AttemptQuestionView {
 }
 
 export interface AttemptView extends AttemptSummary {
+  /** The server's clock when this view was built: clients count down from it, never their own. */
+  serverTime: Date;
   /** started_at + time limit; null when untimed. Answers reaching the server later are ignored. */
   deadline: Date | null;
   /** Closed at the deadline rather than by the student's own submit in time. */
@@ -297,6 +299,7 @@ export class QuizAttemptService {
 
     return {
       ...summary(attempt),
+      serverTime: new Date(),
       deadline,
       timedOut:
         deadline !== null &&
