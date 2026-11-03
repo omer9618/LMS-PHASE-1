@@ -25,5 +25,7 @@ import { TeacherApplicationService } from './services/teacher-application.servic
     TeacherApplicationDao,
     ApplicationPurgeJob,
   ],
+  // Contract: the admin dashboard (#102) reads queue counts through this service.
+  exports: [TeacherApplicationService],
 })
 export class TeachersModule {}

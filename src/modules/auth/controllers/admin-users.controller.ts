@@ -71,6 +71,16 @@ export class AdminUsersController {
     return this.userAdminService.changeStatus(admin, params.userId, 'REACTIVATE', body.reason);
   }
 
+  /** #103: emails the user a single-use password reset link. Audited. */
+  @Post(':userId/password-reset')
+  @HttpCode(200)
+  sendPasswordReset(
+    @CurrentUser() admin: AuthUser,
+    @Param(new ZodValidationPipe(userIdParamsSchema)) params: UserIdParams,
+  ): Promise<{ sent: boolean }> {
+    return this.userAdminService.sendPasswordReset(admin, params.userId);
+  }
+
   @Post(':userId/roles')
   @HttpCode(200)
   grantRole(

@@ -240,6 +240,11 @@ export class EnrollmentService {
     return { items, total, limit: query.limit, offset: query.offset };
   }
 
+  /** #102: enrollments granted (any source) since `since`, for the admin dashboard. */
+  async countGrantedSince(admin: AuthUser, since: Date): Promise<number> {
+    return this.enrollmentDao.countEnrollmentsBy(adminScope(admin), { grantedAt: { gte: since } });
+  }
+
   /** #51 job: mark enrollments past their expiry. Access is already denied by date. */
   expireDue(now = new Date()): Promise<number> {
     return this.enrollmentDao.expireDueEnrollments(now);

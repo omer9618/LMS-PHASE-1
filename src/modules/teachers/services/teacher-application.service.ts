@@ -103,6 +103,14 @@ export class TeacherApplicationService {
     return { items, total, limit: query.limit, offset: query.offset };
   }
 
+  /** #102: applications awaiting a decision (SUBMITTED or UNDER_REVIEW), for the dashboard. */
+  async countOpenApplications(admin: AuthUser): Promise<number> {
+    adminScope(admin);
+    return this.applicationDao.countApplicationsBy({
+      status: { in: [ApplicationStatus.SUBMITTED, ApplicationStatus.UNDER_REVIEW] },
+    });
+  }
+
   async get(admin: AuthUser, applicationId: string): Promise<ApplicationRecord> {
     adminScope(admin);
     return this.load(applicationId);

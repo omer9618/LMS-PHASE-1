@@ -30,6 +30,7 @@ const STATUS_AUDIT_ACTION: Record<StatusAction, string> = {
 };
 
 const HOUR_MS = 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
 
 /**
  * Admin account management (#15): create staff accounts, suspend and reactivate any account,
@@ -200,6 +201,48 @@ export class UserAdminService {
       );
     });
     return this.getUser(admin, userId);
+  }
+
+  /**
+   * #103: an admin sends the user a password reset link (e.g. a teacher who lost access).
+   * The admin never sees or sets the password; the link is the same single-use, 30-minute link
+   * as a self-service reset, and earlier unused links stop working. Audited. Active accounts only.
+   */
+  async sendPasswordReset(admin: AuthUser, userId: string): Promise<{ sent: boolean }> {
+    adminScope(admin);
+    const user = await this.loadUser(userId);
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new AppException(
+        ErrorCode.INVALID_STATE_TRANSITION,
+        { status: user.status },
+        undefined,
+        {
+          message: 'Reactivate the account before sending a password reset',
+        },
+      );
+    }
+    const token = await this.transactions.run(async (tx) => {
+      const issued = await this.accountService.issuePasswordSetToken(
+        user.id,
+        TOKEN_TTL.PASSWORD_RESET_MINUTES * MINUTE_MS,
+        tx,
+      );
+      await this.audit.record(
+        {
+          actorUserId: admin.id,
+          action: 'USER_PASSWORD_RESET_SENT',
+          entityType: 'user',
+          entityId: user.id,
+        },
+        tx,
+      );
+      return issued;
+    });
+    const sent = await this.email.send(user.email, 'PASSWORD_RESET', {
+      resetUrl: this.email.appUrl('/reset-password', { token }),
+      expiresInMinutes: TOKEN_TTL.PASSWORD_RESET_MINUTES,
+    });
+    return { sent };
   }
 
   private async loadUser(userId: string, tx?: TransactionClient): Promise<AdminUserRecord> {
