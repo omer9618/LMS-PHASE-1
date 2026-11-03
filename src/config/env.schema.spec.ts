@@ -5,6 +5,7 @@ const base = { DATABASE_URL: 'postgresql://u:p@localhost:5432/db' };
 const productionOk = {
   ...base,
   NODE_ENV: 'production',
+  SESSION_COOKIE_NAME: '__Host-lms_session',
   EMAIL_TRANSPORT: 'smtp',
   SMTP_URL: 'smtps://user:pass@smtp.example.com:465',
   STORAGE_DRIVER: 's3',
@@ -38,6 +39,15 @@ describe('env schema', () => {
     });
   });
 
+  it('parses CORS_ORIGINS as a list of URLs, empty by default (#119)', () => {
+    expect(envSchema.parse(base).CORS_ORIGINS).toEqual([]);
+    expect(
+      envSchema.parse({ ...base, CORS_ORIGINS: 'https://a.example, https://b.example' })
+        .CORS_ORIGINS,
+    ).toEqual(['https://a.example', 'https://b.example']);
+    expect(failingPaths({ ...base, CORS_ORIGINS: 'not a url' })).toContain('CORS_ORIGINS.0');
+  });
+
   it('accepts a complete production config, with secure cookies on', () => {
     expect(envSchema.parse(productionOk).COOKIE_SECURE).toBe(true);
   });
@@ -56,6 +66,9 @@ describe('env schema', () => {
     const { STORAGE_SIGNING_SECRET: _secret, ...rest } = productionOk;
     expect(failingPaths(rest)).toContain('STORAGE_SIGNING_SECRET');
     expect(failingPaths({ ...productionOk, COOKIE_SECURE: 'false' })).toContain('COOKIE_SECURE');
+    expect(failingPaths({ ...productionOk, SESSION_COOKIE_NAME: 'lms_session' })).toContain(
+      'SESSION_COOKIE_NAME',
+    );
     const { MFA_ENCRYPTION_KEY: _mfa, ...noMfaKey } = productionOk;
     expect(failingPaths(noMfaKey)).toContain('MFA_ENCRYPTION_KEY');
     expect(failingPaths({ ...productionOk, MFA_ENCRYPTION_KEY: 'c2hvcnQ=' })).toContain(

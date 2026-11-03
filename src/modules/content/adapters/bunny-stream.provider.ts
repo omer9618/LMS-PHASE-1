@@ -113,12 +113,13 @@ export class BunnyStreamProvider implements VideoProvider {
   ): VideoWebhookEvent | null {
     if (headers['x-bunnystream-signature-version'] !== 'v1') return null;
     if (headers['x-bunnystream-signature-algorithm'] !== 'hmac-sha256') return null;
-    const given = headers['x-bunnystream-signature'] ?? '';
-    const expected = createHmac('sha256', this.config.readOnlyApiKey).update(rawBody).digest('hex');
-    if (
-      given.length !== expected.length ||
-      !timingSafeEqual(Buffer.from(given), Buffer.from(expected))
-    ) {
+    // #119: compare byte lengths, not string lengths: a multi-byte header of the right character
+    // length would make timingSafeEqual throw (a 500) instead of returning "invalid".
+    const given = Buffer.from(headers['x-bunnystream-signature'] ?? '');
+    const expected = Buffer.from(
+      createHmac('sha256', this.config.readOnlyApiKey).update(rawBody).digest('hex'),
+    );
+    if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
       return null;
     }
 

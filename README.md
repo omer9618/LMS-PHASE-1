@@ -9,6 +9,7 @@ Backend for a learning platform where independent teachers publish courses for C
 | [docs/BACKEND_STRUCTURE.md](docs/BACKEND_STRUCTURE.md) | Layer rules, scoping, errors, jobs: **read before writing code** |
 | [docs/PRISMA_SETUP.md](docs/PRISMA_SETUP.md)           | Schema rules (money, ledger, publish guard) and schema additions |
 | [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)           | Bunny, SMTP, S3, Turnstile and MFA key setup for production      |
+| [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)     | Security review (#119): findings, fixes and open items           |
 | [docs/backlog/](docs/backlog/)                         | How the GitHub issues were imported; issue-number notes          |
 | [web/README.md](web/README.md)                         | The Next.js web app: running it against the API on :3000         |
 

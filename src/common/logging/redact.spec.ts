@@ -17,6 +17,17 @@ describe('redact', () => {
     });
   });
 
+  it('redacts one-time codes but not ordinary fields that contain "code" (#119)', () => {
+    expect(
+      redact({ code: '123456', recoveryCode: 'abcd-efgh', countryCode: 'PK', otp: '1' }),
+    ).toEqual({
+      code: '[Redacted]',
+      recoveryCode: '[Redacted]',
+      countryCode: 'PK',
+      otp: '[Redacted]',
+    });
+  });
+
   it('passes primitives and undefined through', () => {
     expect(redact(undefined)).toBeUndefined();
     expect(redact('x')).toBe('x');
