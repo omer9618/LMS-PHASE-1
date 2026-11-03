@@ -1,0 +1,47 @@
+# Edge proxy for every LMS environment on this VPS. Automatic HTTPS (Let's Encrypt).
+# Site blocks live in sites/*.caddy (copy the *.caddy.example files and set real domains).
+{
+	email {$ACME_EMAIL}
+}
+
+# API upstream. {args[0]} is the network alias of an environment's API, e.g. lms-staging-api.
+# `dynamic a` re-resolves the alias every 2s, so during a rolling deploy both the old and the
+# new container receive traffic, and a container that stops accepting is retried elsewhere.
+(lms_api) {
+	encode zstd gzip
+	reverse_proxy {
+		dynamic a {args[0]} 3000 {
+			refresh 2s
+		}
+		lb_policy round_robin
+		lb_try_duration 15s
+		lb_try_interval 250ms
+		fail_duration 10s
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+	log
+}
+
+# Web app (Next.js in /web) upstream, for when its image is deployed. {args[0]} as above.
+(lms_web) {
+	encode zstd gzip
+	reverse_proxy {
+		dynamic a {args[0]} 3000 {
+			refresh 2s
+		}
+		lb_try_duration 15s
+		fail_duration 10s
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	log
+}
+
+import sites/*.caddy
