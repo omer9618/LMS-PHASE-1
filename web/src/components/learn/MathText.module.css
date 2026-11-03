@@ -1,0 +1,33 @@
+.inline {
+  overflow-wrap: anywhere;
+}
+
+.block {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.math {
+  /* Inline formulas never split mid-expression; long ones scroll inside the line. */
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.display {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: var(--space-1) 0;
+  white-space: normal;
+}
+
+.math :global(.katex),
+.display :global(.katex) {
+  /* KaTeX defaults to 1.21em; keep formulas the size of the text around them. */
+  font-size: 1.1em;
+}

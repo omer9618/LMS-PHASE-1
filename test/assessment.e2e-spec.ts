@@ -495,6 +495,10 @@ describe('Assessment: quiz builder and attempts (#68–#74, #76)', () => {
       const attemptId = started.body.data.id;
       const startedAt = new Date(started.body.data.startedAt).getTime();
       expect(new Date(started.body.data.deadline).getTime()).toBe(startedAt + 60_000);
+      // The client counts down from the server's clock, never its own.
+      expect(Math.abs(new Date(started.body.data.serverTime).getTime() - Date.now())).toBeLessThan(
+        5_000,
+      );
 
       await http()
         .put(`${q.taking}/attempts/${attemptId}/answers`)

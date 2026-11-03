@@ -14,6 +14,16 @@ import { ContentAccessService } from './content-access.service';
 
 export type ResourceView = Omit<LessonResourceRecord, 'fileUrl'>;
 
+/** What the course player shows for a lesson (#53). Files are listed; downloads stay gated (#39). */
+export interface LessonContentView {
+  id: string;
+  title: string;
+  type: string;
+  /** TEXT lessons only. */
+  bodyText: string | null;
+  resources: { id: string; fileName: string; fileSizeBytes: number | null }[];
+}
+
 const DOWNLOAD_TTL_SECONDS = 10 * 60;
 const MAX_RESOURCES_PER_LESSON = 20;
 
@@ -107,6 +117,31 @@ export class ResourceService {
       DOWNLOAD_TTL_SECONDS,
     );
     return { url, expiresInSeconds: DOWNLOAD_TTL_SECONDS };
+  }
+
+  /**
+   * #53: a lesson's text and file list for the course player, behind the same gate as playback
+   * (enrolled students, staff, and free previews of a published course; locks from progress apply).
+   */
+  async lessonContent(
+    user: AuthUser,
+    courseId: string,
+    lessonId: string,
+  ): Promise<LessonContentView> {
+    await this.access.assertCanPlay(user, courseId, lessonId);
+    const lesson = await this.outline.getLessonContent(courseId, lessonId);
+    if (!lesson) throw new AppException(ErrorCode.NOT_FOUND, { entity: 'lesson', id: lessonId });
+    return {
+      id: lesson.id,
+      title: lesson.title,
+      type: lesson.type,
+      bodyText: lesson.type === 'TEXT' ? lesson.bodyText : null,
+      resources: lesson.resources.map((r) => ({
+        id: r.id,
+        fileName: r.fileName,
+        fileSizeBytes: r.fileSizeBytes,
+      })),
+    };
   }
 
   private async load(lessonId: string, resourceId: string): Promise<LessonResourceRecord> {

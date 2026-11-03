@@ -98,6 +98,27 @@ export class OutlineDao {
     });
   }
 
+  /**
+   * A lesson's learner-facing content (#53): title, type, body text and resource list (no file
+   * keys). Like getLessonAccessContext it has no TeacherScope: callers authorise the learner with
+   * ContentAccessService first.
+   */
+  getLessonContent(courseId: string, lessonId: string) {
+    return this.prisma.lesson.findFirst({
+      where: { id: lessonId, section: { courseId } },
+      select: {
+        id: true,
+        title: true,
+        type: true,
+        bodyText: true,
+        resources: {
+          select: { id: true, fileName: true, fileSizeBytes: true },
+          orderBy: { orderIndex: 'asc' },
+        },
+      },
+    });
+  }
+
   /** Section ids in order. */
   async getSectionIds(courseId: string, tx: TransactionClient): Promise<string[]> {
     const rows = await tx.section.findMany({

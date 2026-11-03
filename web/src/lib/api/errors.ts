@@ -26,6 +26,12 @@ export type KnownErrorName =
   | 'ENROLLMENT_EXPIRED'
   | 'ENROLLMENT_REFUSED'
   | 'VIDEO_NOT_READY'
+  // Progress and assessment (#53, #75)
+  | 'LESSON_LOCKED'
+  | 'PROGRESS_REFUSED'
+  | 'QUIZ_LOCKED'
+  | 'QUIZ_ATTEMPT_REFUSED'
+  | 'QUIZ_ATTEMPT_CLOSED'
   /** Client side: the request never got an answer (offline, DNS, API down). */
   | 'NETWORK_ERROR'
   /** Client side: the answer was not the API's JSON envelope (e.g. a proxy error page). */
