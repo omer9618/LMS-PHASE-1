@@ -90,3 +90,8 @@ export function useSession(): Session {
 export function displayName(user: Pick<Me, 'fullName' | 'email'>): string {
   return user.fullName?.trim() || user.email;
 }
+
+/** An admin must enrol in MFA before anything but MFA set-up works (#16). */
+export function needsMfaSetup(user: Pick<Me, 'roles' | 'mfaEnabled'> | null): boolean {
+  return Boolean(user && user.roles.includes('ADMIN') && !user.mfaEnabled);
+}

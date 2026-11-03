@@ -21,6 +21,33 @@ describe('SiteHeader', () => {
       '/login?next=%2Fcourses%2Fabc',
     );
     expect(screen.getByRole('link', { name: 'Create account' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Teach with us' })).toHaveAttribute(
+      'href',
+      '/teach-with-us',
+    );
+  });
+
+  it('links to each role’s area', async () => {
+    renderWithSession(<SiteHeader />, { ...STUDENT, roles: ['STUDENT', 'TEACHER'] });
+    expect(await screen.findByRole('link', { name: 'My learning' })).toHaveAttribute(
+      'href',
+      '/dashboard',
+    );
+    expect(screen.getByRole('link', { name: 'My teaching' })).toHaveAttribute(
+      'href',
+      '/teacher/courses',
+    );
+  });
+
+  it('tells an admin without MFA to set it up', async () => {
+    renderWithSession(<SiteHeader />, { ...STUDENT, roles: ['ADMIN'], mfaEnabled: false });
+    expect(
+      await screen.findByRole('region', { name: 'Two-step verification required' }),
+    ).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Set it up now' })).toHaveAttribute(
+      'href',
+      '/account/mfa',
+    );
   });
 
   it('shows the signed-in user and signs out', async () => {

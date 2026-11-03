@@ -68,6 +68,32 @@ describe('createApiClient', () => {
     expect((init?.headers as Record<string, string>)['content-type']).toBe('application/json');
   });
 
+  it('sends FormData as multipart, letting the browser set the boundary', async () => {
+    const { client, fetchImpl } = clientReturning(jsonResponse(200, { success: true, data: {} }));
+    const form = new FormData();
+    form.append('name', 'x');
+    await client.postForm('/teacher-applications', form);
+    const [, init] = fetchImpl.mock.calls[0]!;
+    expect(init?.method).toBe('POST');
+    expect(init?.body).toBe(form);
+    expect((init?.headers as Record<string, string>)['content-type']).toBeUndefined();
+  });
+
+  it('has PATCH, PUT and DELETE helpers', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      jsonResponse(200, { success: true, data: {} }),
+    );
+    const client = createApiClient({ baseUrl: '/api', fetchImpl });
+    await client.patch('/a', { title: 'x' });
+    await client.put('/b', { ids: [] });
+    await client.delete('/c');
+    expect(fetchImpl.mock.calls.map(([url, init]) => [url, init?.method, init?.body])).toEqual([
+      ['/api/a', 'PATCH', '{"title":"x"}'],
+      ['/api/b', 'PUT', '{"ids":[]}'],
+      ['/api/c', 'DELETE', undefined],
+    ]);
+  });
+
   it('turns an error envelope into a typed ApiError', async () => {
     const { client } = clientReturning(
       jsonResponse(

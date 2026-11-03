@@ -25,22 +25,26 @@ The browser only talks to the web app's origin. `next.config.ts` rewrites `/api/
 - the API's HTTP-only session cookie is first-party on the web origin, and no CORS is needed;
 - client code calls `/api/auth/me`, `/api/catalogue/courses`, and so on, through `src/lib/api/client.ts`.
 
-| Variable  | Default                 | Read when                                                       |
-| --------- | ----------------------- | --------------------------------------------------------------- |
-| `API_URL` | `http://localhost:3000` | `next dev`, `next build` and `next start` load `next.config.ts` |
+| Variable                         | Default                 | Read when                                                                                                                                                                  |
+| -------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `API_URL`                        | `http://localhost:3000` | `next dev`, `next build` and `next start` load `next.config.ts`                                                                                                            |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | unset                   | Build time. Set it in production (with the API's `CAPTCHA_PROVIDER=turnstile`); unset, public forms send a placeholder token that only the API's disabled verifier accepts |
 
 Behind the proxy every request reaches the API from the web server, so set the API's `TRUST_PROXY_HOPS` to the number of proxies in front of it (1 for the web app alone; 2 with a reverse proxy in front of the web app too). Otherwise per-IP rate limits see one IP for everybody.
 
 ## Pages
 
-| Route                                                    | What                                                                                                     |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `/courses`                                               | Catalogue: search, filters (subject, board, level, pacing, free only, price range), sort; all in the URL |
-| `/courses/:courseId`                                     | Course detail: syllabus coverage, pricing, teacher, demo player, free enrollment                         |
-| `/login`, `/register`                                    | Sign in (with the MFA step for admins), student registration (guardian details optional)                 |
-| `/verify-email?token=`                                   | Email verification link target                                                                           |
-| `/forgot-password`, `/reset-password?token=[&welcome=1]` | Password reset; `welcome=1` is the first-password link for staff accounts an admin creates               |
-| `/dev/components`                                        | Every primitive in both densities (development only; 404 in production builds)                           |
+| Route                                                    | What                                                                                                           |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `/courses`                                               | Catalogue: search, filters (subject, board, level, pacing, free only, price range), sort; all in the URL       |
+| `/courses/:courseId`                                     | Course detail: syllabus coverage, pricing, teacher, demo player, free enrollment                               |
+| `/login`, `/register`                                    | Sign in (with the MFA step for admins), student registration (guardian details optional)                       |
+| `/verify-email?token=`                                   | Email verification link target                                                                                 |
+| `/forgot-password`, `/reset-password?token=[&welcome=1]` | Password reset; `welcome=1` is the first-password link for staff accounts an admin creates                     |
+| `/teach-with-us`                                         | Public teacher application with CV upload and the human check (#18, #19)                                       |
+| `/account/mfa`                                           | Two-step verification set-up (QR code, confirm, recovery codes shown once) and recovery-code replacement (#16) |
+| `/dashboard`                                             | A student's courses with completion (#52)                                                                      |
+| `/dev/components`                                        | Every primitive in both densities (development only; 404 in production builds)                                 |
 
 ## Narrow screens (#45)
 

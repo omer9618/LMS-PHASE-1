@@ -4,7 +4,7 @@ export type QueryValue = string | number | boolean | null | undefined;
 
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  /** Sent as JSON. */
+  /** Sent as JSON, or as multipart when it is a FormData (file uploads). */
   body?: unknown;
   /** Undefined, null and empty-string values are left out. */
   query?: Record<string, QueryValue>;
@@ -21,6 +21,11 @@ export interface ApiClient {
   request<T>(path: string, options?: RequestOptions): Promise<T>;
   get<T>(path: string, query?: Record<string, QueryValue>, signal?: AbortSignal): Promise<T>;
   post<T>(path: string, body?: unknown): Promise<T>;
+  patch<T>(path: string, body: unknown): Promise<T>;
+  put<T>(path: string, body: unknown): Promise<T>;
+  delete<T>(path: string): Promise<T>;
+  /** Multipart POST; the browser sets the boundary. */
+  postForm<T>(path: string, form: FormData): Promise<T>;
 }
 
 export function buildUrl(
@@ -61,14 +66,18 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     const method = opts.method ?? (opts.body === undefined ? 'GET' : 'POST');
     const headers: Record<string, string> = { accept: 'application/json' };
-    if (opts.body !== undefined) headers['content-type'] = 'application/json';
+    const isForm = typeof FormData !== 'undefined' && opts.body instanceof FormData;
+    if (opts.body !== undefined && !isForm) headers['content-type'] = 'application/json';
+    let body: BodyInit | undefined;
+    if (isForm) body = opts.body as FormData;
+    else if (opts.body !== undefined) body = JSON.stringify(opts.body);
 
     let response: Response;
     try {
       response = await doFetch(buildUrl(baseUrl, path, opts.query), {
         method,
         headers,
-        body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+        body,
         credentials: 'same-origin',
         signal: opts.signal,
       });
@@ -105,6 +114,10 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     request,
     get: (path, query, signal) => request(path, { method: 'GET', query, signal }),
     post: (path, body) => request(path, { method: 'POST', body: body ?? {} }),
+    patch: (path, body) => request(path, { method: 'PATCH', body }),
+    put: (path, body) => request(path, { method: 'PUT', body }),
+    delete: (path) => request(path, { method: 'DELETE' }),
+    postForm: (path, form) => request(path, { method: 'POST', body: form }),
   };
 }
 

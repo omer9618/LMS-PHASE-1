@@ -126,6 +126,20 @@ describe('LoginForm', () => {
   });
 });
 
+describe('LoginForm for an admin without MFA', () => {
+  it('sends them to set it up first (#16)', async () => {
+    setSearch('next=/courses/abc');
+    apiMock.post.mockResolvedValue({ user: STUDENT });
+    renderWithSession(<LoginForm />, { ...STUDENT, roles: ['ADMIN'], mfaEnabled: false });
+    await userEvent.type(screen.getByLabelText(/^Email/), 'new.admin@lms.local');
+    await userEvent.type(screen.getByLabelText(/^Password/), 'pw');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith('/account/mfa?next=%2Fcourses%2Fabc'),
+    );
+  });
+});
+
 describe('RegisterForm', () => {
   it('leaves empty guardian fields out of the request', () => {
     expect(

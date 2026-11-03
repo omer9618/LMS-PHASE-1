@@ -12,8 +12,10 @@ export {
   Checkbox,
   Input,
   Select,
+  Textarea,
   type CheckboxProps,
   type InputProps,
   type SelectProps,
+  type TextareaProps,
 } from './Field';
 export { Table, type Column, type TableProps } from './Table';
