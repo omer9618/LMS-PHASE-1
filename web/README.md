@@ -31,6 +31,24 @@ The browser only talks to the web app's origin. `next.config.ts` rewrites `/api/
 
 Behind the proxy every request reaches the API from the web server, so set the API's `TRUST_PROXY_HOPS` to the number of proxies in front of it (1 for the web app alone; 2 with a reverse proxy in front of the web app too). Otherwise per-IP rate limits see one IP for everybody.
 
+## Pages
+
+| Route                                                    | What                                                                                                     |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `/courses`                                               | Catalogue: search, filters (subject, board, level, pacing, free only, price range), sort; all in the URL |
+| `/courses/:courseId`                                     | Course detail: syllabus coverage, pricing, teacher, demo player, free enrollment                         |
+| `/login`, `/register`                                    | Sign in (with the MFA step for admins), student registration (guardian details optional)                 |
+| `/verify-email?token=`                                   | Email verification link target                                                                           |
+| `/forgot-password`, `/reset-password?token=[&welcome=1]` | Password reset; `welcome=1` is the first-password link for staff accounts an admin creates               |
+| `/dev/components`                                        | Every primitive in both densities (development only; 404 in production builds)                           |
+
+## Narrow screens (#45)
+
+Every page is built mobile-first and must work at **380px** wide without horizontal scrolling.
+
+- `src/styles/tokens.test.ts` fails if any stylesheet sets a `width`, `min-width`, `flex-basis` or grid track wider than 380px outside a media query.
+- Checked by eye and by measurement in Chrome with a 380px device viewport (DevTools device toolbar, or CDP `Emulation.setDeviceMetricsOverride`): `/courses`, `/courses?free=true&q=…`, a course detail page with a long title, `/login` and `/register` all have `scrollWidth` 380. Plain `chrome --headless --window-size=380,…` is not a valid check: headless windows have a minimum width of about 500px, so screenshots look clipped.
+
 ## Commands
 
 | Command                | What it does                                               |
