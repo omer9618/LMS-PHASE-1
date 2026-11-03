@@ -30,3 +30,30 @@ export function safeNextPath(raw: string | null | undefined, fallback = '/course
   }
   return raw;
 }
+
+/** 5242880 → "5 MB", 1536 → "1.5 KB". For file sizes shown to people. */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB'] as const;
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  const rounded = value >= 10 ? Math.round(value) : Math.round(value * 10) / 10;
+  return `${rounded} ${units[unit]}`;
+}
+
+const DATE_FORMAT = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+
+/** An ISO timestamp as "2 Nov 2026" in the viewer's time zone; "" when missing or invalid. */
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : DATE_FORMAT.format(date);
+}

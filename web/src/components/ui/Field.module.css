@@ -42,6 +42,15 @@
   border-width: 2px;
 }
 
+.textarea {
+  padding: var(--space-2) var(--control-padding-x);
+  resize: vertical;
+}
+
+.control[type='file'] {
+  padding: var(--space-2);
+}
+
 .select {
   padding-right: var(--space-6);
 }
