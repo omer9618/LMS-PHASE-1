@@ -145,6 +145,10 @@ export class OrderDao {
     });
   }
 
+  countOrdersBy(where: Prisma.OrderWhereInput): Promise<number> {
+    return this.prisma.order.count({ where });
+  }
+
   getOrdersBy(where: Prisma.OrderWhereInput, tx?: TransactionClient): Promise<OrderRecord[]> {
     return (tx ?? this.prisma).order.findMany({
       where,

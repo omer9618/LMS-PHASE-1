@@ -31,6 +31,8 @@ import { TeachersModule } from './modules/teachers/teachers.module';
 import { PrismaModule } from './prisma/prisma.module';
 // Profiles (#98-#100)
 import { ProfilesModule } from './modules/profiles/profiles.module';
+// Admin dashboard and user overview (#102, #103)
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -67,6 +69,8 @@ import { ProfilesModule } from './modules/profiles/profiles.module';
     ProfilesModule,
     LedgerModule,
     VerificationModule,
+    // Admin dashboard and user overview (#102, #103)
+    AdminModule,
     // Scheduled jobs (@Cron) run only when enabled; the e2e suite turns them off.
     ...(loadEnv().JOBS_ENABLED ? [ScheduleModule.forRoot()] : []),
   ],

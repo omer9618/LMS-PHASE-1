@@ -473,6 +473,12 @@ export class OrderService {
     return change;
   }
 
+  /** #102: orders whose payment proof awaits admin verification, for the admin dashboard. */
+  async countOrdersAwaitingVerification(admin: AuthUser): Promise<number> {
+    adminScope(admin);
+    return this.orderDao.countOrdersBy({ status: OrderStatus.PROOF_SUBMITTED });
+  }
+
   /**
    * #64, #62, #112: after a confirmation commits, emails the confirmation, the receipt and the
    * enrollment notice. Best-effort: a failed email is logged, never undoes the confirmation.
