@@ -220,6 +220,37 @@ export const EMAIL_TEMPLATES = {
       action: { label: 'Browse courses', url: data.catalogueUrl },
     }),
   // ── end Orders and payment ──
+
+  // ── Payouts (#86, #113) ──
+  PAYOUT_RECORDED: (data: {
+    amount: string;
+    transactionId: string;
+    transferDate: string;
+    period: string | null;
+    disputeDeadline: string;
+    coveredLines: Array<[item: string, netAmount: string]>;
+    payoutUrl: string;
+  }) =>
+    renderEmail({
+      subject: `Payout recorded: ${data.amount} (${data.transactionId})`,
+      heading: 'Your payout has been recorded',
+      paragraphs: [
+        `We have transferred ${data.amount} to your account. Below are the transfer details and itemised sales coverage.`,
+        `If anything looks wrong, you can raise a concern on your payouts page before ${data.disputeDeadline} (UTC).`,
+      ],
+      details: [
+        ['Amount', data.amount],
+        ['Transaction ID', data.transactionId],
+        ['Transfer date', data.transferDate],
+        ...(data.period ? ([['Covered period', data.period]] as Array<[string, string]>) : []),
+        ...data.coveredLines,
+        ['Dispute deadline (UTC)', data.disputeDeadline],
+      ],
+      action: { label: 'View payout', url: data.payoutUrl },
+      footnote:
+        'After the dispute deadline passes with no open concern, the payout is marked accepted automatically.',
+    }),
+  // ── end Payouts ──
 } satisfies Record<string, (data: never) => RenderedTemplate>;
 
 export type EmailTemplateName = keyof typeof EMAIL_TEMPLATES;

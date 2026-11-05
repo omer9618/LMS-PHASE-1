@@ -1,12 +1,14 @@
 import {
+  buildPayoutCoverageEmailLines,
   buildPayoutRecordingPlan,
+  formatPayoutMoney,
   computePayoutDisputeDeadline,
   CoveredSaleItem,
   PayoutRefusedError,
   selectCoveredSalesForPayout,
 } from './payout.rules';
 
-describe('payout rules (#85)', () => {
+describe('payout rules (#85, #86, #113)', () => {
   const now = new Date('2026-04-10T10:00:00.000Z');
 
   it('computes dispute deadline N days after payout recording time', () => {
@@ -139,5 +141,9 @@ describe('payout rules (#85)', () => {
       new Date('2026-04-09T00:00:00.000Z'),
     );
     expect(covered.map((s) => s.orderItemId)).toEqual(['oi-1']);
+    expect(formatPayoutMoney(160050n, 'PKR')).toBe('PKR 1,600.50');
+    expect(buildPayoutCoverageEmailLines(covered)).toEqual([
+      ['Sale: Chem (LMS-1)', 'PKR 800.00'],
+    ]);
   });
 });

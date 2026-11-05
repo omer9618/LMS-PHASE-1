@@ -169,3 +169,27 @@ export function selectCoveredSalesForPayout(
     return true;
   });
 }
+/**
+ * #86 / #113: Formats minor units into a human-readable amount string (e.g. `PKR 1,200.00`).
+ */
+export function formatPayoutMoney(amountMinor: bigint, currency: string): string {
+  const negative = amountMinor < 0n;
+  const abs = negative ? -amountMinor : amountMinor;
+  const whole = abs / 100n;
+  const cents = (abs % 100n).toString().padStart(2, '0');
+  const wholeFormatted = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${negative ? '-' : ''}${currency} ${wholeFormatted}.${cents}`;
+}
+
+/**
+ * #86 / #113: Formats covered sales into itemised `[label, netAmount]` detail rows for the
+ * teacher's payout notification email.
+ */
+export function buildPayoutCoverageEmailLines(
+  coveredSales: readonly CoveredSaleItem[],
+): Array<[item: string, netAmount: string]> {
+  return coveredSales.map((sale) => [
+    `Sale: ${sale.courseTitle} (${sale.paymentReference})`,
+    formatPayoutMoney(sale.netTeacherMinor, sale.currency),
+  ]);
+}

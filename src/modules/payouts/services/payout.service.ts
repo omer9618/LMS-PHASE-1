@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { adminScope, teacherScope, TeacherScope } from '../../../common/auth/scope';
 import { AppException } from '../../../common/errors/app.exception';
@@ -7,6 +8,7 @@ import type { TransactionClient } from '../../../prisma/prisma.types';
 import { TransactionService } from '../../../prisma/transaction.service';
 import { AuditService } from '../../audit/services/audit.service';
 import { UserAdminService } from '../../auth/services/user-admin.service';
+import { EmailService } from '../../email/services/email.service';
 import {
   DerivedCurrencyBalance,
   LedgerEntryRecord,
@@ -16,7 +18,9 @@ import {
 import { PlatformSettingsService } from '../../platform-settings/services/platform-settings.service';
 import { PayoutDao, PayoutRecord } from '../dao/payout.dao';
 import {
+  buildPayoutCoverageEmailLines,
   buildPayoutRecordingPlan,
+  formatPayoutMoney,
   CoveredSaleItem,
   selectCoveredSalesForPayout,
 } from '../domain/payout.rules';
@@ -49,6 +53,8 @@ export class PayoutService {
     private readonly platformSettings: PlatformSettingsService,
     private readonly auditService: AuditService,
     private readonly transactions: TransactionService,
+    private readonly emailService: EmailService,
+    @InjectPinoLogger(PayoutService.name) private readonly logger: PinoLogger,
   ) {}
 
   /**
@@ -74,7 +80,7 @@ export class PayoutService {
       this.platformSettings.get('PAYOUT_DISPUTE_WINDOW_DAYS'),
     ]);
 
-    return this.transactions.run(async (tx) => {
+    const result = await this.transactions.run(async (tx) => {
       const currentBalance = await this.ledgerService.getCurrencyBalance(
         { teacherId: targetUser.id },
         input.currency,
@@ -176,8 +182,40 @@ export class PayoutService {
         ledgerEntry,
         coveredSales,
         remainingBalance,
+        currency: plan.currency,
       };
     });
+
+    const period =
+      input.periodStart && input.periodEnd
+        ? `${input.periodStart} to ${input.periodEnd}`
+        : null;
+    const sent = await this.emailService.send(
+      result.payout.teacher.email,
+      'PAYOUT_RECORDED',
+      {
+        amount: formatPayoutMoney(result.payout.amountMinor, result.currency),
+        transactionId: result.payout.transactionId ?? input.transactionId,
+        transferDate: input.transferDate,
+        period,
+        disputeDeadline: result.payout.disputeDeadline.toISOString(),
+        coveredLines: buildPayoutCoverageEmailLines(result.coveredSales),
+        payoutUrl: this.emailService.appUrl(`/teacher/payouts/${result.payout.id}`),
+      },
+    );
+    if (!sent) {
+      this.logger.warn(
+        { payoutId: result.payout.id, teacherId: result.payout.teacherId },
+        'Payout notification email not delivered',
+      );
+    }
+
+    return {
+      payout: result.payout,
+      ledgerEntry: result.ledgerEntry,
+      coveredSales: result.coveredSales,
+      remainingBalance: result.remainingBalance,
+    };
   }
 
   /** Teacher lists their own payouts, newest first. */
