@@ -1,7 +1,7 @@
 import { DomainError } from '../../../common/errors/domain.error';
 
 /**
- * Teacher ledger rules (#78, #80, extended by payouts and refunds in M3). Pure.
+ * Teacher ledger rules (#78, #79, #80, extended by payouts and refunds in M3). Pure.
  * The ledger is append-only: entries are never updated or deleted, and a teacher's
  * balance is the sum of their entries, per currency.
  * Earnings are positive; payouts and refunds are negative compensating entries;
@@ -65,6 +65,24 @@ export interface BuildPayoutEntryInput {
   amountMinor: bigint;
   currency: string;
   description?: string;
+}
+
+/** Minimal ledger entry projection used for pure balance derivation (#79). */
+export interface LedgerBalanceEntry {
+  type: LedgerEntryTypeValue;
+  amountMinor: bigint;
+  currency: string;
+}
+
+/** Derived balance and component breakdown for a single currency (#79). */
+export interface DerivedCurrencyBalance {
+  currency: string;
+  balanceMinor: bigint;
+  earningsMinor: bigint;
+  refundsMinor: bigint;
+  payoutsMinor: bigint;
+  adjustmentsMinor: bigint;
+  entryCount: number;
 }
 
 /**
@@ -290,4 +308,74 @@ export function buildPayoutEntry(input: BuildPayoutEntryInput): PayoutEntryDraft
   };
   assertValidLedgerEntryDraft(draft);
   return draft;
+}
+
+/**
+ * #79 (FR-8.2): Computes derived balances per currency as the exact sum of ledger entries.
+ * No balance is ever stored in the database; balanceMinor === earningsMinor + refundsMinor + payoutsMinor + adjustmentsMinor.
+ */
+export function computeDerivedBalances(
+  entries: readonly LedgerBalanceEntry[],
+): DerivedCurrencyBalance[] {
+  const byCurrency = new Map<string, DerivedCurrencyBalance>();
+
+  for (const entry of entries) {
+    assertLedgerCurrency(entry.currency);
+    let summary = byCurrency.get(entry.currency);
+    if (!summary) {
+      summary = {
+        currency: entry.currency,
+        balanceMinor: 0n,
+        earningsMinor: 0n,
+        refundsMinor: 0n,
+        payoutsMinor: 0n,
+        adjustmentsMinor: 0n,
+        entryCount: 0,
+      };
+      byCurrency.set(entry.currency, summary);
+    }
+
+    summary.balanceMinor += entry.amountMinor;
+    summary.entryCount += 1;
+
+    switch (entry.type) {
+      case 'EARNING':
+        summary.earningsMinor += entry.amountMinor;
+        break;
+      case 'REFUND':
+        summary.refundsMinor += entry.amountMinor;
+        break;
+      case 'PAYOUT':
+        summary.payoutsMinor += entry.amountMinor;
+        break;
+      case 'ADJUSTMENT':
+        summary.adjustmentsMinor += entry.amountMinor;
+        break;
+    }
+  }
+
+  return Array.from(byCurrency.values()).sort((a, b) => a.currency.localeCompare(b.currency));
+}
+
+/**
+ * #79 (FR-8.2): Computes the derived balance for a single requested currency (0n if no entries exist).
+ */
+export function computeCurrencyBalance(
+  entries: readonly LedgerBalanceEntry[],
+  currency: string,
+): DerivedCurrencyBalance {
+  assertLedgerCurrency(currency);
+  const matching = entries.filter((entry) => entry.currency === currency);
+  const computed = computeDerivedBalances(matching)[0];
+  return (
+    computed ?? {
+      currency,
+      balanceMinor: 0n,
+      earningsMinor: 0n,
+      refundsMinor: 0n,
+      payoutsMinor: 0n,
+      adjustmentsMinor: 0n,
+      entryCount: 0,
+    }
+  );
 }
