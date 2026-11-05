@@ -17,8 +17,9 @@ import {
   TeacherSaleOrderItem,
 } from '../../ledger/services/ledger.service';
 import { PlatformSettingsService } from '../../platform-settings/services/platform-settings.service';
-import { PayoutDao, PayoutRecord } from '../dao/payout.dao';
+import { PayoutDao, PayoutDisputeRecord, PayoutRecord } from '../dao/payout.dao';
 import {
+  assertCanRaisePayoutConcern,
   buildPayoutCoverageEmailLines,
   buildPayoutRecordingPlan,
   formatPayoutMoney,
@@ -26,9 +27,14 @@ import {
   CoveredSaleItem,
   selectCoveredSalesForPayout,
 } from '../domain/payout.rules';
-import type { RecordPayoutInput } from '../schemas/payout.schema';
+import type { RaisePayoutConcernInput, RecordPayoutInput } from '../schemas/payout.schema';
 
-export type { CoveredSaleItem, PayoutRecord };
+export type { CoveredSaleItem, PayoutDisputeRecord, PayoutRecord };
+
+export interface RaisePayoutConcernResult {
+  payout: PayoutRecord;
+  dispute: PayoutDisputeRecord;
+}
 
 export interface RecordedPayoutResult {
   payout: PayoutRecord;
@@ -230,6 +236,73 @@ export class PayoutService {
   async getMyPayout(teacher: AuthUser, payoutId: string): Promise<PayoutDetailView> {
     const scope = teacherScope(teacher);
     return this.getPayoutDetailForScope(scope, payoutId);
+  }
+
+  /**
+   * #88 (FR-8.7): Teacher raises a concern on one of their own payouts within the 7-day
+   * dispute window. Inside one transaction:
+   * - Loads the teacher-scoped payout (404 if another teacher's or non-existent)
+   * - Asserts the payout is PENDING and `now < disputeDeadline` (refuses with PAYOUT_REFUSED 409 otherwise)
+   * - Transitions the payout status PENDING -> DISPUTED
+   * - Creates an OPEN `payout_disputes` row
+   * - Records a `PAYOUT_CONCERN_RAISED` audit entry.
+   */
+  async raiseMyPayoutConcern(
+    teacher: AuthUser,
+    payoutId: string,
+    input: RaisePayoutConcernInput,
+    now = new Date(),
+  ): Promise<RaisePayoutConcernResult> {
+    const scope = teacherScope(teacher);
+    return this.transactions.run(async (tx) => {
+      const current = await this.payoutDao.getPayoutBy(scope, { id: payoutId }, tx);
+      if (!current) throw new AppException(ErrorCode.NOT_FOUND, { entity: 'payout', id: payoutId });
+
+      const reason = assertCanRaisePayoutConcern({
+        payoutId: current.id,
+        status: current.status,
+        disputeDeadline: current.disputeDeadline,
+        reason: input.reason,
+        now,
+      });
+
+      const updated = await this.payoutDao.updatePayoutStatusIfCurrent(
+        current.id,
+        PayoutStatus.PENDING,
+        { status: PayoutStatus.DISPUTED },
+        tx,
+      );
+      if (!updated) {
+        throw new AppException(ErrorCode.INVALID_STATE_TRANSITION, {
+          payoutId: current.id,
+          reason: 'Payout status changed while raising concern',
+        });
+      }
+
+      const dispute = await this.payoutDao.createPayoutDispute(
+        { teacherId: current.teacherId },
+        { payoutId: current.id, reason },
+        tx,
+      );
+
+      await this.auditService.record(
+        {
+          actorUserId: teacher.id,
+          action: 'PAYOUT_CONCERN_RAISED',
+          entityType: 'payout_dispute',
+          entityId: dispute.id,
+          details: {
+            payoutId: current.id,
+            teacherId: current.teacherId,
+            reason,
+          },
+        },
+        tx,
+      );
+
+      const payout = (await this.payoutDao.getPayoutBy(scope, { id: current.id }, tx))!;
+      return { payout, dispute };
+    });
   }
 
   /** Admin lists payouts for a teacher. */

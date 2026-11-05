@@ -34,3 +34,10 @@ export const recordPayoutSchema = z.strictObject({
   periodEnd: z.iso.date().optional(),
 });
 export type RecordPayoutInput = z.infer<typeof recordPayoutSchema>;
+/**
+ * #88 (FR-8.7): Teacher raises a concern on a payout within the 7-day dispute window.
+ */
+export const raisePayoutConcernSchema = z.strictObject({
+  reason: z.string().trim().min(1).max(2000),
+});
+export type RaisePayoutConcernInput = z.infer<typeof raisePayoutConcernSchema>;

@@ -204,3 +204,41 @@ export function isPayoutDueToAutoAccept(
 ): boolean {
   return payout.status === 'PENDING' && payout.disputeDeadline.getTime() <= now.getTime();
 }
+export interface AssertCanRaisePayoutConcernInput {
+  payoutId: string;
+  status: PayoutStatusValue;
+  disputeDeadline: Date;
+  reason: string;
+  now: Date;
+}
+
+/**
+ * #88 (FR-8.7): Validates that a teacher can raise a concern on a payout:
+ * - payout must currently be PENDING (not already DISPUTED, ACCEPTED, or RESOLVED)
+ * - `now` must be strictly before `disputeDeadline` (concern blocked once the 7-day window has elapsed)
+ * - reason must be non-empty.
+ */
+export function assertCanRaisePayoutConcern(input: AssertCanRaisePayoutConcernInput): string {
+  const trimmedReason = input.reason.trim();
+  if (trimmedReason.length === 0) {
+    throw new PayoutRefusedError('A payout concern requires a reason', {
+      reason: 'EMPTY_CONCERN_REASON',
+      payoutId: input.payoutId,
+    });
+  }
+  if (input.status !== 'PENDING') {
+    throw new PayoutRefusedError('A concern can only be raised on a pending payout', {
+      reason: 'PAYOUT_NOT_PENDING',
+      payoutId: input.payoutId,
+      status: input.status,
+    });
+  }
+  if (input.now.getTime() >= input.disputeDeadline.getTime()) {
+    throw new PayoutRefusedError('The dispute window for this payout has closed', {
+      reason: 'DISPUTE_WINDOW_CLOSED',
+      payoutId: input.payoutId,
+      disputeDeadline: input.disputeDeadline.toISOString(),
+    });
+  }
+  return trimmedReason;
+}

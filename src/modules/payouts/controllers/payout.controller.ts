@@ -9,6 +9,8 @@ import {
   payoutIdParamsSchema,
   PayoutTeacherParams,
   payoutTeacherParamsSchema,
+  RaisePayoutConcernInput,
+  raisePayoutConcernSchema,
   RecordPayoutInput,
   recordPayoutSchema,
 } from '../schemas/payout.schema';
@@ -16,6 +18,7 @@ import {
   PayoutDetailView,
   PayoutRecord,
   PayoutService,
+  RaisePayoutConcernResult,
   RecordedPayoutResult,
 } from '../services/payout.service';
 
@@ -68,5 +71,14 @@ export class TeacherPayoutsController {
     @Param(new ZodValidationPipe(payoutIdParamsSchema)) params: PayoutIdParams,
   ): Promise<PayoutDetailView> {
     return this.payoutService.getMyPayout(teacher, params.payoutId);
+  }
+
+  @Post(':payoutId/concerns')
+  raiseConcern(
+    @CurrentUser() teacher: AuthUser,
+    @Param(new ZodValidationPipe(payoutIdParamsSchema)) params: PayoutIdParams,
+    @Body(new ZodValidationPipe(raisePayoutConcernSchema)) body: RaisePayoutConcernInput,
+  ): Promise<RaisePayoutConcernResult> {
+    return this.payoutService.raiseMyPayoutConcern(teacher, params.payoutId, body);
   }
 }

@@ -1,4 +1,5 @@
 import {
+  assertCanRaisePayoutConcern,
   buildPayoutCoverageEmailLines,
   buildPayoutRecordingPlan,
   formatPayoutMoney,
@@ -9,7 +10,7 @@ import {
   selectCoveredSalesForPayout,
 } from './payout.rules';
 
-describe('payout rules (#85, #86, #87, #113)', () => {
+describe('payout rules (#85, #86, #87, #88, #113)', () => {
   const now = new Date('2026-04-10T10:00:00.000Z');
 
   it('computes dispute deadline N days after payout recording time', () => {
@@ -168,5 +169,61 @@ describe('payout rules (#85, #86, #87, #113)', () => {
     expect(isPayoutDueToAutoAccept({ status: 'RESOLVED', disputeDeadline: deadline }, after)).toBe(
       false,
     );
+  });
+
+  it('#88: allows raising a concern before disputeDeadline on a PENDING payout, and blocks afterwards or on non-pending payouts', () => {
+    const deadline = new Date('2026-04-17T10:00:00.000Z');
+    const withinWindow = new Date('2026-04-15T10:00:00.000Z');
+    const afterWindow = new Date('2026-04-17T10:00:00.000Z');
+
+    expect(
+      assertCanRaisePayoutConcern({
+        payoutId: 'p1',
+        status: 'PENDING',
+        disputeDeadline: deadline,
+        reason: '  Amount received was PKR 10,000 short  ',
+        now: withinWindow,
+      }),
+    ).toBe('Amount received was PKR 10,000 short');
+
+    expect(() =>
+      assertCanRaisePayoutConcern({
+        payoutId: 'p1',
+        status: 'PENDING',
+        disputeDeadline: deadline,
+        reason: 'Late concern',
+        now: afterWindow,
+      }),
+    ).toThrow(PayoutRefusedError);
+
+    expect(() =>
+      assertCanRaisePayoutConcern({
+        payoutId: 'p1',
+        status: 'ACCEPTED',
+        disputeDeadline: deadline,
+        reason: 'Already accepted',
+        now: withinWindow,
+      }),
+    ).toThrow(PayoutRefusedError);
+
+    expect(() =>
+      assertCanRaisePayoutConcern({
+        payoutId: 'p1',
+        status: 'DISPUTED',
+        disputeDeadline: deadline,
+        reason: 'Already disputed',
+        now: withinWindow,
+      }),
+    ).toThrow(PayoutRefusedError);
+
+    expect(() =>
+      assertCanRaisePayoutConcern({
+        payoutId: 'p1',
+        status: 'PENDING',
+        disputeDeadline: deadline,
+        reason: '   ',
+        now: withinWindow,
+      }),
+    ).toThrow(PayoutRefusedError);
   });
 });

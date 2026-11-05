@@ -146,4 +146,20 @@ export class PayoutDao {
     });
     return count === 1;
   }
+
+  /** #88: Creates an OPEN payout_disputes row for the owning teacher. */
+  createPayoutDispute(
+    owner: TeacherOwnerScope,
+    data: { payoutId: string; reason: string },
+    tx?: TransactionClient,
+  ): Promise<PayoutDisputeRecord> {
+    return (tx ?? this.prisma).payoutDispute.create({
+      data: {
+        payoutId: data.payoutId,
+        teacherId: owner.teacherId,
+        reason: data.reason,
+      },
+      select: payoutDisputeSelect,
+    });
+  }
 }

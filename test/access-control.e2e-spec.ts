@@ -150,6 +150,7 @@ const MATRIX: Record<string, Entry> = {
   'GET /teacher/ledger': TEACHER,
   'GET /teacher/payouts': TEACHER,
   'GET /teacher/payouts/:payoutId': teacherOwned(),
+  'POST /teacher/payouts/:payoutId/concerns': teacherOwned({ body: { reason: 'Short transfer' } }),
   'POST /teacher/courses': TEACHER,
   'GET /teacher/courses': TEACHER,
   'GET /teacher/courses/:courseId': teacherOwned(),
