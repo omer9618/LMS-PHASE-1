@@ -11,7 +11,12 @@ import {
   SeparatedTeacherSales,
 } from '../../ledger/services/ledger.service';
 import { OrderService } from '../../orders/services/order.service';
-import { OpenConcernsSummary, OpenPayoutDisputeRecord, PayoutRecord, PayoutService } from '../../payouts/services/payout.service';
+import {
+  OpenConcernsSummary,
+  OpenPayoutDisputeRecord,
+  PayoutRecord,
+  PayoutService,
+} from '../../payouts/services/payout.service';
 import {
   type AdminFinancialSummary,
   buildAdminFinancialSummary,

@@ -61,9 +61,9 @@ describe('ledger rules (#78, #79, #80, #81, #82, #83, #84)', () => {
       expect(() => buildRefundEntries(lines, 'PKR', 'R', 'ref-1', new Set(['i1']))).toThrow(
         LedgerRefusedError,
       );
-      expect(() => buildRefundEntries([lines[0]!, lines[0]!], 'PKR', 'R', 'ref-1', new Set())).toThrow(
-        LedgerRefusedError,
-      );
+      expect(() =>
+        buildRefundEntries([lines[0]!, lines[0]!], 'PKR', 'R', 'ref-1', new Set()),
+      ).toThrow(LedgerRefusedError);
       expect(() => buildRefundEntries(lines, 'PKR', 'R', '   ', new Set())).toThrow(
         LedgerRefusedError,
       );
@@ -356,9 +356,7 @@ describe('ledger rules (#78, #79, #80, #81, #82, #83, #84)', () => {
     ];
 
     it('separates unverified sales (PENDING, PROOF_SUBMITTED) from confirmed (VERIFIED) sales and earned ledger balance', () => {
-      const ledgerEntries = [
-        { type: 'EARNING' as const, amountMinor: 120000n, currency: 'PKR' },
-      ];
+      const ledgerEntries = [{ type: 'EARNING' as const, amountMinor: 120000n, currency: 'PKR' }];
       const result = separatePendingAndConfirmedSales(saleItems, ledgerEntries);
 
       expect(result.pending.items.map((i) => i.id)).toEqual(['item-pending', 'item-proof']);

@@ -17,7 +17,12 @@ import {
   TeacherSaleOrderItem,
 } from '../../ledger/services/ledger.service';
 import { PlatformSettingsService } from '../../platform-settings/services/platform-settings.service';
-import { OpenPayoutDisputeRecord, PayoutDao, PayoutDisputeRecord, PayoutRecord } from '../dao/payout.dao';
+import {
+  OpenPayoutDisputeRecord,
+  PayoutDao,
+  PayoutDisputeRecord,
+  PayoutRecord,
+} from '../dao/payout.dao';
 import {
   assertCanRaisePayoutConcern,
   assertCanResolvePayoutConcern,
@@ -30,9 +35,19 @@ import {
   selectCoveredSalesForPayout,
   summariseOpenConcerns,
 } from '../domain/payout.rules';
-import type { RaisePayoutConcernInput, RecordPayoutInput, ResolvePayoutConcernInput } from '../schemas/payout.schema';
+import type {
+  RaisePayoutConcernInput,
+  RecordPayoutInput,
+  ResolvePayoutConcernInput,
+} from '../schemas/payout.schema';
 
-export type { CoveredSaleItem, OpenConcernsSummary, OpenPayoutDisputeRecord, PayoutDisputeRecord, PayoutRecord };
+export type {
+  CoveredSaleItem,
+  OpenConcernsSummary,
+  OpenPayoutDisputeRecord,
+  PayoutDisputeRecord,
+  PayoutRecord,
+};
 
 export interface RaisePayoutConcernResult {
   payout: PayoutRecord;
@@ -204,22 +219,16 @@ export class PayoutService {
     });
 
     const period =
-      input.periodStart && input.periodEnd
-        ? `${input.periodStart} to ${input.periodEnd}`
-        : null;
-    const sent = await this.emailService.send(
-      result.payout.teacher.email,
-      'PAYOUT_RECORDED',
-      {
-        amount: formatPayoutMoney(result.payout.amountMinor, result.currency),
-        transactionId: result.payout.transactionId ?? input.transactionId,
-        transferDate: input.transferDate,
-        period,
-        disputeDeadline: result.payout.disputeDeadline.toISOString(),
-        coveredLines: buildPayoutCoverageEmailLines(result.coveredSales),
-        payoutUrl: this.emailService.appUrl(`/teacher/payouts/${result.payout.id}`),
-      },
-    );
+      input.periodStart && input.periodEnd ? `${input.periodStart} to ${input.periodEnd}` : null;
+    const sent = await this.emailService.send(result.payout.teacher.email, 'PAYOUT_RECORDED', {
+      amount: formatPayoutMoney(result.payout.amountMinor, result.currency),
+      transactionId: result.payout.transactionId ?? input.transactionId,
+      transferDate: input.transferDate,
+      period,
+      disputeDeadline: result.payout.disputeDeadline.toISOString(),
+      coveredLines: buildPayoutCoverageEmailLines(result.coveredSales),
+      payoutUrl: this.emailService.appUrl(`/teacher/payouts/${result.payout.id}`),
+    });
     if (!sent) {
       this.logger.warn(
         { payoutId: result.payout.id, teacherId: result.payout.teacherId },
@@ -390,8 +399,7 @@ export class PayoutService {
 
       let adjustmentEntry: LedgerEntryRecord | null = null;
       if (input.adjustmentAmountMinor !== undefined) {
-        const currency =
-          input.adjustmentCurrency ?? current.ledgerEntries[0]?.currency ?? 'PKR';
+        const currency = input.adjustmentCurrency ?? current.ledgerEntries[0]?.currency ?? 'PKR';
         const adj = await this.ledgerService.recordAdjustment(
           admin,
           current.teacherId,

@@ -29,7 +29,6 @@ describe('Teacher Ledger, Refunds, Adjustments & Earnings Dashboard (#78-#84)', 
     adminId = (await prisma.user.findUniqueOrThrow({ where: { email: SEEDED.admin.email } })).id;
     teacherAId = (await prisma.user.findUniqueOrThrow({ where: { email: SEEDED.teacherA.email } }))
       .id;
-
   });
 
   afterAll(async () => {
@@ -60,7 +59,12 @@ describe('Teacher Ledger, Refunds, Adjustments & Earnings Dashboard (#78-#84)', 
 
     const studentVerified = await h.newStudent();
     const verifiedOrder = await h.placeOrder(studentVerified.cookie, [courseA]);
-    await h.submitProof(studentVerified.cookie, verifiedOrder.id, `TX-VER-${verifiedOrder.id}`, '200000');
+    await h.submitProof(
+      studentVerified.cookie,
+      verifiedOrder.id,
+      `TX-VER-${verifiedOrder.id}`,
+      '200000',
+    );
     await confirm(verifiedOrder.id, '200000').expect(200);
 
     const res = await http().get('/teacher/earnings').set('Cookie', teacherA).expect(200);

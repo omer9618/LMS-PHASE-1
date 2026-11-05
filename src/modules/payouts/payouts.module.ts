@@ -3,10 +3,7 @@ import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
 import { LedgerModule } from '../ledger/ledger.module';
 import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
-import {
-  AdminPayoutsController,
-  TeacherPayoutsController,
-} from './controllers/payout.controller';
+import { AdminPayoutsController, TeacherPayoutsController } from './controllers/payout.controller';
 import { PayoutDao } from './dao/payout.dao';
 import { PayoutAutoAcceptJob } from './jobs/payout-auto-accept.job';
 import { PayoutService } from './services/payout.service';

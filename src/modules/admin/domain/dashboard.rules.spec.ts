@@ -31,9 +31,9 @@ describe('dashboard & finance rules (#102, #104)', () => {
       expect(bounds.from).toEqual(new Date('2026-04-01T00:00:00.000Z'));
       expect(bounds.to).toEqual(new Date('2026-04-30T23:59:59.999Z'));
 
-      expect(() =>
-        parseFinancialPeriodBounds({ from: '2026-05-01', to: '2026-04-30' }),
-      ).toThrow(AdminFinanceError);
+      expect(() => parseFinancialPeriodBounds({ from: '2026-05-01', to: '2026-04-30' })).toThrow(
+        AdminFinanceError,
+      );
     });
   });
 

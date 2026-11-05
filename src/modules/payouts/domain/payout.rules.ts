@@ -93,15 +93,12 @@ export function buildPayoutRecordingPlan(
     });
   }
   if (input.amountMinor > input.availableBalanceMinor) {
-    throw new PayoutRefusedError(
-      'Payout amount exceeds the teacher’s available ledger balance',
-      {
-        reason: 'INSUFFICIENT_TEACHER_BALANCE',
-        amountMinor: input.amountMinor.toString(),
-        availableBalanceMinor: input.availableBalanceMinor.toString(),
-        currency: input.currency,
-      },
-    );
+    throw new PayoutRefusedError('Payout amount exceeds the teacher’s available ledger balance', {
+      reason: 'INSUFFICIENT_TEACHER_BALANCE',
+      amountMinor: input.amountMinor.toString(),
+      availableBalanceMinor: input.availableBalanceMinor.toString(),
+      currency: input.currency,
+    });
   }
   const trimmedTxId = input.transactionId.trim();
   if (trimmedTxId.length === 0) {
@@ -111,9 +108,7 @@ export function buildPayoutRecordingPlan(
   }
 
   const transferDate = new Date(`${input.transferDate}T00:00:00.000Z`);
-  const periodStart = input.periodStart
-    ? new Date(`${input.periodStart}T00:00:00.000Z`)
-    : null;
+  const periodStart = input.periodStart ? new Date(`${input.periodStart}T00:00:00.000Z`) : null;
   const periodEnd = input.periodEnd ? new Date(`${input.periodEnd}T00:00:00.000Z`) : null;
 
   if (periodStart && periodEnd && periodStart.getTime() > periodEnd.getTime()) {
@@ -127,9 +122,7 @@ export function buildPayoutRecordingPlan(
   const method = input.method?.trim() || 'BANK_TRANSFER';
   const disputeDeadline = computePayoutDisputeDeadline(input.now, input.disputeWindowDays);
   const periodLabel =
-    input.periodStart && input.periodEnd
-      ? ` (${input.periodStart} to ${input.periodEnd})`
-      : '';
+    input.periodStart && input.periodEnd ? ` (${input.periodStart} to ${input.periodEnd})` : '';
 
   return {
     amountMinor: input.amountMinor,

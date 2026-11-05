@@ -319,7 +319,11 @@ export class LedgerService {
         t,
       );
 
-      const balance = await this.getCurrencyBalance({ teacherId: draft.teacherId }, draft.currency, t);
+      const balance = await this.getCurrencyBalance(
+        { teacherId: draft.teacherId },
+        draft.currency,
+        t,
+      );
       return { entry, balance };
     };
 
@@ -379,10 +383,7 @@ export class LedgerService {
       this.orderService.listTeacherOrderItems(scope, statuses, tx),
       this.ledgerDao.getLedgerEntriesBy(scope, {}, tx),
     ]);
-    return separatePendingAndConfirmedSales(
-      orderItems.map(toTeacherSaleOrderItem),
-      ledgerEntries,
-    );
+    return separatePendingAndConfirmedSales(orderItems.map(toTeacherSaleOrderItem), ledgerEntries);
   }
 
   /**

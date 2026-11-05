@@ -228,10 +228,7 @@ export class PayoutDao {
   }
 
   /** #106 (FR-12.5): Lists open payout concerns ordered oldest first. */
-  getOpenDisputes(
-    scope: TeacherScope,
-    tx?: TransactionClient,
-  ): Promise<OpenPayoutDisputeRecord[]> {
+  getOpenDisputes(scope: TeacherScope, tx?: TransactionClient): Promise<OpenPayoutDisputeRecord[]> {
     return (tx ?? this.prisma).payoutDispute.findMany({
       where: { AND: [{ status: DisputeStatus.OPEN }, scopeWhere(scope)] },
       select: openPayoutDisputeSelect,
