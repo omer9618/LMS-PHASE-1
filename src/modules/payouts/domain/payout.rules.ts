@@ -288,3 +288,54 @@ export function assertCanResolvePayoutConcern(input: AssertCanResolvePayoutConce
     resolutionNotes: trimmedNotes,
   };
 }
+export interface OpenConcernCandidate {
+  id: string;
+  createdAt: Date;
+}
+
+export type AgedOpenConcern<T extends OpenConcernCandidate> = T & {
+  /** Age in milliseconds since the concern was raised. */
+  ageMs: number;
+  /** Whole minutes since the concern was raised. */
+  ageMinutes: number;
+  /** Whole hours since the concern was raised. */
+  ageHours: number;
+  /** Whole days since the concern was raised. */
+  ageDays: number;
+};
+
+export interface OpenConcernsSummary<T extends OpenConcernCandidate> {
+  generatedAt: Date;
+  count: number;
+  oldestAgeHours: number | null;
+  items: Array<AgedOpenConcern<T>>;
+}
+
+/**
+ * #106 (FR-12.5): Annotates each open payout concern with its age (`ageMs`, `ageMinutes`,
+ * `ageHours`, `ageDays`) relative to `now` and orders them oldest first so none is left unresolved.
+ */
+export function summariseOpenConcerns<T extends OpenConcernCandidate>(
+  disputes: readonly T[],
+  now: Date,
+): OpenConcernsSummary<T> {
+  const items: Array<AgedOpenConcern<T>> = [...disputes]
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id))
+    .map((dispute) => {
+      const ageMs = Math.max(0, now.getTime() - dispute.createdAt.getTime());
+      return {
+        ...dispute,
+        ageMs,
+        ageMinutes: Math.floor(ageMs / 60_000),
+        ageHours: Math.floor(ageMs / 3_600_000),
+        ageDays: Math.floor(ageMs / DAY_MS),
+      };
+    });
+
+  return {
+    generatedAt: now,
+    count: items.length,
+    oldestAgeHours: items[0]?.ageHours ?? null,
+    items,
+  };
+}

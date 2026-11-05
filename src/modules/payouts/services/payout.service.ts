@@ -17,7 +17,7 @@ import {
   TeacherSaleOrderItem,
 } from '../../ledger/services/ledger.service';
 import { PlatformSettingsService } from '../../platform-settings/services/platform-settings.service';
-import { PayoutDao, PayoutDisputeRecord, PayoutRecord } from '../dao/payout.dao';
+import { OpenPayoutDisputeRecord, PayoutDao, PayoutDisputeRecord, PayoutRecord } from '../dao/payout.dao';
 import {
   assertCanRaisePayoutConcern,
   assertCanResolvePayoutConcern,
@@ -26,11 +26,13 @@ import {
   formatPayoutMoney,
   isPayoutDueToAutoAccept,
   CoveredSaleItem,
+  OpenConcernsSummary,
   selectCoveredSalesForPayout,
+  summariseOpenConcerns,
 } from '../domain/payout.rules';
 import type { RaisePayoutConcernInput, RecordPayoutInput, ResolvePayoutConcernInput } from '../schemas/payout.schema';
 
-export type { CoveredSaleItem, PayoutDisputeRecord, PayoutRecord };
+export type { CoveredSaleItem, OpenConcernsSummary, OpenPayoutDisputeRecord, PayoutDisputeRecord, PayoutRecord };
 
 export interface RaisePayoutConcernResult {
   payout: PayoutRecord;
@@ -440,6 +442,19 @@ export class PayoutService {
   countOpenConcerns(admin: AuthUser): Promise<number> {
     adminScope(admin);
     return this.payoutDao.countOpenDisputes();
+  }
+
+  /**
+   * #106 (FR-12.5): Lists open payout concerns with age (`ageMs`, `ageMinutes`, `ageHours`, `ageDays`)
+   * ordered oldest first so none is left unresolved.
+   */
+  async listOpenConcernsForAdmin(
+    admin: AuthUser,
+    now = new Date(),
+  ): Promise<OpenConcernsSummary<OpenPayoutDisputeRecord>> {
+    const scope = adminScope(admin);
+    const disputes = await this.payoutDao.getOpenDisputes(scope);
+    return summariseOpenConcerns(disputes, now);
   }
 
   /**

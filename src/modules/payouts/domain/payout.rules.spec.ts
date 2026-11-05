@@ -9,6 +9,7 @@ import {
   CoveredSaleItem,
   PayoutRefusedError,
   selectCoveredSalesForPayout,
+  summariseOpenConcerns,
 } from './payout.rules';
 
 describe('payout rules (#85, #86, #87, #88, #89, #113)', () => {
@@ -269,5 +270,32 @@ describe('payout rules (#85, #86, #87, #88, #89, #113)', () => {
         adjustmentAmountMinor: 0n,
       }),
     ).toThrow(PayoutRefusedError);
+  });
+
+  it('#106: summarises open payout concerns with age sorted oldest first', () => {
+    const now = new Date('2026-04-20T12:00:00.000Z');
+    const summary = summariseOpenConcerns(
+      [
+        { id: 'c-newer', createdAt: new Date('2026-04-20T09:30:00.000Z'), reason: 'Recent' },
+        { id: 'c-older', createdAt: new Date('2026-04-18T06:00:00.000Z'), reason: 'Oldest' },
+      ],
+      now,
+    );
+
+    expect(summary.count).toBe(2);
+    expect(summary.oldestAgeHours).toBe(54);
+    expect(summary.items.map((i) => i.id)).toEqual(['c-older', 'c-newer']);
+    expect(summary.items[0]).toMatchObject({
+      id: 'c-older',
+      ageMinutes: 3240,
+      ageHours: 54,
+      ageDays: 2,
+    });
+    expect(summary.items[1]).toMatchObject({
+      id: 'c-newer',
+      ageMinutes: 150,
+      ageHours: 2,
+      ageDays: 0,
+    });
   });
 });

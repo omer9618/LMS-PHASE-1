@@ -9,6 +9,7 @@ import {
   type AdminTeacherParams,
   adminTeacherParamsSchema,
 } from '../../ledger/schemas/ledger.schema';
+import type { OpenConcernsSummary, OpenPayoutDisputeRecord } from '../../payouts/services/payout.service';
 import type { AdminFinancialSummary } from '../domain/dashboard.rules';
 import {
   type FinancialSummaryQuery,
@@ -71,5 +72,12 @@ export class AdminFinanceController {
     @Param(new ZodValidationPipe(adminTeacherParamsSchema)) params: AdminTeacherParams,
   ): Promise<AdminTeacherStatementView> {
     return this.financeService.getTeacherStatement(admin, params.teacherId);
+  }
+
+  @Get('payout-concerns')
+  listOpenConcerns(
+    @CurrentUser() admin: AuthUser,
+  ): Promise<OpenConcernsSummary<OpenPayoutDisputeRecord>> {
+    return this.financeService.listOpenConcerns(admin);
   }
 }

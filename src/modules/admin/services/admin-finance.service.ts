@@ -11,7 +11,7 @@ import {
   SeparatedTeacherSales,
 } from '../../ledger/services/ledger.service';
 import { OrderService } from '../../orders/services/order.service';
-import { PayoutRecord, PayoutService } from '../../payouts/services/payout.service';
+import { OpenConcernsSummary, OpenPayoutDisputeRecord, PayoutRecord, PayoutService } from '../../payouts/services/payout.service';
 import {
   type AdminFinancialSummary,
   buildAdminFinancialSummary,
@@ -116,5 +116,16 @@ export class AdminFinanceService {
       payouts,
       ledgerEntries,
     });
+  }
+
+  /**
+   * #106 (FR-12.5): Open payout concerns listed with age so none is left unresolved.
+   */
+  listOpenConcerns(
+    admin: AuthUser,
+    now = new Date(),
+  ): Promise<OpenConcernsSummary<OpenPayoutDisputeRecord>> {
+    adminScope(admin);
+    return this.payoutService.listOpenConcernsForAdmin(admin, now);
   }
 }

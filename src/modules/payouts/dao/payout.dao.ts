@@ -55,6 +55,39 @@ export type PayoutDisputeRecord = Prisma.PayoutDisputeGetPayload<{
   select: typeof payoutDisputeSelect;
 }>;
 
+const openPayoutDisputeSelect = {
+  id: true,
+  payoutId: true,
+  teacherId: true,
+  reason: true,
+  status: true,
+  createdAt: true,
+  teacher: { select: { id: true, email: true, fullName: true } },
+  payout: {
+    select: {
+      id: true,
+      amountMinor: true,
+      method: true,
+      transactionId: true,
+      periodStart: true,
+      periodEnd: true,
+      status: true,
+      recordedAt: true,
+      transferDate: true,
+      disputeDeadline: true,
+      ledgerEntries: {
+        select: { currency: true },
+        orderBy: { createdAt: 'asc' as const },
+        take: 1,
+      },
+    },
+  },
+} satisfies Prisma.PayoutDisputeSelect;
+
+export type OpenPayoutDisputeRecord = Prisma.PayoutDisputeGetPayload<{
+  select: typeof openPayoutDisputeSelect;
+}>;
+
 export interface CreatePayoutData {
   amountMinor: bigint;
   method: string;
@@ -191,6 +224,18 @@ export class PayoutDao {
   countOpenDisputes(tx?: TransactionClient): Promise<number> {
     return (tx ?? this.prisma).payoutDispute.count({
       where: { status: DisputeStatus.OPEN },
+    });
+  }
+
+  /** #106 (FR-12.5): Lists open payout concerns ordered oldest first. */
+  getOpenDisputes(
+    scope: TeacherScope,
+    tx?: TransactionClient,
+  ): Promise<OpenPayoutDisputeRecord[]> {
+    return (tx ?? this.prisma).payoutDispute.findMany({
+      where: { AND: [{ status: DisputeStatus.OPEN }, scopeWhere(scope)] },
+      select: openPayoutDisputeSelect,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
   }
 }
