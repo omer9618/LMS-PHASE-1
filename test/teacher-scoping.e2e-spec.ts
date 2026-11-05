@@ -5,8 +5,8 @@ import { classification, createCourse } from './utils/courses';
 import { createTestApp } from './utils/test-app';
 
 /**
- * #117 (early slice): cross-teacher access fails server-side.
- * The full access-control suite is still to come in M3.
+ * #117 (early slice): cross-teacher access fails server-side. The full route-by-route matrix is
+ * test/access-control.e2e-spec.ts.
  */
 describe('Teacher scoping: teacher A cannot read or modify teacher B’s course', () => {
   let app: NestExpressApplication;

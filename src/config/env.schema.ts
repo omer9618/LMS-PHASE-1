@@ -31,6 +31,18 @@ export const envSchema = z
     // Public base URLs: the web app (links in emails) and this API (local file links).
     APP_PUBLIC_URL: z.url().default('http://localhost:3001'),
     API_PUBLIC_URL: z.url().default('http://localhost:3000'),
+    // Security review (#119): extra browser origins allowed by CORS and the Origin check, comma-separated
+    // (APP_PUBLIC_URL and API_PUBLIC_URL are always trusted). Empty by default.
+    CORS_ORIGINS: z
+      .string()
+      .default('')
+      .transform((v) =>
+        v
+          .split(',')
+          .map((o) => o.trim())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.url({ protocol: /^https?$/ }))),
 
     // Sessions (#12). In production use SESSION_COOKIE_NAME=__Host-lms_session.
     SESSION_COOKIE_NAME: z
@@ -91,6 +103,11 @@ export const envSchema = z
     const production = env.NODE_ENV === 'production';
 
     if (production && !env.COOKIE_SECURE) issue('COOKIE_SECURE', 'must be true in production');
+    // #119: the __Host- prefix makes the browser refuse the cookie unless Secure, Path=/ and no
+    // Domain, so a sibling subdomain cannot set or shadow the session cookie.
+    if (production && !env.SESSION_COOKIE_NAME.startsWith('__Host-')) {
+      issue('SESSION_COOKIE_NAME', 'must start with __Host- in production');
+    }
     if (env.COOKIE_SAMESITE === 'none' && !env.COOKIE_SECURE) {
       issue('COOKIE_SAMESITE', 'SameSite=None requires COOKIE_SECURE=true');
     }
