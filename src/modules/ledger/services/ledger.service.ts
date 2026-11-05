@@ -5,12 +5,15 @@ import { adminScope, TeacherScope } from '../../../common/auth/scope';
 import type { TransactionClient } from '../../../prisma/prisma.types';
 import { TransactionService } from '../../../prisma/transaction.service';
 import { AuditService } from '../../audit/services/audit.service';
+import { UserAdminService } from '../../auth/services/user-admin.service';
 import { EnrollmentService } from '../../enrollment/services/enrollment.service';
 import { OrderService, TeacherOrderItemRecord } from '../../orders/services/order.service';
 import { LedgerDao, LedgerEntryRecord } from '../dao/ledger.dao';
 import { RefundDao, RefundRecord } from '../dao/refund.dao';
 import {
   assertOrderRefundable,
+  assertTargetIsTeacher,
+  buildAdjustmentEntry,
   buildEarningEntries,
   buildRefundEntries,
   computeCurrencyBalance,
@@ -23,7 +26,7 @@ import {
   separatePendingAndConfirmedSales,
   TeacherSaleOrderItem,
 } from '../domain/ledger.rules';
-import type { RecordRefundInput } from '../schemas/ledger.schema';
+import type { RecordAdjustmentInput, RecordRefundInput } from '../schemas/ledger.schema';
 
 export type {
   ConfirmedOrderLine,
@@ -52,10 +55,15 @@ export interface RefundOrderResult {
   ledgerEntries: LedgerEntryRecord[];
 }
 
+export interface AdjustmentResult {
+  entry: LedgerEntryRecord;
+  balance: DerivedCurrencyBalance;
+}
+
 /**
- * The teacher ledger (#78, #79, #80, #81, #82). Payment confirmation writes earnings here;
- * refunds and payouts write compensating negative entries. Entries are append-only and
- * the balance is their sum.
+ * The teacher ledger (#78-#83). Payment confirmation writes earnings here;
+ * refunds, adjustments, and payouts write compensating entries. Entries are append-only
+ * and the balance is their sum.
  */
 @Injectable()
 export class LedgerService {
@@ -64,6 +72,7 @@ export class LedgerService {
     private readonly refundDao: RefundDao,
     private readonly orderService: OrderService,
     private readonly enrollmentService: EnrollmentService,
+    private readonly userAdminService: UserAdminService,
     private readonly auditService: AuditService,
     private readonly transactions: TransactionService,
   ) {}
@@ -226,6 +235,64 @@ export class LedgerService {
         ledgerEntries,
       };
     });
+  }
+
+  /**
+   * #83 (FR-8.10): Admin records a manual balance adjustment (signed credit or debit) on a
+   * teacher's ledger, recording the amount, reason, and authorising user (`createdById`),
+   * plus a `LEDGER_ADJUSTMENT_RECORDED` audit entry in the same transaction.
+   */
+  async recordAdjustment(
+    admin: AuthUser,
+    teacherId: string,
+    input: RecordAdjustmentInput,
+    tx?: TransactionClient,
+  ): Promise<AdjustmentResult> {
+    adminScope(admin);
+    const targetUser = await this.userAdminService.getUser(admin, teacherId);
+    assertTargetIsTeacher(targetUser.id, targetUser.roles);
+
+    const draft = buildAdjustmentEntry({
+      teacherId: targetUser.id,
+      amountMinor: input.amountMinor,
+      currency: input.currency,
+      reason: input.reason,
+    });
+
+    const run = async (t: TransactionClient): Promise<AdjustmentResult> => {
+      const entry = await this.ledgerDao.createLedgerEntry(
+        { teacherId: draft.teacherId },
+        {
+          type: LedgerEntryType.ADJUSTMENT,
+          amountMinor: draft.amountMinor,
+          currency: draft.currency,
+          description: draft.description,
+          createdById: admin.id,
+        },
+        t,
+      );
+
+      await this.auditService.record(
+        {
+          actorUserId: admin.id,
+          action: 'LEDGER_ADJUSTMENT_RECORDED',
+          entityType: 'teacher_ledger',
+          entityId: entry.id,
+          details: {
+            teacherId: draft.teacherId,
+            amountMinor: draft.amountMinor.toString(),
+            currency: draft.currency,
+            reason: draft.description,
+          },
+        },
+        t,
+      );
+
+      const balance = await this.getCurrencyBalance({ teacherId: draft.teacherId }, draft.currency, t);
+      return { entry, balance };
+    };
+
+    return tx ? run(tx) : this.transactions.run(run);
   }
 
   /** Entries in the caller's scope, oldest first. */

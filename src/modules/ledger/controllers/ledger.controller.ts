@@ -5,12 +5,16 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import {
+  AdminTeacherParams,
+  adminTeacherParamsSchema,
+  RecordAdjustmentInput,
+  recordAdjustmentSchema,
   RecordRefundInput,
   recordRefundSchema,
   RefundOrderParams,
   refundOrderParamsSchema,
 } from '../schemas/ledger.schema';
-import { LedgerService, RefundOrderResult } from '../services/ledger.service';
+import { AdjustmentResult, LedgerService, RefundOrderResult } from '../services/ledger.service';
 
 /** #82: Admin order refund recording, enrollment revocation, and compensating ledger entries. */
 @Roles([Role.ADMIN])
@@ -26,5 +30,21 @@ export class AdminRefundsController {
     @Body(new ZodValidationPipe(recordRefundSchema)) body: RecordRefundInput,
   ): Promise<RefundOrderResult> {
     return this.ledgerService.recordOrderRefund(admin, params.orderId, body);
+  }
+}
+
+/** #83: Admin manual balance adjustments on a teacher's ledger. */
+@Roles([Role.ADMIN])
+@Controller('admin/teachers')
+export class AdminLedgerController {
+  constructor(private readonly ledgerService: LedgerService) {}
+
+  @Post(':teacherId/ledger/adjustments')
+  recordAdjustment(
+    @CurrentUser() admin: AuthUser,
+    @Param(new ZodValidationPipe(adminTeacherParamsSchema)) params: AdminTeacherParams,
+    @Body(new ZodValidationPipe(recordAdjustmentSchema)) body: RecordAdjustmentInput,
+  ): Promise<AdjustmentResult> {
+    return this.ledgerService.recordAdjustment(admin, params.teacherId, body);
   }
 }
