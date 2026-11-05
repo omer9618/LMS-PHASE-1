@@ -488,3 +488,54 @@ export function separatePendingAndConfirmedSales(
     earnedBalances: computeDerivedBalances(ledgerEntries),
   };
 }
+export interface DecideOrderRefundInput {
+  orderId: string;
+  orderStatus: SaleOrderStatusValue;
+  orderTotalMinor: bigint;
+  amountMinor: bigint;
+  reason: string;
+  transactionId: string;
+  transferDate: string;
+}
+
+/**
+ * #82 (FR-7.14): Validates that an order refund request is well-formed and against a VERIFIED order:
+ * - order must be VERIFIED
+ * - amountMinor must be > 0n and <= orderTotalMinor
+ * - reason and transactionId must be non-empty
+ */
+export function assertOrderRefundable(input: DecideOrderRefundInput): void {
+  if (input.orderStatus !== 'VERIFIED') {
+    throw new LedgerRefusedError('Only verified orders can be refunded', {
+      reason: 'ORDER_NOT_VERIFIED',
+      orderId: input.orderId,
+      status: input.orderStatus,
+    });
+  }
+  if (input.amountMinor <= 0n) {
+    throw new LedgerRefusedError('Refund amount must be positive', {
+      reason: 'NON_POSITIVE_REFUND_AMOUNT',
+      orderId: input.orderId,
+    });
+  }
+  if (input.amountMinor > input.orderTotalMinor) {
+    throw new LedgerRefusedError('Refund amount cannot exceed the order total', {
+      reason: 'REFUND_EXCEEDS_ORDER_TOTAL',
+      orderId: input.orderId,
+      amountMinor: input.amountMinor.toString(),
+      orderTotalMinor: input.orderTotalMinor.toString(),
+    });
+  }
+  if (!input.reason || input.reason.trim().length === 0) {
+    throw new LedgerRefusedError('Refund requires a reason', {
+      reason: 'EMPTY_REFUND_REASON',
+      orderId: input.orderId,
+    });
+  }
+  if (!input.transactionId || input.transactionId.trim().length === 0) {
+    throw new LedgerRefusedError('Refund requires a transaction ID', {
+      reason: 'EMPTY_REFUND_TRANSACTION_ID',
+      orderId: input.orderId,
+    });
+  }
+}

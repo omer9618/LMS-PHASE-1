@@ -66,8 +66,8 @@ export class EnrollmentDao {
     });
   }
 
-  getEnrollmentById(id: string): Promise<EnrollmentRecord | null> {
-    return this.prisma.enrollment.findUnique({ where: { id }, select: enrollmentSelect });
+  getEnrollmentById(id: string, tx?: TransactionClient): Promise<EnrollmentRecord | null> {
+    return (tx ?? this.prisma).enrollment.findUnique({ where: { id }, select: enrollmentSelect });
   }
 
   /**

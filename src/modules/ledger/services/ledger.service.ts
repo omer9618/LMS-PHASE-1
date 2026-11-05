@@ -1,26 +1,35 @@
 import { Injectable } from '@nestjs/common';
 import { LedgerEntryType, OrderStatus } from '@prisma/client';
-import type { TeacherScope } from '../../../common/auth/scope';
+import type { AuthUser } from '../../../common/auth/auth-user';
+import { adminScope, TeacherScope } from '../../../common/auth/scope';
 import type { TransactionClient } from '../../../prisma/prisma.types';
+import { TransactionService } from '../../../prisma/transaction.service';
+import { AuditService } from '../../audit/services/audit.service';
+import { EnrollmentService } from '../../enrollment/services/enrollment.service';
 import { OrderService, TeacherOrderItemRecord } from '../../orders/services/order.service';
 import { LedgerDao, LedgerEntryRecord } from '../dao/ledger.dao';
+import { RefundDao, RefundRecord } from '../dao/refund.dao';
 import {
+  assertOrderRefundable,
   buildEarningEntries,
+  buildRefundEntries,
   computeCurrencyBalance,
   computeDerivedBalances,
   CONFIRMED_SALE_ORDER_STATUSES,
   ConfirmedOrderLine,
   DerivedCurrencyBalance,
   PENDING_SALE_ORDER_STATUSES,
-   SeparatedTeacherSales,
+  SeparatedTeacherSales,
   separatePendingAndConfirmedSales,
   TeacherSaleOrderItem,
 } from '../domain/ledger.rules';
+import type { RecordRefundInput } from '../schemas/ledger.schema';
 
 export type {
   ConfirmedOrderLine,
   DerivedCurrencyBalance,
   LedgerEntryRecord,
+  RefundRecord,
   SeparatedTeacherSales,
   TeacherSaleOrderItem,
 };
@@ -33,15 +42,30 @@ export interface RecordEarningsInput {
   createdById: string;
 }
 
+export interface RefundOrderResult {
+  orderId: string;
+  paymentReference: string;
+  status: OrderStatus;
+  refund: RefundRecord;
+  enrollmentsRevoked: number;
+  ledgerEntriesWritten: number;
+  ledgerEntries: LedgerEntryRecord[];
+}
+
 /**
- * The teacher ledger (#78, #79, #80, #81). Payment confirmation writes earnings here; payouts and refunds (M3)
- * extend this service. Entries are append-only and the balance is their sum.
+ * The teacher ledger (#78, #79, #80, #81, #82). Payment confirmation writes earnings here;
+ * refunds and payouts write compensating negative entries. Entries are append-only and
+ * the balance is their sum.
  */
 @Injectable()
 export class LedgerService {
   constructor(
     private readonly ledgerDao: LedgerDao,
+    private readonly refundDao: RefundDao,
     private readonly orderService: OrderService,
+    private readonly enrollmentService: EnrollmentService,
+    private readonly auditService: AuditService,
+    private readonly transactions: TransactionService,
   ) {}
 
   /**
@@ -76,6 +100,132 @@ export class LedgerService {
       );
     }
     return created;
+  }
+
+  /**
+   * #82 (FR-7.14): Admin records a refund on a VERIFIED order. Inside one transaction:
+   * 1. Creates the Refund record (amount, transferDate, transactionId, reason, authorisedById)
+   * 2. Transitions the order VERIFIED -> REFUNDED (writing ORDER_REFUNDED audit log)
+   * 3. Revokes the student's active enrollments for the order's courses
+   * 4. Writes negative REFUND compensating ledger entries for each teacher order line
+   * 5. Records a REFUND_RECORDED audit entry.
+   */
+  async recordOrderRefund(
+    admin: AuthUser,
+    orderId: string,
+    input: RecordRefundInput,
+  ): Promise<RefundOrderResult> {
+    adminScope(admin);
+    const now = new Date();
+    return this.transactions.run(async (tx) => {
+      const order = await this.orderService.getOrderInTransaction(orderId, tx);
+      assertOrderRefundable({
+        orderId: order.id,
+        orderStatus: order.status,
+        orderTotalMinor: order.totalMinor,
+        amountMinor: input.amountMinor,
+        reason: input.reason,
+        transactionId: input.transactionId,
+        transferDate: input.transferDate,
+      });
+
+      const refund = await this.refundDao.createRefund(
+        {
+          orderId: order.id,
+          amountMinor: input.amountMinor,
+          reason: input.reason,
+          transactionId: input.transactionId,
+          transferDate: new Date(`${input.transferDate}T00:00:00.000Z`),
+          authorisedById: admin.id,
+        },
+        tx,
+      );
+
+      const transition = await this.orderService.transition(
+        order,
+        'REFUND',
+        admin.id,
+        {
+          refundId: refund.id,
+          amountMinor: input.amountMinor.toString(),
+          transactionId: input.transactionId,
+          transferDate: input.transferDate,
+          reason: input.reason,
+        },
+        now,
+        tx,
+      );
+
+      const enrollmentsRevoked = await this.enrollmentService.revokePurchasedForOrder(
+        admin,
+        order.studentId,
+        order.items.map((item) => item.courseId),
+        `Order ${order.paymentReference} refunded: ${input.reason}`,
+        tx,
+      );
+
+      const orderItemIds = order.items.map((item) => item.id);
+      const existingRefundEntries = await this.ledgerDao.getLedgerEntriesBy(
+        { admin: true },
+        { type: LedgerEntryType.REFUND, orderItemId: { in: orderItemIds } },
+        tx,
+      );
+      const refundDrafts = buildRefundEntries(
+        order.items.map((item) => ({
+          orderItemId: item.id,
+          teacherId: item.teacherId,
+          courseTitle: item.course.title,
+          netTeacherMinor: item.netTeacherMinor,
+        })),
+        order.currency,
+        order.paymentReference,
+        refund.id,
+        new Set(existingRefundEntries.map((entry) => entry.orderItemId!)),
+      );
+
+      const ledgerEntries: LedgerEntryRecord[] = [];
+      for (const draft of refundDrafts) {
+        const { teacherId, ...data } = draft;
+        ledgerEntries.push(
+          await this.ledgerDao.createLedgerEntry(
+            { teacherId },
+            { ...data, type: LedgerEntryType.REFUND, createdById: admin.id },
+            tx,
+          ),
+        );
+      }
+
+      await this.auditService.record(
+        {
+          actorUserId: admin.id,
+          action: 'REFUND_RECORDED',
+          entityType: 'refund',
+          entityId: refund.id,
+          details: {
+            orderId: order.id,
+            paymentReference: order.paymentReference,
+            amountMinor: input.amountMinor.toString(),
+            currency: order.currency,
+            transactionId: input.transactionId,
+            transferDate: input.transferDate,
+            reason: input.reason,
+            enrollmentsRevoked,
+            ledgerEntriesWritten: ledgerEntries.length,
+          },
+        },
+        tx,
+      );
+
+      return {
+        orderId: order.id,
+        paymentReference: order.paymentReference,
+        status: transition.to as OrderStatus,
+        refund,
+        enrollmentsRevoked,
+        ledgerEntriesWritten: ledgerEntries.length,
+        ledgerEntries,
+      };
+    });
   }
 
   /** Entries in the caller's scope, oldest first. */

@@ -43,7 +43,7 @@ export interface PurchasedCourse {
 }
 
 /**
- * Enrollment (#46–#52). One row per student per course; who granted it, how, and when are
+ * Enrollment (#46â€“#52). One row per student per course; who granted it, how, and when are
  * recorded on the row, and every admin action is audited.
  */
 @Injectable()
@@ -150,7 +150,7 @@ export class EnrollmentService {
   ): Promise<EnrollmentView> {
     adminScope(admin);
     const run = async (t: TransactionClient) => {
-      const enrollment = await this.loadEnrollment(enrollmentId);
+      const enrollment = await this.loadEnrollment(enrollmentId, t);
       assertRevocable(enrollment);
       const updated = await this.enrollmentDao.updateEnrollment(
         enrollment.id,
@@ -170,6 +170,28 @@ export class EnrollmentService {
       return updated;
     };
     return tx ? run(tx) : this.transactions.run(run);
+  }
+
+  /**
+   * #82 (FR-7.14): revokes the student's active enrollments for the courses on a refunded order,
+   * inside the refund's transaction. Skips courses that are already REVOKED.
+   */
+  async revokePurchasedForOrder(
+    admin: AuthUser,
+    studentId: string,
+    courseIds: readonly string[],
+    reason: string,
+    tx: TransactionClient,
+  ): Promise<number> {
+    adminScope(admin);
+    let revoked = 0;
+    for (const courseId of courseIds) {
+      const existing = await this.enrollmentDao.getEnrollmentState(studentId, courseId, tx);
+      if (!existing || existing.status === EnrollmentStatus.REVOKED) continue;
+      await this.adminRevoke(admin, existing.id, { reason }, tx);
+      revoked += 1;
+    }
+    return revoked;
   }
 
   /** #52: the student's courses with completion percentage. */
@@ -258,8 +280,8 @@ export class EnrollmentService {
     };
   }
 
-  private async loadEnrollment(id: string): Promise<EnrollmentRecord> {
-    const enrollment = await this.enrollmentDao.getEnrollmentById(id);
+  private async loadEnrollment(id: string, tx?: TransactionClient): Promise<EnrollmentRecord> {
+    const enrollment = await this.enrollmentDao.getEnrollmentById(id, tx);
     if (!enrollment) throw new AppException(ErrorCode.NOT_FOUND, { entity: 'enrollment', id });
     return enrollment;
   }
