@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { LedgerDao } from '../dao/ledger.dao';
 import {
   assertOrderRefundable,
+  assertTargetIsTeacher,
   assertValidLedgerEntryDraft,
   buildAdjustmentEntry,
   buildEarningEntries,
@@ -14,7 +15,7 @@ import {
   LedgerRefusedError,
 } from './ledger.rules';
 
-describe('ledger rules (#78, #79, #80, #81, #82)', () => {
+describe('ledger rules (#78, #79, #80, #81, #82, #83)', () => {
   const lines = [
     { orderItemId: 'i1', teacherId: 't1', courseTitle: 'Chem', netTeacherMinor: 120000n },
     { orderItemId: 'i2', teacherId: 't2', courseTitle: 'Maths', netTeacherMinor: 0n },
@@ -471,6 +472,14 @@ describe('ledger rules (#78, #79, #80, #81, #82)', () => {
           transferDate: '2026-04-02',
         }),
       ).toThrow(LedgerRefusedError);
+    });
+  });
+
+  describe('manual balance adjustments target validation (#83)', () => {
+    it('accepts accounts holding the TEACHER role and refuses non-teachers', () => {
+      expect(() => assertTargetIsTeacher('t1', ['STUDENT', 'TEACHER'])).not.toThrow();
+      expect(() => assertTargetIsTeacher('s1', ['STUDENT'])).toThrow(LedgerRefusedError);
+      expect(() => assertTargetIsTeacher('a1', ['ADMIN'])).toThrow(LedgerRefusedError);
     });
   });
 

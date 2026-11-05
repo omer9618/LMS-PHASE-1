@@ -539,3 +539,14 @@ export function assertOrderRefundable(input: DecideOrderRefundInput): void {
     });
   }
 }
+/**
+ * #83 (FR-8.10): Ensures the target user holds the TEACHER role before writing a ledger adjustment.
+ */
+export function assertTargetIsTeacher(teacherId: string, roles: readonly string[]): void {
+  if (!roles.includes('TEACHER')) {
+    throw new LedgerRefusedError('Target user is not a teacher', {
+      reason: 'NOT_A_TEACHER',
+      teacherId,
+    });
+  }
+}
