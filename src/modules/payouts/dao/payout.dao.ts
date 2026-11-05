@@ -113,4 +113,37 @@ export class PayoutDao {
       orderBy: [{ recordedAt: 'desc' }, { id: 'asc' }],
     });
   }
+
+  /**
+   * #87: IDs of PENDING payouts whose disputeDeadline <= now, oldest first, so the
+   * auto-accept job can process each payout in its own transaction.
+   */
+  async getDuePendingPayoutIds(now: Date): Promise<string[]> {
+    const rows = await this.prisma.payout.findMany({
+      where: {
+        status: PayoutStatus.PENDING,
+        disputeDeadline: { lte: now },
+      },
+      select: { id: true },
+      orderBy: { disputeDeadline: 'asc' },
+    });
+    return rows.map((row) => row.id);
+  }
+
+  /**
+   * #87 / #88 / #89: Conditionally updates a payout's status only if it is currently in
+   * `expectedStatus`, returning true when the row transitioned.
+   */
+  async updatePayoutStatusIfCurrent(
+    payoutId: string,
+    expectedStatus: PayoutStatus,
+    data: { status: PayoutStatus; acceptedAt?: Date | null },
+    tx?: TransactionClient,
+  ): Promise<boolean> {
+    const { count } = await (tx ?? this.prisma).payout.updateMany({
+      where: { id: payoutId, status: expectedStatus },
+      data,
+    });
+    return count === 1;
+  }
 }

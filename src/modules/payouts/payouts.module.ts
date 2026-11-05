@@ -8,13 +8,14 @@ import {
   TeacherPayoutsController,
 } from './controllers/payout.controller';
 import { PayoutDao } from './dao/payout.dao';
+import { PayoutAutoAcceptJob } from './jobs/payout-auto-accept.job';
 import { PayoutService } from './services/payout.service';
 
 /** Payouts (#85-#89): payout recording, teacher notification, dispute window & auto-accept, concerns. */
 @Module({
   imports: [LedgerModule, AuthModule, AuditModule, PlatformSettingsModule],
   controllers: [AdminPayoutsController, TeacherPayoutsController],
-  providers: [PayoutService, PayoutDao],
+  providers: [PayoutService, PayoutDao, PayoutAutoAcceptJob],
   exports: [PayoutService],
 })
 export class PayoutsModule {}

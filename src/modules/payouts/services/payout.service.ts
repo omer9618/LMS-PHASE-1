@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { PayoutStatus } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { adminScope, teacherScope, TeacherScope } from '../../../common/auth/scope';
@@ -21,6 +22,7 @@ import {
   buildPayoutCoverageEmailLines,
   buildPayoutRecordingPlan,
   formatPayoutMoney,
+  isPayoutDueToAutoAccept,
   CoveredSaleItem,
   selectCoveredSalesForPayout,
 } from '../domain/payout.rules';
@@ -241,6 +243,51 @@ export class PayoutService {
   async getPayoutForAdmin(admin: AuthUser, payoutId: string): Promise<PayoutDetailView> {
     adminScope(admin);
     return this.getPayoutDetailForScope({ admin: true }, payoutId);
+  }
+
+  /**
+   * #87 (FR-8.7, FR-8.9): Hourly sweep that marks PENDING payouts past their disputeDeadline
+   * as ACCEPTED, recording a PAYOUT_AUTO_ACCEPTED audit entry (actorUserId: null).
+   * Disputed payouts are strictly skipped by both the query and the conditional update.
+   */
+  async autoAcceptDuePayouts(now = new Date()): Promise<number> {
+    const ids = await this.payoutDao.getDuePendingPayoutIds(now);
+    let accepted = 0;
+    for (const id of ids) {
+      try {
+        const transitioned = await this.transactions.run(async (tx) => {
+          const current = await this.payoutDao.getPayoutBy({ admin: true }, { id }, tx);
+          if (!current || !isPayoutDueToAutoAccept(current, now)) return false;
+          const updated = await this.payoutDao.updatePayoutStatusIfCurrent(
+            current.id,
+            PayoutStatus.PENDING,
+            { status: PayoutStatus.ACCEPTED, acceptedAt: now },
+            tx,
+          );
+          if (!updated) return false;
+          await this.auditService.record(
+            {
+              actorUserId: null,
+              action: 'PAYOUT_AUTO_ACCEPTED',
+              entityType: 'payout',
+              entityId: current.id,
+              details: {
+                teacherId: current.teacherId,
+                amountMinor: current.amountMinor.toString(),
+                disputeDeadline: current.disputeDeadline.toISOString(),
+                acceptedAt: now.toISOString(),
+              },
+            },
+            tx,
+          );
+          return true;
+        });
+        if (transitioned) accepted += 1;
+      } catch (err) {
+        this.logger.error({ err, payoutId: id }, 'Failed to auto-accept payout');
+      }
+    }
+    return accepted;
   }
 
   private async getPayoutDetailForScope(

@@ -193,3 +193,14 @@ export function buildPayoutCoverageEmailLines(
     formatPayoutMoney(sale.netTeacherMinor, sale.currency),
   ]);
 }
+/**
+ * #87 (FR-8.7, FR-8.9): Determines whether a payout is due to be automatically accepted.
+ * Only `PENDING` payouts whose `disputeDeadline <= now` qualify; `DISPUTED`, `ACCEPTED`,
+ * and `RESOLVED` payouts are never auto-accepted by the passage of time.
+ */
+export function isPayoutDueToAutoAccept(
+  payout: { status: PayoutStatusValue; disputeDeadline: Date },
+  now: Date,
+): boolean {
+  return payout.status === 'PENDING' && payout.disputeDeadline.getTime() <= now.getTime();
+}

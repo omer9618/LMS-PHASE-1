@@ -2,13 +2,14 @@ import {
   buildPayoutCoverageEmailLines,
   buildPayoutRecordingPlan,
   formatPayoutMoney,
+  isPayoutDueToAutoAccept,
   computePayoutDisputeDeadline,
   CoveredSaleItem,
   PayoutRefusedError,
   selectCoveredSalesForPayout,
 } from './payout.rules';
 
-describe('payout rules (#85, #86, #113)', () => {
+describe('payout rules (#85, #86, #87, #113)', () => {
   const now = new Date('2026-04-10T10:00:00.000Z');
 
   it('computes dispute deadline N days after payout recording time', () => {
@@ -145,5 +146,27 @@ describe('payout rules (#85, #86, #113)', () => {
     expect(buildPayoutCoverageEmailLines(covered)).toEqual([
       ['Sale: Chem (LMS-1)', 'PKR 800.00'],
     ]);
+  });
+
+  it('#87: auto-accepts only PENDING payouts at or past their disputeDeadline, skipping DISPUTED payouts', () => {
+    const deadline = new Date('2026-04-17T10:00:00.000Z');
+    const before = new Date('2026-04-17T09:59:59.999Z');
+    const after = new Date('2026-04-17T10:00:00.000Z');
+
+    expect(isPayoutDueToAutoAccept({ status: 'PENDING', disputeDeadline: deadline }, before)).toBe(
+      false,
+    );
+    expect(isPayoutDueToAutoAccept({ status: 'PENDING', disputeDeadline: deadline }, after)).toBe(
+      true,
+    );
+    expect(isPayoutDueToAutoAccept({ status: 'DISPUTED', disputeDeadline: deadline }, after)).toBe(
+      false,
+    );
+    expect(isPayoutDueToAutoAccept({ status: 'ACCEPTED', disputeDeadline: deadline }, after)).toBe(
+      false,
+    );
+    expect(isPayoutDueToAutoAccept({ status: 'RESOLVED', disputeDeadline: deadline }, after)).toBe(
+      false,
+    );
   });
 });
