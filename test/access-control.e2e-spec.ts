@@ -129,6 +129,7 @@ const MATRIX: Record<string, Entry> = {
   'POST /admin/teachers/:teacherId/payouts': ADMIN,
   'GET /admin/teachers/:teacherId/payouts': ADMIN,
   'GET /admin/payouts/:payoutId': ADMIN,
+  'POST /admin/payouts/:payoutId/concerns/resolve': ADMIN,
   'GET /admin/enrollments': ADMIN,
   'POST /admin/enrollments': ADMIN,
   'POST /admin/enrollments/:enrollmentId/revoke': ADMIN,
@@ -383,8 +384,28 @@ describe('Access-control matrix: every route (#117)', () => {
       },
     });
 
+    const teacherARow = await prisma.user.findUniqueOrThrow({
+      where: { email: SEEDED.teacherA.email },
+    });
+    const adminRow = await prisma.user.findUniqueOrThrow({
+      where: { email: SEEDED.admin.email },
+    });
+    const payout = await prisma.payout.create({
+      data: {
+        teacherId: teacherARow.id,
+        amountMinor: 50_000n,
+        method: 'BANK_TRANSFER',
+        transactionId: 'MATRIX-PAY-' + String(Date.now()),
+        recordedById: adminRow.id,
+        transferDate: new Date(),
+        disputeDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
     Object.assign(params, {
       courseId: course.id,
+      payoutId: payout.id,
+      teacherId: teacherARow.id,
       sectionId,
       lessonId: quizLessonId,
       resourceId,
@@ -398,7 +419,7 @@ describe('Access-control matrix: every route (#117)', () => {
       token: 'not-a-real-token',
     });
     Object.assign(placeholders, { '<videoLessonId>': videoLessonId, '<sectionId>': sectionId });
-  });
+  }, 30_000);
 
   afterAll(async () => {
     await app.close();

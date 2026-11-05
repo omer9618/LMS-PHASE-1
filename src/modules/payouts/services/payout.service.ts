@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PayoutStatus } from '@prisma/client';
+import { DisputeStatus, PayoutStatus } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { adminScope, teacherScope, TeacherScope } from '../../../common/auth/scope';
@@ -20,6 +20,7 @@ import { PlatformSettingsService } from '../../platform-settings/services/platfo
 import { PayoutDao, PayoutDisputeRecord, PayoutRecord } from '../dao/payout.dao';
 import {
   assertCanRaisePayoutConcern,
+  assertCanResolvePayoutConcern,
   buildPayoutCoverageEmailLines,
   buildPayoutRecordingPlan,
   formatPayoutMoney,
@@ -27,13 +28,19 @@ import {
   CoveredSaleItem,
   selectCoveredSalesForPayout,
 } from '../domain/payout.rules';
-import type { RaisePayoutConcernInput, RecordPayoutInput } from '../schemas/payout.schema';
+import type { RaisePayoutConcernInput, RecordPayoutInput, ResolvePayoutConcernInput } from '../schemas/payout.schema';
 
 export type { CoveredSaleItem, PayoutDisputeRecord, PayoutRecord };
 
 export interface RaisePayoutConcernResult {
   payout: PayoutRecord;
   dispute: PayoutDisputeRecord;
+}
+
+export interface ResolvePayoutConcernResult {
+  payout: PayoutRecord;
+  dispute: PayoutDisputeRecord;
+  adjustmentEntry: LedgerEntryRecord | null;
 }
 
 export interface RecordedPayoutResult {
@@ -316,6 +323,104 @@ export class PayoutService {
   async getPayoutForAdmin(admin: AuthUser, payoutId: string): Promise<PayoutDetailView> {
     adminScope(admin);
     return this.getPayoutDetailForScope({ admin: true }, payoutId);
+  }
+
+  /**
+   * #89 (FR-8.8): Admin resolves an open payout concern on a DISPUTED payout (with no time limit).
+   * Inside one transaction:
+   * - Validates the payout is DISPUTED and has an OPEN dispute
+   * - Optionally writes a manual ADJUSTMENT ledger entry via LedgerService.recordAdjustment
+   * - Marks the dispute RESOLVED with resolutionNotes, resolvedById, resolvedAt, and adjustmentLedgerId
+   * - Transitions the payout status DISPUTED -> RESOLVED
+   * - Writes a PAYOUT_CONCERN_RESOLVED audit entry.
+   */
+  async resolvePayoutConcern(
+    admin: AuthUser,
+    payoutId: string,
+    input: ResolvePayoutConcernInput,
+    now = new Date(),
+  ): Promise<ResolvePayoutConcernResult> {
+    adminScope(admin);
+    return this.transactions.run(async (tx) => {
+      const current = await this.payoutDao.getPayoutBy({ admin: true }, { id: payoutId }, tx);
+      if (!current) throw new AppException(ErrorCode.NOT_FOUND, { entity: 'payout', id: payoutId });
+
+      const openDispute = current.disputes.find((d) => d.status === DisputeStatus.OPEN) ?? null;
+      const { disputeId, resolutionNotes } = assertCanResolvePayoutConcern({
+        payoutId: current.id,
+        payoutStatus: current.status,
+        openDisputeId: openDispute?.id ?? null,
+        resolutionNotes: input.resolutionNotes,
+        adjustmentAmountMinor: input.adjustmentAmountMinor,
+      });
+
+      const updated = await this.payoutDao.updatePayoutStatusIfCurrent(
+        current.id,
+        PayoutStatus.DISPUTED,
+        { status: PayoutStatus.RESOLVED },
+        tx,
+      );
+      if (!updated) {
+        throw new AppException(ErrorCode.INVALID_STATE_TRANSITION, {
+          payoutId: current.id,
+          reason: 'Payout status changed while resolving concern',
+        });
+      }
+
+      let adjustmentEntry: LedgerEntryRecord | null = null;
+      if (input.adjustmentAmountMinor !== undefined) {
+        const currency =
+          input.adjustmentCurrency ?? current.ledgerEntries[0]?.currency ?? 'PKR';
+        const adj = await this.ledgerService.recordAdjustment(
+          admin,
+          current.teacherId,
+          {
+            amountMinor: input.adjustmentAmountMinor,
+            currency,
+            reason: `Payout ${current.transactionId ?? current.id} dispute resolution: ${resolutionNotes}`,
+          },
+          tx,
+        );
+        adjustmentEntry = adj.entry;
+      }
+
+      const dispute = await this.payoutDao.resolvePayoutDispute(
+        disputeId,
+        {
+          resolutionNotes,
+          adjustmentLedgerId: adjustmentEntry?.id ?? null,
+          resolvedById: admin.id,
+          resolvedAt: now,
+        },
+        tx,
+      );
+
+      await this.auditService.record(
+        {
+          actorUserId: admin.id,
+          action: 'PAYOUT_CONCERN_RESOLVED',
+          entityType: 'payout_dispute',
+          entityId: dispute.id,
+          details: {
+            payoutId: current.id,
+            teacherId: current.teacherId,
+            resolutionNotes,
+            adjustmentLedgerId: adjustmentEntry?.id ?? null,
+            adjustmentAmountMinor: input.adjustmentAmountMinor?.toString() ?? null,
+          },
+        },
+        tx,
+      );
+
+      const payout = (await this.payoutDao.getPayoutBy({ admin: true }, { id: current.id }, tx))!;
+      return { payout, dispute, adjustmentEntry };
+    });
+  }
+
+  /** #102 / #106: Count of open payout concerns across the platform, for the admin dashboard. */
+  countOpenConcerns(admin: AuthUser): Promise<number> {
+    adminScope(admin);
+    return this.payoutDao.countOpenDisputes();
   }
 
   /**

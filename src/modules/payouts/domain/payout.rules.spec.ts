@@ -1,5 +1,6 @@
 import {
   assertCanRaisePayoutConcern,
+  assertCanResolvePayoutConcern,
   buildPayoutCoverageEmailLines,
   buildPayoutRecordingPlan,
   formatPayoutMoney,
@@ -10,7 +11,7 @@ import {
   selectCoveredSalesForPayout,
 } from './payout.rules';
 
-describe('payout rules (#85, #86, #87, #88, #113)', () => {
+describe('payout rules (#85, #86, #87, #88, #89, #113)', () => {
   const now = new Date('2026-04-10T10:00:00.000Z');
 
   it('computes dispute deadline N days after payout recording time', () => {
@@ -223,6 +224,49 @@ describe('payout rules (#85, #86, #87, #88, #113)', () => {
         disputeDeadline: deadline,
         reason: '   ',
         now: withinWindow,
+      }),
+    ).toThrow(PayoutRefusedError);
+  });
+
+  it('#89: validates resolving an open concern with no time limit, and refuses non-disputed payouts or blank notes', () => {
+    expect(
+      assertCanResolvePayoutConcern({
+        payoutId: 'p1',
+        payoutStatus: 'DISPUTED',
+        openDisputeId: 'd1',
+        resolutionNotes: '  Verified bank slip; crediting PKR 10,000 difference  ',
+        adjustmentAmountMinor: 10000n,
+      }),
+    ).toEqual({
+      disputeId: 'd1',
+      resolutionNotes: 'Verified bank slip; crediting PKR 10,000 difference',
+    });
+
+    expect(() =>
+      assertCanResolvePayoutConcern({
+        payoutId: 'p1',
+        payoutStatus: 'PENDING',
+        openDisputeId: null,
+        resolutionNotes: 'Notes',
+      }),
+    ).toThrow(PayoutRefusedError);
+
+    expect(() =>
+      assertCanResolvePayoutConcern({
+        payoutId: 'p1',
+        payoutStatus: 'DISPUTED',
+        openDisputeId: 'd1',
+        resolutionNotes: '   ',
+      }),
+    ).toThrow(PayoutRefusedError);
+
+    expect(() =>
+      assertCanResolvePayoutConcern({
+        payoutId: 'p1',
+        payoutStatus: 'DISPUTED',
+        openDisputeId: 'd1',
+        resolutionNotes: 'Zero adjustment',
+        adjustmentAmountMinor: 0n,
       }),
     ).toThrow(PayoutRefusedError);
   });

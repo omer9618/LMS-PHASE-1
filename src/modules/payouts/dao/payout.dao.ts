@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PayoutStatus, Prisma } from '@prisma/client';
+import { DisputeStatus, PayoutStatus, Prisma } from '@prisma/client';
 import { scopeWhere, TeacherOwnerScope, TeacherScope } from '../../../common/auth/scope';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { TransactionClient } from '../../../prisma/prisma.types';
@@ -160,6 +160,37 @@ export class PayoutDao {
         reason: data.reason,
       },
       select: payoutDisputeSelect,
+    });
+  }
+
+  /** #89: Resolves an OPEN payout_disputes row with resolutionNotes, resolvedById, resolvedAt, and optional adjustmentLedgerId. */
+  resolvePayoutDispute(
+    disputeId: string,
+    data: {
+      resolutionNotes: string;
+      adjustmentLedgerId: string | null;
+      resolvedById: string;
+      resolvedAt: Date;
+    },
+    tx?: TransactionClient,
+  ): Promise<PayoutDisputeRecord> {
+    return (tx ?? this.prisma).payoutDispute.update({
+      where: { id: disputeId },
+      data: {
+        status: DisputeStatus.RESOLVED,
+        resolutionNotes: data.resolutionNotes,
+        adjustmentLedgerId: data.adjustmentLedgerId,
+        resolvedById: data.resolvedById,
+        resolvedAt: data.resolvedAt,
+      },
+      select: payoutDisputeSelect,
+    });
+  }
+
+  /** #102 / #106: Counts open payout concerns across the platform. */
+  countOpenDisputes(tx?: TransactionClient): Promise<number> {
+    return (tx ?? this.prisma).payoutDispute.count({
+      where: { status: DisputeStatus.OPEN },
     });
   }
 }

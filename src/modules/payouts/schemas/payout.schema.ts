@@ -41,3 +41,23 @@ export const raisePayoutConcernSchema = z.strictObject({
   reason: z.string().trim().min(1).max(2000),
 });
 export type RaisePayoutConcernInput = z.infer<typeof raisePayoutConcernSchema>;
+const signedNonZeroMoneyMinor = z
+  .string()
+  .regex(/^-?[1-9]\d{0,17}$/, 'Must be a non-zero signed whole number of minor units, sent as a string')
+  .transform((value) => BigInt(value));
+
+/**
+ * #89 (FR-8.8): Admin resolves an open payout concern with written resolutionNotes
+ * and an optional signed ledger adjustment.
+ */
+export const resolvePayoutConcernSchema = z.strictObject({
+  resolutionNotes: z.string().trim().min(1).max(2000),
+  adjustmentAmountMinor: signedNonZeroMoneyMinor.optional(),
+  adjustmentCurrency: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{3}$/, 'Must be a 3-letter ISO currency code')
+    .optional(),
+});
+export type ResolvePayoutConcernInput = z.infer<typeof resolvePayoutConcernSchema>;

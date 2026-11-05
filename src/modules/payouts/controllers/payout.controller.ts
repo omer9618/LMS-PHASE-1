@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -13,6 +13,8 @@ import {
   raisePayoutConcernSchema,
   RecordPayoutInput,
   recordPayoutSchema,
+  ResolvePayoutConcernInput,
+  resolvePayoutConcernSchema,
 } from '../schemas/payout.schema';
 import {
   PayoutDetailView,
@@ -20,6 +22,7 @@ import {
   PayoutService,
   RaisePayoutConcernResult,
   RecordedPayoutResult,
+  ResolvePayoutConcernResult,
 } from '../services/payout.service';
 
 /** #85: Admin records and inspects teacher payouts. */
@@ -51,6 +54,16 @@ export class AdminPayoutsController {
     @Param(new ZodValidationPipe(payoutIdParamsSchema)) params: PayoutIdParams,
   ): Promise<PayoutDetailView> {
     return this.payoutService.getPayoutForAdmin(admin, params.payoutId);
+  }
+
+  @Post('payouts/:payoutId/concerns/resolve')
+  @HttpCode(HttpStatus.OK)
+  resolveConcern(
+    @CurrentUser() admin: AuthUser,
+    @Param(new ZodValidationPipe(payoutIdParamsSchema)) params: PayoutIdParams,
+    @Body(new ZodValidationPipe(resolvePayoutConcernSchema)) body: ResolvePayoutConcernInput,
+  ): Promise<ResolvePayoutConcernResult> {
+    return this.payoutService.resolvePayoutConcern(admin, params.payoutId, body);
   }
 }
 

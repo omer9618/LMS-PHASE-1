@@ -242,3 +242,49 @@ export function assertCanRaisePayoutConcern(input: AssertCanRaisePayoutConcernIn
   }
   return trimmedReason;
 }
+export type DisputeStatusValue = 'OPEN' | 'RESOLVED';
+
+export interface AssertCanResolvePayoutConcernInput {
+  payoutId: string;
+  payoutStatus: PayoutStatusValue;
+  openDisputeId: string | null;
+  resolutionNotes: string;
+  adjustmentAmountMinor?: bigint;
+}
+
+/**
+ * #89 (FR-8.8): Validates that an admin can resolve a payout concern:
+ * - payout must be DISPUTED with an OPEN dispute record
+ * - resolutionNotes must be non-empty
+ * - if adjustmentAmountMinor is provided, it must be non-zero
+ * - No time limit applies to resolving an open concern (it stays open until resolved).
+ */
+export function assertCanResolvePayoutConcern(input: AssertCanResolvePayoutConcernInput): {
+  disputeId: string;
+  resolutionNotes: string;
+} {
+  const trimmedNotes = input.resolutionNotes.trim();
+  if (trimmedNotes.length === 0) {
+    throw new PayoutRefusedError('Resolving a payout concern requires resolution notes', {
+      reason: 'EMPTY_RESOLUTION_NOTES',
+      payoutId: input.payoutId,
+    });
+  }
+  if (input.payoutStatus !== 'DISPUTED' || !input.openDisputeId) {
+    throw new PayoutRefusedError('This payout does not have an open concern to resolve', {
+      reason: 'NO_OPEN_CONCERN',
+      payoutId: input.payoutId,
+      status: input.payoutStatus,
+    });
+  }
+  if (input.adjustmentAmountMinor !== undefined && input.adjustmentAmountMinor === 0n) {
+    throw new PayoutRefusedError('Adjustment amount cannot be zero', {
+      reason: 'ZERO_ADJUSTMENT',
+      payoutId: input.payoutId,
+    });
+  }
+  return {
+    disputeId: input.openDisputeId,
+    resolutionNotes: trimmedNotes,
+  };
+}
