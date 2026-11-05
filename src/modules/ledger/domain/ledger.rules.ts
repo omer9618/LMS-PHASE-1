@@ -550,3 +550,70 @@ export function assertTargetIsTeacher(teacherId: string, roles: readonly string[
     });
   }
 }
+export type PayoutStatusValue = 'PENDING' | 'ACCEPTED' | 'DISPUTED' | 'RESOLVED';
+
+export interface TeacherPayoutHistoryItem {
+  id: string;
+  teacherId: string;
+  amountMinor: bigint;
+  method: string | null;
+  transactionId: string | null;
+  periodStart: Date | null;
+  periodEnd: Date | null;
+  status: PayoutStatusValue;
+  recordedById: string;
+  recordedAt: Date;
+  transferDate: Date | null;
+  disputeDeadline: Date;
+  acceptedAt: Date | null;
+}
+
+export interface TeacherLedgerStatementEntry {
+  id: string;
+  teacherId: string;
+  type: LedgerEntryTypeValue;
+  amountMinor: bigint;
+  currency: string;
+  orderItemId: string | null;
+  payoutId: string | null;
+  refundId: string | null;
+  description: string | null;
+  createdById: string | null;
+  createdAt: Date;
+}
+
+export interface TeacherEarningsDashboard {
+  balances: DerivedCurrencyBalance[];
+  pendingSales: {
+    items: TeacherSaleOrderItem[];
+    totalsByCurrency: TeacherSalesCurrencyTotals[];
+  };
+  confirmedSales: {
+    items: TeacherSaleOrderItem[];
+    totalsByCurrency: TeacherSalesCurrencyTotals[];
+  };
+  ledgerEntries: TeacherLedgerStatementEntry[];
+  payouts: TeacherPayoutHistoryItem[];
+}
+
+/**
+ * #84 (FR-8.4): Builds the complete teacher earnings dashboard view:
+ * - derived balances by currency (#79)
+ * - pending (unverified) vs confirmed sales with frozen gross price, commission bps, commission amount, and net teacher earning (#81)
+ * - full append-only ledger statement (#78)
+ * - payout history.
+ */
+export function buildTeacherEarningsDashboard(input: {
+  orderItems: readonly TeacherSaleOrderItem[];
+  ledgerEntries: readonly TeacherLedgerStatementEntry[];
+  payouts: readonly TeacherPayoutHistoryItem[];
+}): TeacherEarningsDashboard {
+  const separated = separatePendingAndConfirmedSales(input.orderItems, input.ledgerEntries);
+  return {
+    balances: separated.earnedBalances,
+    pendingSales: separated.pending,
+    confirmedSales: separated.confirmed,
+    ledgerEntries: [...input.ledgerEntries],
+    payouts: [...input.payouts],
+  };
+}

@@ -1,19 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { LedgerEntryType, OrderStatus } from '@prisma/client';
 import type { AuthUser } from '../../../common/auth/auth-user';
-import { adminScope, TeacherScope } from '../../../common/auth/scope';
+import { adminScope, teacherScope, TeacherScope } from '../../../common/auth/scope';
 import type { TransactionClient } from '../../../prisma/prisma.types';
 import { TransactionService } from '../../../prisma/transaction.service';
 import { AuditService } from '../../audit/services/audit.service';
 import { UserAdminService } from '../../auth/services/user-admin.service';
 import { EnrollmentService } from '../../enrollment/services/enrollment.service';
 import { OrderService, TeacherOrderItemRecord } from '../../orders/services/order.service';
-import { LedgerDao, LedgerEntryRecord } from '../dao/ledger.dao';
+import { LedgerDao, LedgerEntryRecord, PayoutHistoryRecord } from '../dao/ledger.dao';
 import { RefundDao, RefundRecord } from '../dao/refund.dao';
 import {
   assertOrderRefundable,
   assertTargetIsTeacher,
   buildAdjustmentEntry,
+  buildTeacherEarningsDashboard,
   buildEarningEntries,
   buildRefundEntries,
   computeCurrencyBalance,
@@ -24,6 +25,7 @@ import {
   PENDING_SALE_ORDER_STATUSES,
   SeparatedTeacherSales,
   separatePendingAndConfirmedSales,
+  TeacherEarningsDashboard,
   TeacherSaleOrderItem,
 } from '../domain/ledger.rules';
 import type { RecordAdjustmentInput, RecordRefundInput } from '../schemas/ledger.schema';
@@ -32,8 +34,10 @@ export type {
   ConfirmedOrderLine,
   DerivedCurrencyBalance,
   LedgerEntryRecord,
+  PayoutHistoryRecord,
   RefundRecord,
   SeparatedTeacherSales,
+  TeacherEarningsDashboard,
   TeacherSaleOrderItem,
 };
 
@@ -352,6 +356,57 @@ export class LedgerService {
       orderItems.map(toTeacherSaleOrderItem),
       ledgerEntries,
     );
+  }
+
+  /**
+   * #84 (FR-8.4): Returns the signed-in teacher's earnings dashboard:
+   * own sales (pending vs confirmed) with gross price, commission rate, commission amount,
+   * net teacher earning, derived balances by currency, append-only ledger statement, and payout history.
+   */
+  async getMyEarningsDashboard(teacher: AuthUser): Promise<TeacherEarningsDashboard> {
+    const scope = teacherScope(teacher);
+    return this.getEarningsDashboardForScope(scope);
+  }
+
+  /**
+   * #84: Returns the signed-in teacher's append-only ledger statement.
+   */
+  async listMyLedgerEntries(teacher: AuthUser): Promise<LedgerEntryRecord[]> {
+    const scope = teacherScope(teacher);
+    return this.ledgerDao.getLedgerEntriesBy(scope, {});
+  }
+
+  /**
+   * #84: Admin views a specific teacher's earnings dashboard.
+   */
+  async getTeacherEarningsDashboardForAdmin(
+    admin: AuthUser,
+    teacherId: string,
+  ): Promise<TeacherEarningsDashboard> {
+    adminScope(admin);
+    const targetUser = await this.userAdminService.getUser(admin, teacherId);
+    assertTargetIsTeacher(targetUser.id, targetUser.roles);
+    return this.getEarningsDashboardForScope({ teacherId: targetUser.id });
+  }
+
+  private async getEarningsDashboardForScope(
+    scope: TeacherScope,
+    tx?: TransactionClient,
+  ): Promise<TeacherEarningsDashboard> {
+    const statuses: OrderStatus[] = [
+      ...PENDING_SALE_ORDER_STATUSES,
+      ...CONFIRMED_SALE_ORDER_STATUSES,
+    ];
+    const [orderItems, ledgerEntries, payouts] = await Promise.all([
+      this.orderService.listTeacherOrderItems(scope, statuses, tx),
+      this.ledgerDao.getLedgerEntriesBy(scope, {}, tx),
+      this.ledgerDao.getPayoutsBy(scope, {}, tx),
+    ]);
+    return buildTeacherEarningsDashboard({
+      orderItems: orderItems.map(toTeacherSaleOrderItem),
+      ledgerEntries,
+      payouts,
+    });
   }
 }
 

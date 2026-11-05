@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -14,7 +14,30 @@ import {
   RefundOrderParams,
   refundOrderParamsSchema,
 } from '../schemas/ledger.schema';
-import { AdjustmentResult, LedgerService, RefundOrderResult } from '../services/ledger.service';
+import {
+  AdjustmentResult,
+  LedgerEntryRecord,
+  LedgerService,
+  RefundOrderResult,
+  TeacherEarningsDashboard,
+} from '../services/ledger.service';
+
+/** #84: Teacher earnings dashboard & ledger statement (scoped to the signed-in teacher). */
+@Roles([Role.TEACHER])
+@Controller('teacher')
+export class TeacherEarningsController {
+  constructor(private readonly ledgerService: LedgerService) {}
+
+  @Get('earnings')
+  getEarnings(@CurrentUser() teacher: AuthUser): Promise<TeacherEarningsDashboard> {
+    return this.ledgerService.getMyEarningsDashboard(teacher);
+  }
+
+  @Get('ledger')
+  listLedger(@CurrentUser() teacher: AuthUser): Promise<LedgerEntryRecord[]> {
+    return this.ledgerService.listMyLedgerEntries(teacher);
+  }
+}
 
 /** #82: Admin order refund recording, enrollment revocation, and compensating ledger entries. */
 @Roles([Role.ADMIN])
@@ -33,11 +56,19 @@ export class AdminRefundsController {
   }
 }
 
-/** #83: Admin manual balance adjustments on a teacher's ledger. */
+/** #83, #84: Admin manual balance adjustments and teacher ledger/earnings statement view. */
 @Roles([Role.ADMIN])
 @Controller('admin/teachers')
 export class AdminLedgerController {
   constructor(private readonly ledgerService: LedgerService) {}
+
+  @Get(':teacherId/earnings')
+  getTeacherEarnings(
+    @CurrentUser() admin: AuthUser,
+    @Param(new ZodValidationPipe(adminTeacherParamsSchema)) params: AdminTeacherParams,
+  ): Promise<TeacherEarningsDashboard> {
+    return this.ledgerService.getTeacherEarningsDashboardForAdmin(admin, params.teacherId);
+  }
 
   @Post(':teacherId/ledger/adjustments')
   recordAdjustment(
