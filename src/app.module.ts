@@ -23,6 +23,7 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { ProgressModule } from './modules/progress/progress.module';
 // Payment verification and ledger (#63-#67, #80)
 import { LedgerModule } from './modules/ledger/ledger.module';
+import { PayoutsModule } from './modules/payouts/payouts.module';
 import { VerificationModule } from './modules/verification/verification.module';
 import { PlatformSettingsModule } from './modules/platform-settings/platform-settings.module';
 import { ReferenceDataModule } from './modules/reference-data/reference-data.module';
@@ -61,13 +62,14 @@ import { AdminModule } from './modules/admin/admin.module';
     CatalogueModule,
     EnrollmentModule,
     OrdersModule,
-    // Progress and progression (#90–#97, #77)
+    // Progress and progression (#90â€“#97, #77)
     ProgressModule,
     // Assessment (#68-#76)
     AssessmentModule,
     // Profiles (#98-#100)
     ProfilesModule,
     LedgerModule,
+    PayoutsModule,
     VerificationModule,
     // Admin dashboard and user overview (#102, #103)
     AdminModule,

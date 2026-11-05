@@ -16,6 +16,8 @@ import {
   buildAdjustmentEntry,
   buildTeacherEarningsDashboard,
   buildEarningEntries,
+  buildPayoutEntry,
+  BuildPayoutEntryInput,
   buildRefundEntries,
   computeCurrencyBalance,
   computeDerivedBalances,
@@ -31,6 +33,7 @@ import {
 import type { RecordAdjustmentInput, RecordRefundInput } from '../schemas/ledger.schema';
 
 export type {
+  BuildPayoutEntryInput,
   ConfirmedOrderLine,
   DerivedCurrencyBalance,
   LedgerEntryRecord,
@@ -80,6 +83,29 @@ export class LedgerService {
     private readonly auditService: AuditService,
     private readonly transactions: TransactionService,
   ) {}
+
+  /**
+   * #85 (FR-8.5): Records a negative PAYOUT compensating entry in teacher_ledger inside
+   * the payout recording transaction.
+   */
+  async recordPayoutEntry(
+    input: BuildPayoutEntryInput & { createdById: string },
+    tx: TransactionClient,
+  ): Promise<LedgerEntryRecord> {
+    const draft = buildPayoutEntry(input);
+    return this.ledgerDao.createLedgerEntry(
+      { teacherId: draft.teacherId },
+      {
+        type: LedgerEntryType.PAYOUT,
+        amountMinor: draft.amountMinor,
+        currency: draft.currency,
+        payoutId: draft.payoutId,
+        description: draft.description,
+        createdById: input.createdById,
+      },
+      tx,
+    );
+  }
 
   /**
    * #80: one EARNING entry per confirmed order line for its net teacher amount, inside the

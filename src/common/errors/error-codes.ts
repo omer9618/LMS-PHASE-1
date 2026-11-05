@@ -43,7 +43,7 @@ export enum ErrorCode {
   // Orders and verification
   ORDER_REFUSED = 'ORDER_REFUSED',
 
-  // Progress and progression (#90–#97, #77)
+  // Progress and progression (#90â€“#97, #77)
   LESSON_LOCKED = 'LESSON_LOCKED',
   PROGRESS_REFUSED = 'PROGRESS_REFUSED',
   // Assessment (#68-#76)
@@ -58,6 +58,7 @@ export enum ErrorCode {
   // Payment verification and ledger (#63-#67, #80)
   VERIFICATION_REFUSED = 'VERIFICATION_REFUSED',
   LEDGER_REFUSED = 'LEDGER_REFUSED',
+  PAYOUT_REFUSED = 'PAYOUT_REFUSED',
 }
 
 export interface ErrorDefinition {
@@ -126,7 +127,7 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
     status: 409,
     message: 'This order cannot be placed',
   },
-  // Progress and progression (#90–#97, #77)
+  // Progress and progression (#90â€“#97, #77)
   [ErrorCode.LESSON_LOCKED]: {
     status: 403,
     message: 'This lesson is locked',
@@ -162,6 +163,10 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
   [ErrorCode.LEDGER_REFUSED]: {
     status: 409,
     message: 'This ledger entry cannot be written',
+  },
+  [ErrorCode.PAYOUT_REFUSED]: {
+    status: 409,
+    message: 'This payout action is not allowed',
   },
 };
 
