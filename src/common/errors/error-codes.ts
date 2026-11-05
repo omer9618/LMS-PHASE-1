@@ -42,6 +42,23 @@ export enum ErrorCode {
 
   // Orders and verification
   ORDER_REFUSED = 'ORDER_REFUSED',
+
+  // Progress and progression (#90â€“#97, #77)
+  LESSON_LOCKED = 'LESSON_LOCKED',
+  PROGRESS_REFUSED = 'PROGRESS_REFUSED',
+  // Assessment (#68-#76)
+  QUIZ_LOCKED = 'QUIZ_LOCKED',
+  QUIZ_ATTEMPT_REFUSED = 'QUIZ_ATTEMPT_REFUSED',
+  QUIZ_ATTEMPT_CLOSED = 'QUIZ_ATTEMPT_CLOSED',
+
+  // Profiles (#98-#100) and role context (#109)
+  PROFILE_INCOMPLETE = 'PROFILE_INCOMPLETE',
+  ROLE_CONTEXT_REQUIRED = 'ROLE_CONTEXT_REQUIRED',
+
+  // Payment verification and ledger (#63-#67, #80)
+  VERIFICATION_REFUSED = 'VERIFICATION_REFUSED',
+  LEDGER_REFUSED = 'LEDGER_REFUSED',
+  PAYOUT_REFUSED = 'PAYOUT_REFUSED',
 }
 
 export interface ErrorDefinition {
@@ -109,6 +126,47 @@ export const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
   [ErrorCode.ORDER_REFUSED]: {
     status: 409,
     message: 'This order cannot be placed',
+  },
+  // Progress and progression (#90â€“#97, #77)
+  [ErrorCode.LESSON_LOCKED]: {
+    status: 403,
+    message: 'This lesson is locked',
+  },
+  [ErrorCode.PROGRESS_REFUSED]: {
+    status: 409,
+    message: 'This progress cannot be recorded',
+  },
+  // Assessment (#68-#76)
+  [ErrorCode.QUIZ_LOCKED]: {
+    status: 409,
+    message: 'Students have attempted this quiz, so this cannot be removed',
+  },
+  [ErrorCode.QUIZ_ATTEMPT_REFUSED]: {
+    status: 409,
+    message: 'You cannot start an attempt at this quiz',
+  },
+  [ErrorCode.QUIZ_ATTEMPT_CLOSED]: { status: 409, message: 'This attempt has ended' },
+  // Profiles (#98-#100) and role context (#109)
+  [ErrorCode.PROFILE_INCOMPLETE]: {
+    status: 422,
+    message: 'The profile needs more detail before it can be published',
+  },
+  [ErrorCode.ROLE_CONTEXT_REQUIRED]: {
+    status: 403,
+    message: 'Switch to the required context (Admin or Teacher) to do this',
+  },
+  // Payment verification and ledger (#63-#67, #80)
+  [ErrorCode.VERIFICATION_REFUSED]: {
+    status: 422,
+    message: 'This payment decision is not valid',
+  },
+  [ErrorCode.LEDGER_REFUSED]: {
+    status: 409,
+    message: 'This ledger entry cannot be written',
+  },
+  [ErrorCode.PAYOUT_REFUSED]: {
+    status: 409,
+    message: 'This payout action is not allowed',
   },
 };
 

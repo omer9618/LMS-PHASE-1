@@ -84,6 +84,8 @@ describe('BunnyStreamProvider (per bunny.net/docs)', () => {
 
     it('rejects bad signatures, wrong versions and other libraries', () => {
       expect(provider.parseWebhook(body, headers('0'.repeat(64)))).toBeNull();
+      // 64 characters but more than 64 bytes: refused, not a thrown RangeError (#119).
+      expect(provider.parseWebhook(body, headers('é'.repeat(64)))).toBeNull();
       expect(
         provider.parseWebhook(body, { ...headers(valid), 'x-bunnystream-signature-version': 'v2' }),
       ).toBeNull();

@@ -1,8 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { OrderStatus, Prisma, UserStatus } from '@prisma/client';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthUser } from '../../../common/auth/auth-user';
-import { adminScope } from '../../../common/auth/scope';
+import { adminScope, TeacherScope } from '../../../common/auth/scope';
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
 import type { TransactionClient } from '../../../prisma/prisma.types';
@@ -10,6 +11,7 @@ import { TransactionService } from '../../../prisma/transaction.service';
 import { AuditService } from '../../audit/services/audit.service';
 import { CourseService } from '../../courses/services/course.service';
 import { EmailService } from '../../email/services/email.service';
+import type { EmailTemplateData, EmailTemplateName } from '../../email/templates';
 import { EnrollmentAccessService } from '../../enrollment/services/enrollment-access.service';
 import { PlatformSettingsService } from '../../platform-settings/services/platform-settings.service';
 import {
@@ -17,66 +19,62 @@ import {
   IncomingFile,
   StorageService,
 } from '../../storage/services/storage.service';
-import { OrderDao, OrderItemRecord, OrderRecord, PaymentProofRecord } from '../dao/order.dao';
+import { OrderDao, OrderItemRecord, OrderRecord, PaymentProofRecord, TeacherOrderItemRecord } from '../dao/order.dao';
 import {
   assertEmailVerifiedForOrder,
   buildCartQuote,
   buildDuplicateTransactionIdWarning,
+  buildDuplicateTransactionIdWarnings,
   buildOrderReceipt,
   buildPaymentInstructions,
   CartQuote,
   computeOrderExpiry,
   describeStudentOrderNextStep,
   DuplicateTransactionIdWarning,
+  formatAmount,
   formatPaymentReference,
+  isOrderDueToLapse,
+  LAPSABLE_ORDER_STATUSES,
+  lastPaymentDecision,
+  LastPaymentDecision,
+  OPEN_ORDER_STATUSES,
   OrderAction,
   OrderReceipt,
   OrderTransitionResult,
   PaymentInstructions,
   PurchasableCourseFacts,
-  StudentOrderStatusGuidance,
+  REJECTION_REASON_LABELS,
+  StudentOrderGuidance,
   transitionOrder,
 } from '../domain/order.rules';
 import type {
-  CartPreviewInput,
+  QuoteCartInput,
   CreateOrderInput,
   SubmitPaymentProofInput,
 } from '../schemas/order.schema';
 
-export type { OrderItemRecord, OrderReceipt, OrderRecord, PaymentProofRecord };
+export type { DuplicateTransactionIdWarning, OrderItemRecord, OrderReceipt, OrderRecord, TeacherOrderItemRecord };
 
-export interface CartPreviewItemView {
-  courseId: string;
-  title: string;
-  teacherId: string;
-  teacherName: string | null;
-  priceMinor: bigint;
-  currency: string;
-}
-
-export interface CartPreviewView {
-  items: CartPreviewItemView[];
+export interface CartQuoteView {
+  items: Array<{
+    courseId: string;
+    title: string;
+    teacherId: string;
+    teacherName: string | null;
+    priceMinor: bigint;
+    currency: string;
+  }>;
   currency: string;
   totalMinor: bigint;
   teacherCount: number;
 }
 
-export interface StudentOrderItemView {
-  id: string;
-  courseId: string;
-  courseTitle: string;
-  teacherId: string;
-  teacherName: string | null;
-  priceMinor: bigint;
-  currency: string;
-}
-
-export interface StudentPaymentProofView {
+export interface PaymentProofView {
   id: string;
   transactionId: string;
   amountClaimedMinor: bigint | null;
-  hasProofFile: boolean;
-  proofDownloadUrl: string | null;
+  hasFile: boolean;
+  fileUrl: string | null;
   submittedAt: Date;
 }
 
@@ -89,31 +87,34 @@ export interface StudentOrderView {
   createdAt: Date;
   expiresAt: Date | null;
   verifiedAt: Date | null;
-  items: StudentOrderItemView[];
-  proofs: StudentPaymentProofView[];
+  items: Array<{
+    courseId: string;
+    courseTitle: string;
+    teacherName: string | null;
+    priceMinor: bigint;
+  }>;
+  proofs: PaymentProofView[];
   paymentInstructions: PaymentInstructions;
-  guidance: StudentOrderStatusGuidance;
+  lastDecision: LastPaymentDecision | null;
+  guidance: StudentOrderGuidance;
 }
 
-export interface SubmittedPaymentProofView {
-  orderId: string;
-  orderStatus: OrderStatus;
-  proof: StudentPaymentProofView;
-  proofs: StudentPaymentProofView[];
+export interface SubmittedProofView {
+  order: StudentOrderView;
+  proof: PaymentProofView;
+  /** #59: set when the same transaction id was submitted on another order. Never blocks. */
   duplicateTransactionIdWarning: DuplicateTransactionIdWarning | null;
-  guidance: StudentOrderStatusGuidance;
 }
 
-export interface AdminOrderDetailView extends OrderRecord {
+export interface AdminOrderView extends Omit<OrderRecord, 'proofs'> {
+  proofs: PaymentProofView[];
   duplicateTransactionIdWarnings: DuplicateTransactionIdWarning[];
 }
 
 /**
- * Orders and cart (#54, #55, #56, #57, #58, #59, #60). Validates multi-teacher carts, creates
- * orders with unique payment references, persists frozen price and commission snapshots on every
- * line item, enforces the order lifecycle state machine with audit attribution, records payment
- * proofs, warns on duplicate transaction IDs across orders, and serves the student order status
- * screen with next-step guidance.
+ * Orders (#54-#62): cart quotes, order creation with frozen line snapshots, payment proofs,
+ * the student's order screens, receipts and the expiry sweep. Its exported methods give the
+ * verification module (#63-#67) the order reads, state transitions and student emails it needs.
  */
 @Injectable()
 export class OrderService {
@@ -126,13 +127,13 @@ export class OrderService {
     private readonly email: EmailService,
     private readonly audit: AuditService,
     private readonly storage: StorageService,
+    @InjectPinoLogger(OrderService.name) private readonly logger: PinoLogger,
   ) {}
 
-  /**
-   * #54: validates a multi-teacher cart and returns the student-facing summary.
-   * Internal commission splits are computed by the domain rules (for #56) and never exposed here.
-   */
-  async previewCart(user: AuthUser, input: CartPreviewInput): Promise<CartPreviewView> {
+  // â”€â”€ Student â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  /** #54: validates a cart and totals it. Commission is internal and never shown to students. */
+  async quote(user: AuthUser, input: QuoteCartInput): Promise<CartQuoteView> {
     const quote = await this.quoteCart(user, input.courseIds);
     return {
       items: quote.items.map((item) => ({
@@ -150,19 +151,18 @@ export class OrderService {
   }
 
   /**
-   * #55, #56, #57: creates an order with a unique payment reference, stores frozen price,
-   * commission rate, commission amount and net teacher earning snapshots on each line item,
-   * records the initial ORDER_CREATED audit entry, and emails transfer instructions.
+   * #55, #56: creates a PENDING order with a unique payment reference and a frozen price and
+   * commission snapshot per line, then emails the bank transfer instructions. #11: the student's
+   * email must be verified.
    */
   async createOrder(user: AuthUser, input: CreateOrderInput): Promise<StudentOrderView> {
     assertEmailVerifiedForOrder(user.isEmailVerified);
     const expiryHours = await this.platformSettings.get('ORDER_EXPIRY_WINDOW_HOURS');
     const now = new Date();
-    const expiresAt = computeOrderExpiry(now, expiryHours);
 
     const order = await this.transactions.run(async (tx) => {
       const quote = await this.quoteCart(user, input.courseIds, tx);
-      const paymentReference = await this.generateUniquePaymentReference(now, tx);
+      const paymentReference = await this.uniquePaymentReference(tx);
       const created = await this.orderDao.createOrder(
         {
           studentId: user.id,
@@ -170,7 +170,7 @@ export class OrderService {
           totalMinor: quote.totalMinor,
           currency: quote.currency,
           status: OrderStatus.PENDING,
-          expiresAt,
+          expiresAt: computeOrderExpiry(now, expiryHours),
           items: quote.items.map((item) => ({
             courseId: item.courseId,
             teacherId: item.teacherId,
@@ -190,8 +190,7 @@ export class OrderService {
           entityId: created.id,
           details: {
             to: OrderStatus.PENDING,
-            transitionedAt: now.toISOString(),
-            paymentReference: created.paymentReference,
+            paymentReference,
             totalMinor: created.totalMinor.toString(),
             currency: created.currency,
             courseIds: created.items.map((item) => item.courseId),
@@ -202,125 +201,74 @@ export class OrderService {
       return created;
     });
 
-    const view = await this.toStudentOrderView(order);
-    await this.email.send(user.email, 'ORDER_CREATED', {
-      paymentReference: view.paymentReference,
-      totalMinor: view.totalMinor.toString(),
-      currency: view.currency,
-      bankName: view.paymentInstructions.bank.bankName,
-      accountTitle: view.paymentInstructions.bank.accountTitle,
-      accountNumber: view.paymentInstructions.bank.accountNumber,
-      iban: view.paymentInstructions.bank.iban,
-      expiresAt: expiresAt.toISOString(),
-      orderUrl: this.email.appUrl(`/orders/${view.id}`),
+    this.logger.info(
+      { orderId: order.id, paymentReference: order.paymentReference, studentId: user.id },
+      'Order created',
+    );
+    const view = await this.toStudentView(order);
+    await this.sendOrderEmail(order, 'ORDER_CREATED', {
+      paymentReference: order.paymentReference,
+      amount: formatAmount(order.totalMinor, order.currency),
+      courses: courseList(order),
+      bankTransferInstructions: view.paymentInstructions.bankTransferInstructions,
+      expiresAt: order.expiresAt?.toISOString() ?? '',
+      orderUrl: this.orderUrl(order.id),
     });
-
     return view;
   }
 
-  /**
-   * #60: lists all orders placed by the current student, newest first, including status,
-   * submitted proofs, payment instructions, and next-step guidance.
-   */
-  async listStudentOrders(user: AuthUser): Promise<StudentOrderView[]> {
+  /** #60: the student's orders, newest first, each with status and what happens next. */
+  async listMyOrders(user: AuthUser): Promise<StudentOrderView[]> {
     const orders = await this.orderDao.getOrdersBy({ studentId: user.id });
-    return Promise.all(orders.map((order) => this.toStudentOrderView(order)));
+    return Promise.all(orders.map((order) => this.toStudentView(order)));
+  }
+
+  /** #60: one of the student's orders. Another student's order is 404. */
+  async getMyOrder(user: AuthUser, orderId: string): Promise<StudentOrderView> {
+    return this.toStudentView(await this.loadMyOrder(user, orderId));
+  }
+
+  /** #62: the receipt of a confirmed order. Refused (409) until the payment is confirmed. */
+  async getMyReceipt(user: AuthUser, orderId: string): Promise<OrderReceipt> {
+    return receiptFor(await this.loadMyOrder(user, orderId));
   }
 
   /**
-   * #60: returns a single order owned by the current student with its current status, submitted
-   * proofs, payment instructions, and what is expected of the student next.
+   * #58, #59: records a payment proof (transaction id, optional file, optional claimed amount).
+   * Any number of proofs per order. A transaction id already used on another order is returned
+   * as a warning and flagged in the admin queue, never refused.
    */
-  async getStudentOrder(user: AuthUser, orderId: string): Promise<StudentOrderView> {
-    const order = await this.orderDao.getOrderBy({ id: orderId, studentId: user.id });
-    if (!order) {
-      throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
-    }
-    return this.toStudentOrderView(order);
-  }
-
-  /**
-   * #62: returns the official receipt for an order owned by the student (or viewed by an admin).
-   * Receipts are issued only upon payment confirmation (`VERIFIED`) â€” never at checkout.
-   */
-  async getOrderReceipt(user: AuthUser, orderId: string): Promise<OrderReceipt> {
-    const isAdmin = user.roles.has('ADMIN');
-    const order = await this.orderDao.getOrderBy(
-      isAdmin ? { id: orderId } : { id: orderId, studentId: user.id },
-    );
-    if (!order) {
-      throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
-    }
-    return buildOrderReceipt({
-      id: order.id,
-      paymentReference: order.paymentReference,
-      status: order.status,
-      verifiedAt: order.verifiedAt,
-      totalMinor: order.totalMinor,
-      currency: order.currency,
-      student: {
-        id: order.student.id,
-        fullName: order.student.fullName,
-        email: order.student.email,
-      },
-      items: order.items.map((item) => ({
-        id: item.id,
-        courseId: item.courseId,
-        courseTitle: item.course.title,
-        teacherId: item.teacherId,
-        teacherName: item.teacher.fullName,
-        priceMinor: item.priceMinor,
-        currency: order.currency,
-      })),
-      transactionIds: order.proofs.map((p) => p.transactionId),
-    });
-  }
-
-  /**
-   * #58, #59: submits a proof of payment for an order owned by the student. Requires a bank
-   * transaction ID, accepts an optional screenshot/PDF (`PAYMENT_PROOF`), supports multiple proofs
-   * per order, transitions the order to `PROOF_SUBMITTED`, and returns a non-blocking warning when
-   * the transaction ID already exists on another order.
-   */
-  async submitPaymentProof(
+  async submitProof(
     user: AuthUser,
     orderId: string,
     input: SubmitPaymentProofInput,
     file?: IncomingFile,
-  ): Promise<SubmittedPaymentProofView> {
-    const existing = await this.orderDao.getOrderBy({ id: orderId, studentId: user.id });
-    if (!existing) {
-      throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
-    }
-
+  ): Promise<SubmittedProofView> {
+    const existing = await this.loadMyOrder(user, orderId);
     const now = new Date();
-    // Validate the state transition upfront before storing any uploaded file.
+    // Check the transition before storing a file we would then have to delete.
     transitionOrder(existing.status, 'SUBMIT_PROOF', now);
+    const stored = file ? await this.storage.store('PAYMENT_PROOF', 'payment-proofs', file) : null;
 
-    const stored = file ? await this.storage.store('PAYMENT_PROOF', 'payment-proof', file) : null;
-
+    let result: {
+      order: OrderRecord;
+      proof: PaymentProofRecord;
+      warning: DuplicateTransactionIdWarning | null;
+    };
     try {
-      const txResult = await this.transactions.run(async (tx) => {
+      result = await this.transactions.run(async (tx) => {
         const order = await this.orderDao.getOrderBy({ id: orderId, studentId: user.id }, tx);
-        if (!order) {
-          throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
-        }
-
-        const otherMatches = await this.orderDao.getOtherOrderProofsByTransactionIds(
+        if (!order) throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
+        const matches = await this.orderDao.getOtherOrderProofsByTransactionIds(
           order.id,
           [input.transactionId],
           tx,
         );
-        const duplicateWarning = buildDuplicateTransactionIdWarning(
+        const warning = buildDuplicateTransactionIdWarning(
           order.id,
           input.transactionId,
-          otherMatches.map((m) => ({
-            orderId: m.order.id,
-            paymentReference: m.order.paymentReference,
-            transactionId: m.transactionId,
-          })),
+          matches.map(toMatch),
         );
-
         const proof = await this.orderDao.createPaymentProof(
           {
             orderId: order.id,
@@ -330,117 +278,153 @@ export class OrderService {
           },
           tx,
         );
-
-        const transition = await this.applyOrderTransition(
+        await this.transition(
           order,
           'SUBMIT_PROOF',
           user.id,
           {
             proofId: proof.id,
             transactionId: proof.transactionId,
-            hasProofFile: proof.proofFileUrl !== null,
-            duplicateTransactionId: duplicateWarning !== null,
-            ...(duplicateWarning
-              ? { conflictingOrderIds: duplicateWarning.conflictingOrderIds }
-              : {}),
-            ...(proof.amountClaimedMinor !== null
-              ? { amountClaimedMinor: proof.amountClaimedMinor.toString() }
-              : {}),
+            hasFile: stored !== null,
+            amountClaimedMinor: proof.amountClaimedMinor?.toString() ?? null,
+            duplicateOfOrderIds: warning?.conflictingOrderIds ?? [],
           },
           now,
           tx,
         );
-
-        const allProofs = await this.orderDao.getPaymentProofsBy({ orderId: order.id }, tx);
-        return {
-          order,
-          orderStatus: transition.to as OrderStatus,
-          proof,
-          allProofs,
-          duplicateWarning,
-        };
+        const updated = await this.orderDao.getOrderBy({ id: order.id }, tx);
+        return { order: updated!, proof, warning };
       });
-
-      const [proofView, proofsView] = await Promise.all([
-        this.toStudentProofView(txResult.proof),
-        Promise.all(txResult.allProofs.map((p) => this.toStudentProofView(p))),
-      ]);
-
-      return {
-        orderId: txResult.order.id,
-        orderStatus: txResult.orderStatus,
-        proof: proofView,
-        proofs: proofsView,
-        duplicateTransactionIdWarning: txResult.duplicateWarning,
-        guidance: describeStudentOrderNextStep({
-          status: txResult.orderStatus,
-          paymentReference: txResult.order.paymentReference,
-          totalMinor: txResult.order.totalMinor,
-          currency: txResult.order.currency,
-          expiresAt: txResult.order.expiresAt,
-          proofCount: proofsView.length,
-        }),
-      };
     } catch (error) {
-      if (stored) {
-        await this.storage.delete(stored.key).catch(() => undefined);
-      }
+      if (stored) await this.storage.delete(stored.key).catch(() => undefined);
       throw error;
     }
+
+    this.logger.info(
+      {
+        orderId,
+        proofId: result.proof.id,
+        duplicateTransactionId: result.warning !== null,
+      },
+      'Payment proof submitted',
+    );
+    const turnaround = await this.platformSettings.get('VERIFICATION_TURNAROUND_HOURS');
+    await this.sendOrderEmail(result.order, 'PAYMENT_PROOF_RECEIVED', {
+      paymentReference: result.order.paymentReference,
+      transactionId: result.proof.transactionId,
+      turnaroundHours: turnaround,
+      orderUrl: this.orderUrl(orderId),
+    });
+    return {
+      order: await this.toStudentView(result.order),
+      proof: await this.toProofView(result.proof),
+      duplicateTransactionIdWarning: result.warning,
+    };
   }
 
+  // â”€â”€ Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  /** Admin order detail: frozen line snapshots, proofs, decisions and duplicate warnings. */
+  async getOrderForAdmin(admin: AuthUser, orderId: string): Promise<AdminOrderView> {
+    adminScope(admin);
+    const order = await this.orderDao.getOrderBy({ id: orderId });
+    if (!order) throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
+    const warnings = await this.duplicateWarnings([order]);
+    return {
+      ...order,
+      proofs: await Promise.all(order.proofs.map((p) => this.toProofView(p))),
+      duplicateTransactionIdWarnings: warnings.get(order.id) ?? [],
+    };
+  }
+
+  // â”€â”€ Expiry job (#61) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
   /**
-   * #61: sweeps PENDING orders whose expiry window has passed (`expiresAt <= now`) to `LAPSED`,
-   * writes an `ORDER_LAPSED` audit entry (`actorUserId: null`), and emails each student.
-   * Orders in `PROOF_SUBMITTED` or later states are never lapsed by timer.
+   * #61: lapses every PENDING or REJECTED order past its window, each in its own transaction with
+   * an ORDER_LAPSED audit entry (no actor), then emails the student. Returns how many lapsed.
    */
-  async expireDueOrders(now: Date = new Date()): Promise<number> {
-    const dueOrders = await this.orderDao.getOrdersBy({
-      status: OrderStatus.PENDING,
+  async expireDueOrders(now = new Date()): Promise<number> {
+    const ids = await this.orderDao.getOrderIdsBy({
+      status: { in: [...LAPSABLE_ORDER_STATUSES] as OrderStatus[] },
       expiresAt: { lte: now },
     });
-
-    let lapsedCount = 0;
-    for (const order of dueOrders) {
-      const transitioned = await this.transactions.run(async (tx) => {
-        const current = await this.orderDao.getOrderBy({ id: order.id }, tx);
-        if (!current || current.status !== OrderStatus.PENDING) return false;
-        if (!current.expiresAt || current.expiresAt > now) return false;
-
-        await this.applyOrderTransition(
-          current,
-          'LAPSE',
-          null,
-          {
-            paymentReference: current.paymentReference,
-            expiresAt: current.expiresAt.toISOString(),
-          },
-          now,
-          tx,
-        );
-        return true;
-      });
-
-      if (transitioned) {
-        lapsedCount += 1;
-        await this.email.send(order.student.email, 'ORDER_LAPSED', {
+    let lapsed = 0;
+    for (const id of ids) {
+      try {
+        const order = await this.transactions.run(async (tx) => {
+          const current = await this.orderDao.getOrderBy({ id }, tx);
+          if (!current || !isOrderDueToLapse(current, now)) return null;
+          await this.transition(
+            current,
+            'LAPSE',
+            null,
+            { expiresAt: current.expiresAt!.toISOString() },
+            now,
+            tx,
+          );
+          return current;
+        });
+        if (!order) continue;
+        lapsed += 1;
+        this.logger.info({ orderId: id, paymentReference: order.paymentReference }, 'Order lapsed');
+        await this.sendOrderEmail(order, 'ORDER_LAPSED', {
           paymentReference: order.paymentReference,
-          totalMinor: order.totalMinor.toString(),
-          currency: order.currency,
-          expiredAt: now.toISOString(),
+          amount: formatAmount(order.totalMinor, order.currency),
+          courses: courseList(order),
           catalogueUrl: this.email.appUrl('/courses'),
         });
+      } catch (err) {
+        // One bad order must not stop the sweep; it is retried on the next run.
+        this.logger.error({ err, orderId: id }, 'Failed to lapse order');
       }
     }
+    return lapsed;
+  }
 
-    return lapsedCount;
+  // â”€â”€ For the verification module (#63-#67) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  /** #63: every order awaiting an admin's decision. */
+  listAwaitingVerification(): Promise<OrderRecord[]> {
+    return this.orderDao.getOrdersBy({ status: OrderStatus.PROOF_SUBMITTED });
+  }
+
+  /** #64-#66: an order loaded inside the decision's transaction. */
+  async getOrderInTransaction(orderId: string, tx: TransactionClient): Promise<OrderRecord> {
+    const order = await this.orderDao.getOrderBy({ id: orderId }, tx);
+    if (!order) throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
+    return order;
+  }
+
+  /** #59, #63: duplicate transaction id warnings for each order, keyed by order id. */
+  async duplicateWarnings(
+    orders: readonly OrderRecord[],
+  ): Promise<Map<string, DuplicateTransactionIdWarning[]>> {
+    const result = new Map<string, DuplicateTransactionIdWarning[]>();
+    for (const order of orders) {
+      const transactionIds = order.proofs.map((p) => p.transactionId);
+      const matches = await this.orderDao.getOtherOrderProofsByTransactionIds(
+        order.id,
+        transactionIds,
+      );
+      result.set(
+        order.id,
+        buildDuplicateTransactionIdWarnings(order.id, transactionIds, matches.map(toMatch)),
+      );
+    }
+    return result;
+  }
+
+  /** A proof with a short-lived download link, for the order's owner or an admin. */
+  toProofView(proof: PaymentProofRecord): Promise<PaymentProofView> {
+    return this.proofView(proof);
   }
 
   /**
-   * #57: validates and applies a state transition on an order inside a caller-owned transaction,
-   * recording the actor, timestamp, and from/to state in `audit_log`.
+   * #57: applies a transition inside the caller's transaction: checks it against the state
+   * machine, updates the row only if it is still in the expected status (409 otherwise), and
+   * writes an audit entry with the actor (null for jobs), time and from/to states.
    */
-  async applyOrderTransition(
+  async transition(
     order: { id: string; status: OrderStatus },
     action: OrderAction,
     actorUserId: string | null,
@@ -448,13 +432,18 @@ export class OrderService {
     now: Date,
     tx: TransactionClient,
   ): Promise<OrderTransitionResult> {
-    const transition = transitionOrder(order.status, action, now);
+    const expiryHours =
+      action === 'REJECT' || action === 'REQUEST_TOP_UP'
+        ? await this.platformSettings.get('ORDER_EXPIRY_WINDOW_HOURS')
+        : undefined;
+    const change = transitionOrder(order.status, action, now, expiryHours);
     const updated = await this.orderDao.updateOrderStatusIfCurrent(
       order.id,
       order.status,
       {
-        status: transition.to as OrderStatus,
-        ...(transition.verifiedAt ? { verifiedAt: transition.verifiedAt } : {}),
+        status: change.to as OrderStatus,
+        ...(change.verifiedAt ? { verifiedAt: change.verifiedAt } : {}),
+        ...(change.expiresAt ? { expiresAt: change.expiresAt } : {}),
       },
       tx,
     );
@@ -462,89 +451,110 @@ export class OrderService {
       throw new AppException(ErrorCode.INVALID_STATE_TRANSITION, {
         orderId: order.id,
         action,
+        reason: 'The order changed while this action was in progress',
       });
     }
     await this.audit.record(
       {
         actorUserId,
-        action: transition.auditAction,
+        action: change.auditAction,
         entityType: 'order',
         entityId: order.id,
         details: {
-          from: transition.from,
-          to: transition.to,
-          transitionedAt: transition.transitionedAt.toISOString(),
+          from: change.from,
+          to: change.to,
+          at: now.toISOString(),
+          ...(change.expiresAt ? { expiresAt: change.expiresAt.toISOString() } : {}),
           ...details,
         },
       },
       tx,
     );
-    return transition;
+    return change;
+  }
+
+  /** #102: orders whose payment proof awaits admin verification, for the admin dashboard. */
+  async countOrdersAwaitingVerification(admin: AuthUser): Promise<number> {
+    adminScope(admin);
+    return this.orderDao.countOrdersBy({ status: OrderStatus.PROOF_SUBMITTED });
   }
 
   /**
-   * #56, #59: admin view of an order including frozen line-item snapshots and any duplicate
-   * transaction ID warnings across other orders.
+   * #64, #62, #112: after a confirmation commits, emails the confirmation, the receipt and the
+   * enrollment notice. Best-effort: a failed email is logged, never undoes the confirmation.
    */
-  async getOrderForAdmin(admin: AuthUser, orderId: string): Promise<AdminOrderDetailView> {
-    adminScope(admin);
+  async notifyOrderVerified(orderId: string): Promise<void> {
     const order = await this.orderDao.getOrderBy({ id: orderId });
-    if (!order) throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
-
-    const otherMatches = await this.orderDao.getOtherOrderProofsByTransactionIds(
-      order.id,
-      order.proofs.map((p) => p.transactionId),
-    );
-    const matchInputs = otherMatches.map((m) => ({
-      orderId: m.order.id,
-      paymentReference: m.order.paymentReference,
-      transactionId: m.transactionId,
-    }));
-    const seenTxIds = new Set<string>();
-    const duplicateTransactionIdWarnings: DuplicateTransactionIdWarning[] = [];
-    for (const proof of order.proofs) {
-      const key = proof.transactionId.trim().toLowerCase();
-      if (seenTxIds.has(key)) continue;
-      seenTxIds.add(key);
-      const warning = buildDuplicateTransactionIdWarning(
-        order.id,
-        proof.transactionId,
-        matchInputs,
-      );
-      if (warning) duplicateTransactionIdWarnings.push(warning);
-    }
-
-    return {
-      ...order,
-      duplicateTransactionIdWarnings,
-    };
+    if (!order) return;
+    const amount = formatAmount(order.totalMinor, order.currency);
+    await this.sendOrderEmail(order, 'PAYMENT_CONFIRMED', {
+      paymentReference: order.paymentReference,
+      amount,
+      orderUrl: this.orderUrl(order.id),
+    });
+    const receipt = receiptFor(order);
+    await this.sendOrderEmail(order, 'ORDER_RECEIPT', {
+      receiptNumber: receipt.receiptNumber,
+      paymentReference: receipt.paymentReference,
+      issuedAt: receipt.issuedAt.toISOString(),
+      lines: receipt.items.map(
+        (item) =>
+          [item.courseTitle, formatAmount(item.priceMinor, order.currency)] as [string, string],
+      ),
+      total: amount,
+      receiptUrl: this.email.appUrl(`/orders/${order.id}/receipt`),
+    });
+    await this.sendOrderEmail(order, 'ENROLLMENT_GRANTED', {
+      courses: courseList(order),
+      libraryUrl: this.email.appUrl('/my-courses'),
+    });
   }
 
-  /** Computes the full cart quote (including frozen commission splits for order creation). */
-  async quoteCart(
+  /** #65: emails the student why their payment was not accepted and how to resubmit. */
+  async notifyOrderRejected(orderId: string, reason: string, notes: string | null): Promise<void> {
+    const order = await this.orderDao.getOrderBy({ id: orderId });
+    if (!order) return;
+    await this.sendOrderEmail(order, 'PAYMENT_REJECTED', {
+      paymentReference: order.paymentReference,
+      reason: REJECTION_REASON_LABELS[reason] ?? REJECTION_REASON_LABELS.OTHER!,
+      notes: notes ?? '',
+      expiresAt: order.expiresAt?.toISOString() ?? '',
+      orderUrl: this.orderUrl(order.id),
+    });
+  }
+
+  /** #66: emails the student the shortfall to transfer. */
+  async notifyTopUpRequested(orderId: string, shortfallMinor: bigint): Promise<void> {
+    const order = await this.orderDao.getOrderBy({ id: orderId });
+    if (!order) return;
+    await this.sendOrderEmail(order, 'PAYMENT_TOP_UP_REQUESTED', {
+      paymentReference: order.paymentReference,
+      total: formatAmount(order.totalMinor, order.currency),
+      shortfall: formatAmount(shortfallMinor, order.currency),
+      expiresAt: order.expiresAt?.toISOString() ?? '',
+      orderUrl: this.orderUrl(order.id),
+    });
+  }
+
+  // â”€â”€ Internals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  /** #54: loads sale facts, the buyer's access and open orders, and asks the rules. */
+  private async quoteCart(
     user: AuthUser,
     requestedCourseIds: readonly string[],
     tx?: TransactionClient,
   ): Promise<CartQuote> {
-    const uniqueIds = [...new Set(requestedCourseIds)];
-    const rawCourses = await this.courseService.getSaleFacts(uniqueIds, tx);
-    const foundIds = new Set(rawCourses.map((c) => c.id));
-    for (const id of uniqueIds) {
-      if (!foundIds.has(id)) {
-        throw new AppException(ErrorCode.NOT_FOUND, { entity: 'course', id });
-      }
-    }
+    const ids = [...new Set(requestedCourseIds)];
+    const courses = await this.courseService.getSaleFacts(ids, tx);
+    const found = new Set(courses.map((c) => c.id));
+    const missing = ids.find((id) => !found.has(id));
+    if (missing) throw new AppException(ErrorCode.NOT_FOUND, { entity: 'course', id: missing });
 
-    const activeEnrolledIds = new Set<string>();
-    await Promise.all(
-      uniqueIds.map(async (courseId) => {
-        if (await this.enrollmentAccess.hasActiveEnrollment(user.id, courseId)) {
-          activeEnrolledIds.add(courseId);
-        }
-      }),
-    );
-
-    const facts: PurchasableCourseFacts[] = rawCourses.map((c) => ({
+    const [activeFlags, openOrderCourseIds] = await Promise.all([
+      Promise.all(ids.map((id) => this.enrollmentAccess.hasActiveEnrollment(user.id, id))),
+      this.orderDao.getOrderedCourseIds(user.id, ids, OPEN_ORDER_STATUSES as OrderStatus[], tx),
+    ]);
+    const facts: PurchasableCourseFacts[] = courses.map((c) => ({
       id: c.id,
       title: c.title,
       status: c.status,
@@ -558,40 +568,55 @@ export class OrderService {
       teacherName: c.teacher.fullName,
       teacherActive: c.teacher.status === UserStatus.ACTIVE,
     }));
-
-    return buildCartQuote(uniqueIds, facts, user.id, activeEnrolledIds);
+    return buildCartQuote(ids, facts, {
+      buyerId: user.id,
+      activeCourseIds: new Set(ids.filter((_, i) => activeFlags[i])),
+      openOrderCourseIds: new Set(openOrderCourseIds),
+    });
   }
 
-  private async generateUniquePaymentReference(now: Date, tx: TransactionClient): Promise<string> {
+  private async loadMyOrder(user: AuthUser, orderId: string): Promise<OrderRecord> {
+    const order = await this.orderDao.getOrderBy({ id: orderId, studentId: user.id });
+    if (!order) throw new AppException(ErrorCode.NOT_FOUND, { entity: 'order', id: orderId });
+    return order;
+  }
+
+  /** #55: a fresh reference; retried on the (40-bit) chance of a collision. */
+  private async uniquePaymentReference(tx: TransactionClient): Promise<string> {
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const candidate = formatPaymentReference(now, randomBytes(6));
-      const existing = await this.orderDao.getOrderBy({ paymentReference: candidate }, tx);
-      if (!existing) return candidate;
+      const candidate = formatPaymentReference(randomBytes(8));
+      if (!(await this.orderDao.getOrderBy({ paymentReference: candidate }, tx))) return candidate;
     }
-    throw new AppException(ErrorCode.INTERNAL);
+    throw new AppException(ErrorCode.INTERNAL, undefined, undefined, {
+      message: 'Could not generate a unique payment reference',
+    });
   }
 
-  private async toStudentProofView(proof: PaymentProofRecord): Promise<StudentPaymentProofView> {
-    const ext = proof.proofFileUrl?.split('.').pop() ?? 'bin';
-    const proofDownloadUrl = proof.proofFileUrl
-      ? await this.storage.downloadUrl(
-          proof.proofFileUrl,
-          `payment-proof-${proof.id}.${ext}`,
-          contentTypeForKey(proof.proofFileUrl),
-        )
-      : null;
+  private async proofView(proof: PaymentProofRecord): Promise<PaymentProofView> {
+    const key = proof.proofFileUrl;
     return {
       id: proof.id,
       transactionId: proof.transactionId,
       amountClaimedMinor: proof.amountClaimedMinor,
-      hasProofFile: proof.proofFileUrl !== null,
-      proofDownloadUrl,
+      hasFile: key !== null,
+      fileUrl: key
+        ? await this.storage.downloadUrl(
+            key,
+            `payment-proof-${proof.id}.${key.split('.').pop()}`,
+            contentTypeForKey(key),
+          )
+        : null,
       submittedAt: proof.submittedAt,
     };
   }
 
-  private async toStudentOrderView(order: OrderRecord): Promise<StudentOrderView> {
-    const proofs = await Promise.all(order.proofs.map((proof) => this.toStudentProofView(proof)));
+  private async toStudentView(order: OrderRecord): Promise<StudentOrderView> {
+    const [bankTransferInstructions, turnaround, proofs] = await Promise.all([
+      this.platformSettings.get('BANK_TRANSFER_INSTRUCTIONS'),
+      this.platformSettings.get('VERIFICATION_TURNAROUND_HOURS'),
+      Promise.all(order.proofs.map((p) => this.proofView(p))),
+    ]);
+    const decision = lastPaymentDecision(order.totalMinor, order.verifications);
     return {
       id: order.id,
       paymentReference: order.paymentReference,
@@ -602,29 +627,89 @@ export class OrderService {
       expiresAt: order.expiresAt,
       verifiedAt: order.verifiedAt,
       items: order.items.map((item) => ({
-        id: item.id,
         courseId: item.courseId,
         courseTitle: item.course.title,
-        teacherId: item.teacherId,
         teacherName: item.teacher.fullName,
         priceMinor: item.priceMinor,
-        currency: order.currency,
       })),
       proofs,
-      paymentInstructions: buildPaymentInstructions({
-        paymentReference: order.paymentReference,
-        totalMinor: order.totalMinor,
-        currency: order.currency,
-        expiresAt: order.expiresAt,
-      }),
+      paymentInstructions: buildPaymentInstructions(order, bankTransferInstructions, turnaround),
+      lastDecision: decision,
       guidance: describeStudentOrderNextStep({
         status: order.status,
         paymentReference: order.paymentReference,
         totalMinor: order.totalMinor,
         currency: order.currency,
         expiresAt: order.expiresAt,
-        proofCount: proofs.length,
+        verificationTurnaroundHours: turnaround,
+        lastDecision: decision,
       }),
     };
   }
+
+  /**
+   * #81 / #84: teacher-scoped order line items filtered by parent order status, so the
+   * ledger module can separate pending (unverified) sales from confirmed sales without
+   * importing OrderDao directly.
+   */
+  listTeacherOrderItems(
+    scope: TeacherScope,
+    statuses?: readonly OrderStatus[],
+    tx?: TransactionClient,
+  ): Promise<TeacherOrderItemRecord[]> {
+    return this.orderDao.getTeacherOrderItemsBy(
+      scope,
+      statuses ? { order: { status: { in: [...statuses] } } } : {},
+      tx,
+    );
+  }
+
+  private orderUrl(orderId: string): string {
+    return this.email.appUrl(`/orders/${orderId}`);
+  }
+
+  /** Sends a student email about an order; a failure is logged with the order for #9. */
+  private async sendOrderEmail<T extends EmailTemplateName>(
+    order: OrderRecord,
+    template: T,
+    data: EmailTemplateData<T>,
+  ): Promise<void> {
+    const sent = await this.email.send(order.student.email, template, data);
+    if (!sent) {
+      this.logger.warn(
+        { orderId: order.id, paymentReference: order.paymentReference, template },
+        'Order email not delivered',
+      );
+    }
+  }
+}
+
+function toMatch(m: { transactionId: string; order: { id: string; paymentReference: string } }) {
+  return {
+    orderId: m.order.id,
+    paymentReference: m.order.paymentReference,
+    transactionId: m.transactionId,
+  };
+}
+
+function receiptFor(order: OrderRecord): OrderReceipt {
+  return buildOrderReceipt({
+    id: order.id,
+    paymentReference: order.paymentReference,
+    status: order.status,
+    verifiedAt: order.verifiedAt,
+    totalMinor: order.totalMinor,
+    currency: order.currency,
+    student: { fullName: order.student.fullName, email: order.student.email },
+    items: order.items.map((item) => ({
+      courseId: item.courseId,
+      courseTitle: item.course.title,
+      teacherName: item.teacher.fullName,
+      priceMinor: item.priceMinor,
+    })),
+  });
+}
+
+function courseList(order: OrderRecord): string {
+  return order.items.map((item) => item.course.title).join(', ');
 }

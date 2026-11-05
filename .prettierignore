@@ -6,3 +6,5 @@ build/
 coverage/
 prisma/migrations/
 .storage/
+# The web app formats itself (web/.prettierrc, same rules); its build output is not ours to check.
+web/

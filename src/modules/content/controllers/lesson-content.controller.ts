@@ -11,7 +11,7 @@ import {
   ResourceParams,
   resourceParamsSchema,
 } from '../schemas/content.schema';
-import { ResourceService } from '../services/resource.service';
+import { LessonContentView, ResourceService } from '../services/resource.service';
 import { Playback, VideoService } from '../services/video.service';
 
 /** Learner-facing content. Every request is authorised server-side (#39). */
@@ -34,6 +34,15 @@ export class LessonContentController {
     @Param(new ZodValidationPipe(lessonContentParamsSchema)) params: LessonContentParams,
   ): Promise<Playback> {
     return this.videoService.playback(req.user, params.courseId, params.lessonId);
+  }
+
+  /** #53: text and file list for the course player. */
+  @Get('content')
+  content(
+    @CurrentUser() user: AuthUser,
+    @Param(new ZodValidationPipe(lessonContentParamsSchema)) params: LessonContentParams,
+  ): Promise<LessonContentView> {
+    return this.resourceService.lessonContent(user, params.courseId, params.lessonId);
   }
 
   /** #39: resource downloads need an active enrollment (or a staff role). */

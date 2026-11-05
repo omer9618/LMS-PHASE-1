@@ -322,6 +322,27 @@ export class CourseService {
     );
   }
 
+  /** #102: size of the course review queue, for the admin dashboard. */
+  async countCoursesPendingApproval(admin: AuthUser): Promise<number> {
+    return this.courseDao.countCoursesBy(adminScope(admin), {
+      status: CourseStatus.PENDING_APPROVAL,
+    });
+  }
+
+  /** #103: every course a teacher owns, any status, newest first, for the admin user detail. */
+  async listCoursesTaughtBy(
+    admin: AuthUser,
+    teacherId: string,
+    page: { limit: number; offset: number },
+  ): Promise<{ items: CourseView[]; total: number }> {
+    const scope = adminScope(admin);
+    const [courses, total] = await Promise.all([
+      this.courseDao.getCoursesBy(scope, { teacherId }, page),
+      this.courseDao.countCoursesBy(scope, { teacherId }),
+    ]);
+    return { items: await this.toViews(courses), total };
+  }
+
   /** Loads a course in the caller's scope for sibling services (sections, lessons). 404 if not. */
   loadInScope(scope: TeacherScope, courseId: string): Promise<CourseRecord> {
     return this.loadCourse(scope, courseId);

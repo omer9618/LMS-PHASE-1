@@ -223,6 +223,11 @@ export class OutlineService {
     return this.outlineDao.getLessonAccessContext(courseId, lessonId);
   }
 
+  /** See OutlineDao.getLessonContent: call only after ContentAccessService authorised the caller. */
+  getLessonContent(courseId: string, lessonId: string) {
+    return this.outlineDao.getLessonContent(courseId, lessonId);
+  }
+
   // ── Internals ─────────────────────────────────────────────────────
 
   /** The teacher's own course, in a status that allows content changes. */

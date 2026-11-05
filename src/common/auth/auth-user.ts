@@ -9,7 +9,16 @@ export interface AuthUser {
   readonly email: string;
   readonly fullName: string | null;
   readonly isEmailVerified: boolean;
+  /**
+   * Roles in effect for this request. Equal to `heldRoles`, except for accounts holding both
+   * ADMIN and TEACHER (#109): those work in one context at a time, and the other role is left out.
+   * Route guards, scopes and services check this set, so a context is never crossed silently.
+   */
   readonly roles: ReadonlySet<Role>;
+  /** Every role the account holds (`user_roles`). Use for account-level rules such as MFA. */
+  readonly heldRoles: ReadonlySet<Role>;
+  /** #109: the session's active context for ADMIN+TEACHER accounts; null for everyone else. */
+  readonly activeContext: 'ADMIN' | 'TEACHER' | null;
   readonly sessionId: string;
   /** The account has TOTP enrolled (#16). */
   readonly mfaEnabled: boolean;

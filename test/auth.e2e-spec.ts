@@ -97,5 +97,7 @@ describe('Auth: login, session, logout (#12, #10, #14)', () => {
     const cookie = await loginAs(app, { email, password });
     const me = await request(app.getHttpServer()).get('/auth/me').set('Cookie', cookie).expect(200);
     expect([...me.body.data.roles].sort()).toEqual(['ADMIN', 'TEACHER']);
+    // #109: one context at a time, ADMIN by default; switching is covered in role-context.e2e-spec.
+    expect(me.body.data.activeContext).toBe('ADMIN');
   });
 });

@@ -36,4 +36,33 @@ describe('platform settings rules', () => {
       InvalidSettingValueError,
     );
   });
+
+  // Orders and verification (#55, #67): string-valued settings.
+  it('stores and reads multi-line text settings', () => {
+    const text = 'Bank: Example\nIBAN: PK00 0000\nUse your reference.';
+    expect(normaliseSettingValue('BANK_TRANSFER_INSTRUCTIONS', `  ${text}  `)).toEqual({
+      key: 'BANK_TRANSFER_INSTRUCTIONS',
+      stored: text,
+    });
+    expect(readSetting('BANK_TRANSFER_INSTRUCTIONS', text)).toBe(text);
+    expect(readSetting('BANK_TRANSFER_INSTRUCTIONS', undefined)).toContain('to be confirmed');
+    expect(readSetting('BANK_TRANSFER_INSTRUCTIONS', '   ')).toContain('to be confirmed');
+  });
+
+  it('rejects empty or non-text values for text settings', () => {
+    expect(() => normaliseSettingValue('BANK_TRANSFER_INSTRUCTIONS', '  ')).toThrow(
+      InvalidSettingValueError,
+    );
+    expect(() => normaliseSettingValue('BANK_TRANSFER_INSTRUCTIONS', 5)).toThrow(
+      InvalidSettingValueError,
+    );
+    expect(() => normaliseSettingValue('BANK_TRANSFER_INSTRUCTIONS', 'x'.repeat(4001))).toThrow(
+      InvalidSettingValueError,
+    );
+  });
+
+  it('defaults the verification turnaround to 48 hours', () => {
+    expect(readSetting('VERIFICATION_TURNAROUND_HOURS', undefined)).toBe(48);
+    expect(normaliseSettingValue('VERIFICATION_TURNAROUND_HOURS', 24).stored).toBe('24');
+  });
 });

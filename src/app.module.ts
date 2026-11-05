@@ -10,6 +10,7 @@ import { buildLoggerParams } from './common/logging/logger.config';
 import { ConfigModule, ENV } from './config/config.module';
 import { loadEnv, type Env } from './config/env.schema';
 import { HealthModule } from './health/health.module';
+import { AssessmentModule } from './modules/assessment/assessment.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CaptchaModule } from './modules/captcha/captcha.module';
@@ -19,11 +20,20 @@ import { CoursesModule } from './modules/courses/courses.module';
 import { EmailModule } from './modules/email/email.module';
 import { EnrollmentModule } from './modules/enrollment/enrollment.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { ProgressModule } from './modules/progress/progress.module';
+// Payment verification and ledger (#63-#67, #80)
+import { LedgerModule } from './modules/ledger/ledger.module';
+import { PayoutsModule } from './modules/payouts/payouts.module';
+import { VerificationModule } from './modules/verification/verification.module';
 import { PlatformSettingsModule } from './modules/platform-settings/platform-settings.module';
 import { ReferenceDataModule } from './modules/reference-data/reference-data.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { TeachersModule } from './modules/teachers/teachers.module';
 import { PrismaModule } from './prisma/prisma.module';
+// Profiles (#98-#100)
+import { ProfilesModule } from './modules/profiles/profiles.module';
+// Admin dashboard and user overview (#102, #103)
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -52,6 +62,17 @@ import { PrismaModule } from './prisma/prisma.module';
     CatalogueModule,
     EnrollmentModule,
     OrdersModule,
+    // Progress and progression (#90â€“#97, #77)
+    ProgressModule,
+    // Assessment (#68-#76)
+    AssessmentModule,
+    // Profiles (#98-#100)
+    ProfilesModule,
+    LedgerModule,
+    PayoutsModule,
+    VerificationModule,
+    // Admin dashboard and user overview (#102, #103)
+    AdminModule,
     // Scheduled jobs (@Cron) run only when enabled; the e2e suite turns them off.
     ...(loadEnv().JOBS_ENABLED ? [ScheduleModule.forRoot()] : []),
   ],

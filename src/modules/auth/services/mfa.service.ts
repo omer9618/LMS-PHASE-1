@@ -55,7 +55,7 @@ export class MfaService {
   async status(user: AuthUser): Promise<MfaStatus> {
     return {
       enabled: user.mfaEnabled,
-      required: user.roles.has(Role.ADMIN),
+      required: user.heldRoles.has(Role.ADMIN),
       recoveryCodesRemaining: user.mfaEnabled
         ? await this.recoveryCodeDao.countUnusedRecoveryCodes(user.id)
         : 0,
@@ -105,7 +105,7 @@ export class MfaService {
 
   /** Accounts holding ADMIN cannot turn MFA off: it is enforced for them. */
   async disable(user: AuthUser, input: MfaCodeInput): Promise<{ enabled: false }> {
-    if (user.roles.has(Role.ADMIN)) {
+    if (user.heldRoles.has(Role.ADMIN)) {
       throw new AppException(ErrorCode.CONFLICT, undefined, undefined, {
         message: 'Two-factor authentication is required for admin accounts',
       });

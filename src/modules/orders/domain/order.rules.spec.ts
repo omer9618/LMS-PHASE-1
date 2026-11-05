@@ -1,28 +1,183 @@
 import {
-  assertCoursePurchasable,
   assertEmailVerifiedForOrder,
   buildCartQuote,
   buildDuplicateTransactionIdWarning,
+  buildDuplicateTransactionIdWarnings,
   buildOrderReceipt,
   buildPaymentInstructions,
+  BuyerFacts,
   computeLineSplit,
   computeOrderExpiry,
   describeStudentOrderNextStep,
   EmailNotVerifiedError,
+  formatAmount,
   formatPaymentReference,
   InvalidOrderTransitionError,
+  isOrderDueToLapse,
+  lastPaymentDecision,
+  OPEN_ORDER_STATUSES,
+  ORDER_TRANSITIONS,
   OrderAction,
   OrderRefusedError,
   OrderStatusValue,
+  PAYMENT_REFERENCE_PATTERN,
   PurchasableCourseFacts,
-  RECEIVING_BANK_ACCOUNT,
   transitionOrder,
 } from './order.rules';
 
-function course(overrides: Partial<PurchasableCourseFacts> = {}): PurchasableCourseFacts {
-  return {
-    id: 'course-1',
-    title: 'AS Chemistry Unit 1',
+const NOW = new Date('2026-11-02T10:00:00.000Z');
+const STATUSES: OrderStatusValue[] = [
+  'PENDING',
+  'PROOF_SUBMITTED',
+  'VERIFIED',
+  'REJECTED',
+  'LAPSED',
+  'REFUNDED',
+];
+const ACTIONS: OrderAction[] = [
+  'SUBMIT_PROOF',
+  'CONFIRM',
+  'REQUEST_TOP_UP',
+  'REJECT',
+  'LAPSE',
+  'REFUND',
+];
+
+/** The decided lifecycle (#57), written out independently of ORDER_TRANSITIONS. */
+const EXPECTED: Record<string, OrderStatusValue> = {
+  'PENDING:SUBMIT_PROOF': 'PROOF_SUBMITTED',
+  'PROOF_SUBMITTED:SUBMIT_PROOF': 'PROOF_SUBMITTED',
+  'REJECTED:SUBMIT_PROOF': 'PROOF_SUBMITTED',
+  'PROOF_SUBMITTED:CONFIRM': 'VERIFIED',
+  'PROOF_SUBMITTED:REJECT': 'REJECTED',
+  'PROOF_SUBMITTED:REQUEST_TOP_UP': 'PENDING',
+  'PENDING:LAPSE': 'LAPSED',
+  'REJECTED:LAPSE': 'LAPSED',
+  'VERIFIED:REFUND': 'REFUNDED',
+};
+
+describe('order state machine (#57)', () => {
+  const cases = STATUSES.flatMap((from) => ACTIONS.map((action) => [from, action] as const));
+
+  it.each(cases)('%s + %s', (from, action) => {
+    const expected = EXPECTED[`${from}:${action}`];
+    if (expected) {
+      const result = transitionOrder(from, action, NOW, 48);
+      expect(result.from).toBe(from);
+      expect(result.to).toBe(expected);
+      expect(result.transitionedAt).toBe(NOW);
+      expect(result.auditAction).toBe(ORDER_TRANSITIONS[action].auditAction);
+    } else {
+      expect(() => transitionOrder(from, action, NOW, 48)).toThrow(InvalidOrderTransitionError);
+    }
+  });
+
+  it('stamps verifiedAt only on confirmation', () => {
+    expect(transitionOrder('PROOF_SUBMITTED', 'CONFIRM', NOW).verifiedAt).toBe(NOW);
+    expect(transitionOrder('PENDING', 'SUBMIT_PROOF', NOW).verifiedAt).toBeUndefined();
+  });
+
+  it('restarts the expiry clock on rejection and top-up request only', () => {
+    const fresh = new Date('2026-11-04T10:00:00.000Z');
+    expect(transitionOrder('PROOF_SUBMITTED', 'REJECT', NOW, 48).expiresAt).toEqual(fresh);
+    expect(transitionOrder('PROOF_SUBMITTED', 'REQUEST_TOP_UP', NOW, 48).expiresAt).toEqual(fresh);
+    expect(transitionOrder('PENDING', 'SUBMIT_PROOF', NOW, 48).expiresAt).toBeUndefined();
+    expect(transitionOrder('PROOF_SUBMITTED', 'CONFIRM', NOW, 48).expiresAt).toBeUndefined();
+  });
+
+  it('needs the expiry window for transitions that restart the clock', () => {
+    expect(() => transitionOrder('PROOF_SUBMITTED', 'REJECT', NOW)).toThrow(/expiry window/);
+  });
+
+  it('names the allowed source states in the error', () => {
+    try {
+      transitionOrder('LAPSED', 'SUBMIT_PROOF', NOW);
+      fail('expected an error');
+    } catch (error) {
+      expect(error).toBeInstanceOf(InvalidOrderTransitionError);
+      expect((error as InvalidOrderTransitionError).info).toEqual({
+        from: 'LAPSED',
+        action: 'SUBMIT_PROOF',
+        allowedFrom: ['PENDING', 'PROOF_SUBMITTED', 'REJECTED'],
+      });
+    }
+  });
+
+  it('treats PENDING, PROOF_SUBMITTED and REJECTED as open', () => {
+    expect([...OPEN_ORDER_STATUSES].sort()).toEqual(['PENDING', 'PROOF_SUBMITTED', 'REJECTED']);
+  });
+});
+
+describe('expiry (#61)', () => {
+  it('computes the window end', () => {
+    expect(computeOrderExpiry(NOW, 48)).toEqual(new Date('2026-11-04T10:00:00.000Z'));
+  });
+
+  it('lapses PENDING and REJECTED orders at or after expiry only', () => {
+    const past = new Date(NOW.getTime() - 1);
+    expect(isOrderDueToLapse({ status: 'PENDING', expiresAt: past }, NOW)).toBe(true);
+    expect(isOrderDueToLapse({ status: 'REJECTED', expiresAt: NOW }, NOW)).toBe(true);
+    expect(isOrderDueToLapse({ status: 'PROOF_SUBMITTED', expiresAt: past }, NOW)).toBe(false);
+    expect(isOrderDueToLapse({ status: 'VERIFIED', expiresAt: past }, NOW)).toBe(false);
+    expect(
+      isOrderDueToLapse({ status: 'PENDING', expiresAt: new Date(NOW.getTime() + 1) }, NOW),
+    ).toBe(false);
+    expect(isOrderDueToLapse({ status: 'PENDING', expiresAt: null }, NOW)).toBe(false);
+  });
+});
+
+describe('payment reference (#55)', () => {
+  it('formats LMS-XXXX-XXXX in Crockford base32', () => {
+    const ref = formatPaymentReference(new Uint8Array([0, 1, 2, 3, 28, 29, 30, 31]));
+    expect(ref).toBe('LMS-0123-WXYZ');
+    expect(ref).toMatch(PAYMENT_REFERENCE_PATTERN);
+  });
+
+  it('never uses the ambiguous letters I, L, O or U', () => {
+    const all = Uint8Array.from({ length: 256 }, (_, i) => i);
+    for (let offset = 0; offset < 256; offset += 8) {
+      const ref = formatPaymentReference(all.subarray(offset, offset + 8));
+      expect(ref).toMatch(PAYMENT_REFERENCE_PATTERN);
+      expect(ref.slice(4)).not.toMatch(/[ILOU]/);
+    }
+  });
+
+  it('needs 8 random bytes', () => {
+    expect(() => formatPaymentReference(new Uint8Array(7))).toThrow();
+  });
+});
+
+describe('commission split (#56)', () => {
+  it.each([
+    // price, bps, commission, net
+    [150000n, 2000, 30000n, 120000n],
+    [100n, 0, 0n, 100n],
+    [100n, 10000, 100n, 0n],
+    [1n, 5000, 1n, 0n], // 0.5 rounds up
+    [1n, 4999, 0n, 1n], // 0.4999 rounds down
+    [3n, 5000, 2n, 1n], // 1.5 rounds up
+    [999n, 1250, 125n, 874n], // 124.875 rounds up
+    [1000n, 1255, 126n, 874n], // 125.5 rounds up
+    [1000n, 1254, 125n, 875n], // 125.4 rounds down
+    [999_999_999_999_999_999n, 3333, 333_300_000_000_000_000n, 666_699_999_999_999_999n],
+  ])('%s at %s bps -> %s commission + %s net', (price, bps, commission, net) => {
+    const split = computeLineSplit(price, bps);
+    expect(split).toEqual({ commissionMinor: commission, netTeacherMinor: net });
+    expect(split.commissionMinor + split.netTeacherMinor).toBe(price);
+  });
+
+  it('refuses non-positive prices and out-of-range rates', () => {
+    expect(() => computeLineSplit(0n, 100)).toThrow(OrderRefusedError);
+    expect(() => computeLineSplit(100n, -1)).toThrow(OrderRefusedError);
+    expect(() => computeLineSplit(100n, 10001)).toThrow(OrderRefusedError);
+    expect(() => computeLineSplit(100n, 1.5)).toThrow(OrderRefusedError);
+  });
+});
+
+describe('cart (#54)', () => {
+  const course = (overrides: Partial<PurchasableCourseFacts> = {}): PurchasableCourseFacts => ({
+    id: 'c1',
+    title: 'Chemistry',
     status: 'PUBLISHED',
     audienceType: 'STUDENT',
     isFree: false,
@@ -30,379 +185,248 @@ function course(overrides: Partial<PurchasableCourseFacts> = {}): PurchasableCou
     priceMinor: 150000n,
     currency: 'PKR',
     commissionRateBps: 2000,
-    teacherId: 'teacher-a',
+    teacherId: 't1',
     teacherName: 'Teacher A',
     teacherActive: true,
     ...overrides,
+  });
+  const buyer = (overrides: Partial<BuyerFacts> = {}): BuyerFacts => ({
+    buyerId: 's1',
+    activeCourseIds: new Set(),
+    openOrderCourseIds: new Set(),
+    ...overrides,
+  });
+  const reasonOf = (fn: () => unknown): unknown => {
+    try {
+      fn();
+    } catch (error) {
+      expect(error).toBeInstanceOf(OrderRefusedError);
+      return ((error as OrderRefusedError).info as { reason: string }).reason;
+    }
+    throw new Error('expected a refusal');
   };
-}
 
-describe('Order domain rules (#54, #55, #57)', () => {
-  describe('computeLineSplit', () => {
-    it('computes commission and net teacher earning in BigInt minor units without rounding drift', () => {
-      expect(computeLineSplit(150000n, 2000)).toEqual({
-        commissionMinor: 30000n,
-        netTeacherMinor: 120000n,
-      });
-      const odd = computeLineSplit(999n, 1500);
-      expect(odd.commissionMinor).toBe(149n);
-      expect(odd.netTeacherMinor).toBe(850n);
-      expect(odd.commissionMinor + odd.netTeacherMinor).toBe(999n);
-    });
-
-    it('rejects non-positive prices and out-of-range commission rates', () => {
-      expect(() => computeLineSplit(0n, 2000)).toThrow(OrderRefusedError);
-      expect(() => computeLineSplit(1000n, -1)).toThrow(OrderRefusedError);
-      expect(() => computeLineSplit(1000n, 10001)).toThrow(OrderRefusedError);
-    });
-  });
-
-  describe('assertCoursePurchasable', () => {
-    it('rejects unpublished, PD, suspended-teacher, closed, own, free, and already-enrolled courses', () => {
-      expect(() =>
-        assertCoursePurchasable(course({ status: 'DRAFT' }), 'student-1', false),
-      ).toThrow(
-        expect.objectContaining({ info: expect.objectContaining({ reason: 'NOT_AVAILABLE' }) }),
-      );
-      expect(() =>
-        assertCoursePurchasable(course({ audienceType: 'TEACHER_PD' }), 'student-1', false),
-      ).toThrow(
-        expect.objectContaining({ info: expect.objectContaining({ reason: 'NOT_AVAILABLE' }) }),
-      );
-      expect(() =>
-        assertCoursePurchasable(course({ teacherActive: false }), 'student-1', false),
-      ).toThrow(
-        expect.objectContaining({ info: expect.objectContaining({ reason: 'TEACHER_SUSPENDED' }) }),
-      );
-      expect(() =>
-        assertCoursePurchasable(course({ isEnrollmentOpen: false }), 'student-1', false),
-      ).toThrow(
-        expect.objectContaining({ info: expect.objectContaining({ reason: 'ENROLLMENT_CLOSED' }) }),
-      );
-      expect(() => assertCoursePurchasable(course(), 'teacher-a', false)).toThrow(
-        expect.objectContaining({ info: expect.objectContaining({ reason: 'OWN_COURSE' }) }),
-      );
-      expect(() => assertCoursePurchasable(course({ isFree: true }), 'student-1', false)).toThrow(
-        expect.objectContaining({ info: expect.objectContaining({ reason: 'FREE_COURSE' }) }),
-      );
-      expect(() => assertCoursePurchasable(course(), 'student-1', true)).toThrow(
-        expect.objectContaining({ info: expect.objectContaining({ reason: 'ALREADY_ENROLLED' }) }),
-      );
-    });
-  });
-
-  describe('buildCartQuote (#54)', () => {
-    it('combines courses from multiple teachers into one cart and sums totals in minor units', () => {
-      const c1 = course({
-        id: 'course-1',
-        title: 'AS Chemistry Unit 1',
-        teacherId: 'teacher-a',
-        teacherName: 'Teacher A',
-        priceMinor: 150000n,
-        commissionRateBps: 2000,
-      });
-      const c2 = course({
-        id: 'course-2',
-        title: 'O Level Math Algebra',
-        teacherId: 'teacher-b',
-        teacherName: 'Teacher B',
-        priceMinor: 225000n,
-        commissionRateBps: 1500,
-      });
-
-      const quote = buildCartQuote(
-        ['course-1', 'course-2', 'course-1'],
-        [c1, c2],
-        'student-1',
-        new Set(),
-      );
-      expect(quote.currency).toBe('PKR');
-      expect(quote.totalMinor).toBe(375000n);
-      expect(quote.teacherCount).toBe(2);
-      expect(quote.items).toHaveLength(2);
-      expect(quote.items[0]).toMatchObject({
-        courseId: 'course-1',
-        teacherId: 'teacher-a',
-        priceMinor: 150000n,
-        commissionMinor: 30000n,
-        netTeacherMinor: 120000n,
-      });
-      expect(quote.items[1]).toMatchObject({
-        courseId: 'course-2',
-        teacherId: 'teacher-b',
-        priceMinor: 225000n,
-        commissionMinor: 33750n,
-        netTeacherMinor: 191250n,
-      });
-    });
-
-    it('rejects mixed currencies in the same cart', () => {
-      const c1 = course({ id: 'course-1', currency: 'PKR' });
-      const c2 = course({ id: 'course-2', currency: 'USD', teacherId: 'teacher-b' });
-      expect(() =>
-        buildCartQuote(['course-1', 'course-2'], [c1, c2], 'student-1', new Set()),
-      ).toThrow(
-        expect.objectContaining({ info: expect.objectContaining({ reason: 'CURRENCY_MISMATCH' }) }),
-      );
-    });
-
-    it('rejects an empty cart', () => {
-      expect(() => buildCartQuote([], [], 'student-1', new Set())).toThrow(
-        expect.objectContaining({ info: expect.objectContaining({ reason: 'EMPTY_CART' }) }),
-      );
-    });
-  });
-
-  describe('payment reference, expiry and bank instructions (#55)', () => {
-    it('requires a verified email address before order creation', () => {
-      expect(() => assertEmailVerifiedForOrder(false)).toThrow(EmailNotVerifiedError);
-      expect(() => assertEmailVerifiedForOrder(true)).not.toThrow();
-    });
-
-    it('formats a readable LMS-YYYYMMDD-XXXXXX payment reference using unambiguous characters', () => {
-      const now = new Date('2026-11-01T18:30:00.000Z');
-      const ref = formatPaymentReference(now, new Uint8Array([0, 1, 2, 3, 4, 5]));
-      expect(ref).toBe('LMS-20261101-234567');
-      expect(ref).toMatch(/^LMS-\d{8}-[2-9A-HJ-NP-Z]{6}$/);
-    });
-
-    it('computes the order expiry instant from the configured window in hours', () => {
-      const now = new Date('2026-11-01T00:00:00.000Z');
-      expect(computeOrderExpiry(now, 48).toISOString()).toBe('2026-11-03T00:00:00.000Z');
-    });
-
-    it('builds payment instructions with bank details, amount, currency and reference', () => {
-      const expiresAt = new Date('2026-11-03T00:00:00.000Z');
-      const instructions = buildPaymentInstructions({
-        paymentReference: 'LMS-20261101-ABCDEF',
-        totalMinor: 425000n,
-        currency: 'PKR',
-        expiresAt,
-      });
-      expect(instructions).toEqual({
-        bank: RECEIVING_BANK_ACCOUNT,
-        paymentReference: 'LMS-20261101-ABCDEF',
-        amountMinor: 425000n,
-        currency: 'PKR',
-        expiresAt,
-        instructions: expect.stringContaining('LMS-20261101-ABCDEF'),
-      });
-    });
-  });
-
-  describe('order lifecycle state machine (#57)', () => {
-    const now = new Date('2026-11-01T12:00:00.000Z');
-
-    it('allows valid transitions and records the transition timestamp and audit action', () => {
-      expect(transitionOrder('PENDING', 'SUBMIT_PROOF', now)).toEqual({
-        from: 'PENDING',
-        to: 'PROOF_SUBMITTED',
-        auditAction: 'ORDER_PROOF_SUBMITTED',
-        transitionedAt: now,
-      });
-      expect(transitionOrder('PROOF_SUBMITTED', 'SUBMIT_PROOF', now)).toEqual({
-        from: 'PROOF_SUBMITTED',
-        to: 'PROOF_SUBMITTED',
-        auditAction: 'ORDER_PROOF_SUBMITTED',
-        transitionedAt: now,
-      });
-      expect(transitionOrder('PROOF_SUBMITTED', 'VERIFY', now)).toEqual({
-        from: 'PROOF_SUBMITTED',
-        to: 'VERIFIED',
-        auditAction: 'ORDER_VERIFIED',
-        transitionedAt: now,
-        verifiedAt: now,
-      });
-      expect(transitionOrder('PROOF_SUBMITTED', 'REQUEST_TOP_UP', now)).toEqual({
-        from: 'PROOF_SUBMITTED',
-        to: 'PENDING',
-        auditAction: 'ORDER_TOP_UP_REQUESTED',
-        transitionedAt: now,
-      });
-      expect(transitionOrder('PROOF_SUBMITTED', 'REJECT', now)).toEqual({
-        from: 'PROOF_SUBMITTED',
-        to: 'REJECTED',
-        auditAction: 'ORDER_REJECTED',
-        transitionedAt: now,
-      });
-      expect(transitionOrder('PENDING', 'LAPSE', now)).toEqual({
-        from: 'PENDING',
-        to: 'LAPSED',
-        auditAction: 'ORDER_LAPSED',
-        transitionedAt: now,
-      });
-      expect(transitionOrder('VERIFIED', 'REFUND', now)).toEqual({
-        from: 'VERIFIED',
-        to: 'REFUNDED',
-        auditAction: 'ORDER_REFUNDED',
-        transitionedAt: now,
-      });
-    });
-
-    it.each<[OrderStatusValue, OrderAction]>([
-      ['PENDING', 'VERIFY'],
-      ['PENDING', 'REQUEST_TOP_UP'],
-      ['PENDING', 'REJECT'],
-      ['PENDING', 'REFUND'],
-      ['PROOF_SUBMITTED', 'LAPSE'],
-      ['PROOF_SUBMITTED', 'REFUND'],
-      ['VERIFIED', 'SUBMIT_PROOF'],
-      ['VERIFIED', 'VERIFY'],
-      ['VERIFIED', 'REQUEST_TOP_UP'],
-      ['VERIFIED', 'REJECT'],
-      ['VERIFIED', 'LAPSE'],
-      ['REJECTED', 'SUBMIT_PROOF'],
-      ['REJECTED', 'VERIFY'],
-      ['REJECTED', 'LAPSE'],
-      ['LAPSED', 'SUBMIT_PROOF'],
-      ['LAPSED', 'VERIFY'],
-      ['LAPSED', 'LAPSE'],
-      ['REFUNDED', 'SUBMIT_PROOF'],
-      ['REFUNDED', 'VERIFY'],
-      ['REFUNDED', 'REFUND'],
-    ])('rejects invalid transition from %s via %s', (from, action) => {
-      expect(() => transitionOrder(from, action, now)).toThrow(InvalidOrderTransitionError);
-    });
-  });
-  describe('duplicate transaction ID detection (#59)', () => {
-    it('returns null when no other order uses the same transaction ID (ignoring same-order resubmissions)', () => {
-      expect(
-        buildDuplicateTransactionIdWarning('order-1', 'TXN-100', [
-          { orderId: 'order-1', paymentReference: 'LMS-20261102-AAAAAA', transactionId: 'TXN-100' },
-        ]),
-      ).toBeNull();
-    });
-
-    it('returns a warning with conflicting order IDs and references when another order uses the transaction ID', () => {
-      const warning = buildDuplicateTransactionIdWarning('order-2', 'TXN-100', [
-        { orderId: 'order-1', paymentReference: 'LMS-20261102-AAAAAA', transactionId: 'txn-100' },
-        { orderId: 'order-2', paymentReference: 'LMS-20261102-BBBBBB', transactionId: 'TXN-100' },
-      ]);
-      expect(warning).toEqual({
-        transactionId: 'TXN-100',
-        conflictingOrderIds: ['order-1'],
-        conflictingPaymentReferences: ['LMS-20261102-AAAAAA'],
-        message: expect.stringContaining('LMS-20261102-AAAAAA'),
-      });
-    });
-  });
-  describe('student order status guidance (#60)', () => {
-    const expiresAt = new Date('2026-11-03T00:00:00.000Z');
-
-    it('instructs the student to transfer funds and submit proof when PENDING with no proofs', () => {
-      const guidance = describeStudentOrderNextStep({
-        status: 'PENDING',
-        paymentReference: 'LMS-20261102-ABCDEF',
-        totalMinor: 250000n,
-        currency: 'PKR',
-        expiresAt,
-        proofCount: 0,
-      });
-      expect(guidance).toEqual({
-        statusLabel: 'Awaiting Payment & Proof',
-        actionRequired: 'SUBMIT_PROOF',
-        canSubmitProof: true,
-        nextStepMessage: expect.stringContaining('LMS-20261102-ABCDEF'),
-      });
-    });
-
-    it('instructs the student to submit top-up proof when PENDING with prior proofs', () => {
-      const guidance = describeStudentOrderNextStep({
-        status: 'PENDING',
-        paymentReference: 'LMS-20261102-ABCDEF',
-        totalMinor: 250000n,
-        currency: 'PKR',
-        expiresAt,
-        proofCount: 1,
-      });
-      expect(guidance.statusLabel).toBe('Additional Payment Required');
-      expect(guidance.actionRequired).toBe('SUBMIT_PROOF');
-      expect(guidance.canSubmitProof).toBe(true);
-    });
-
-    it('explains that admin verification is in progress when PROOF_SUBMITTED', () => {
-      const guidance = describeStudentOrderNextStep({
-        status: 'PROOF_SUBMITTED',
-        paymentReference: 'LMS-20261102-ABCDEF',
-        totalMinor: 250000n,
-        currency: 'PKR',
-        expiresAt,
-        proofCount: 1,
-      });
-      expect(guidance.statusLabel).toBe('Payment Proof Under Review');
-      expect(guidance.actionRequired).toBe('AWAIT_ADMIN_VERIFICATION');
-      expect(guidance.canSubmitProof).toBe(true);
-    });
-
-    it('marks VERIFIED, REJECTED, LAPSED, and REFUNDED orders as requiring no further student action', () => {
-      for (const status of ['VERIFIED', 'REJECTED', 'LAPSED', 'REFUNDED'] as const) {
-        const guidance = describeStudentOrderNextStep({
-          status,
-          paymentReference: 'LMS-20261102-ABCDEF',
-          totalMinor: 250000n,
-          currency: 'PKR',
-          expiresAt,
-          proofCount: 1,
-        });
-        expect(guidance.actionRequired).toBe('NONE');
-        expect(guidance.canSubmitProof).toBe(false);
-      }
-    });
-  });
-  describe('receipt generation on confirmation (#62)', () => {
-    const verifiedAt = new Date('2026-11-02T10:00:00.000Z');
-    const baseOrder = {
-      id: 'order-1',
-      paymentReference: 'LMS-20261102-ABCDEF',
-      status: 'VERIFIED' as const,
-      verifiedAt,
-      totalMinor: 375000n,
-      currency: 'PKR',
-      student: { id: 'student-1', fullName: 'Zain Buyer', email: 'zain@example.com' },
-      items: [
-        {
-          id: 'item-1',
-          courseId: 'course-1',
-          courseTitle: 'AS Chemistry Unit 1',
-          teacherId: 'teacher-a',
-          teacherName: 'Teacher A',
-          priceMinor: 150000n,
-          currency: 'PKR',
-        },
+  it('totals courses from several teachers and splits each line', () => {
+    const quote = buildCartQuote(
+      ['c1', 'c2', 'c1'],
+      [
+        course(),
+        course({ id: 'c2', teacherId: 't2', priceMinor: 275000n, commissionRateBps: 1500 }),
       ],
-      transactionIds: ['TXN-001', 'TXN-001', 'TXN-002'],
-    };
+      buyer(),
+    );
+    expect(quote.totalMinor).toBe(425000n);
+    expect(quote.currency).toBe('PKR');
+    expect(quote.teacherCount).toBe(2);
+    expect(quote.items.map((i) => i.courseId)).toEqual(['c1', 'c2']);
+    expect(quote.items[1]).toMatchObject({ commissionMinor: 41250n, netTeacherMinor: 233750n });
+  });
 
-    it('issues a receipt with RCT-<paymentReference> and verifiedAt timestamp when VERIFIED', () => {
-      const receipt = buildOrderReceipt(baseOrder);
-      expect(receipt).toEqual({
-        receiptNumber: 'RCT-LMS-20261102-ABCDEF',
-        orderId: 'order-1',
-        paymentReference: 'LMS-20261102-ABCDEF',
-        issuedAt: verifiedAt,
-        student: baseOrder.student,
-        items: baseOrder.items,
-        totalMinor: 375000n,
-        currency: 'PKR',
-        transactionIds: ['TXN-001', 'TXN-002'],
-      });
+  it('refuses an empty cart and unknown courses', () => {
+    expect(reasonOf(() => buildCartQuote([], [], buyer()))).toBe('EMPTY_CART');
+    expect(reasonOf(() => buildCartQuote(['x'], [], buyer()))).toBe('NOT_AVAILABLE');
+  });
+
+  it('refuses mixed currencies', () => {
+    expect(
+      reasonOf(() =>
+        buildCartQuote(['c1', 'c2'], [course(), course({ id: 'c2', currency: 'USD' })], buyer()),
+      ),
+    ).toBe('CURRENCY_MISMATCH');
+  });
+
+  it.each([
+    ['NOT_AVAILABLE', { status: 'DRAFT' as const }, {}],
+    ['NOT_AVAILABLE', { status: 'ARCHIVED' as const }, {}],
+    ['NOT_AVAILABLE', { audienceType: 'TEACHER_PD' as const }, {}],
+    ['TEACHER_SUSPENDED', { teacherActive: false }, {}],
+    ['ENROLLMENT_CLOSED', { isEnrollmentOpen: false }, {}],
+    ['OWN_COURSE', { teacherId: 's1' }, {}],
+    ['FREE_COURSE', { isFree: true }, {}],
+    ['ALREADY_ENROLLED', {}, { activeCourseIds: new Set(['c1']) }],
+    ['IN_OPEN_ORDER', {}, { openOrderCourseIds: new Set(['c1']) }],
+    ['NOT_PRICED', { priceMinor: null }, {}],
+    ['NOT_PRICED', { currency: null }, {}],
+    ['NOT_PRICED', { commissionRateBps: null }, {}],
+  ])('refuses %s', (reason, courseOverrides, buyerOverrides) => {
+    const refusal = reasonOf(() =>
+      buildCartQuote(['c1'], [course(courseOverrides)], buyer(buyerOverrides)),
+    );
+    expect(refusal).toBe(reason);
+  });
+
+  it('names the refused course', () => {
+    try {
+      buildCartQuote(['c1'], [course({ isEnrollmentOpen: false })], buyer());
+    } catch (error) {
+      expect((error as OrderRefusedError).info).toMatchObject({ courseId: 'c1' });
+    }
+  });
+});
+
+describe('email verification (#11)', () => {
+  it('refuses an unverified buyer', () => {
+    expect(() => assertEmailVerifiedForOrder(false)).toThrow(EmailNotVerifiedError);
+    expect(() => assertEmailVerifiedForOrder(true)).not.toThrow();
+  });
+});
+
+describe('payment instructions (#55)', () => {
+  it('carries the bank text, reference, amount, currency, deadline and turnaround', () => {
+    const expiresAt = computeOrderExpiry(NOW, 48);
+    expect(
+      buildPaymentInstructions(
+        { paymentReference: 'LMS-AAAA-BBBB', totalMinor: 500n, currency: 'PKR', expiresAt },
+        'Bank X',
+        24,
+      ),
+    ).toEqual({
+      bankTransferInstructions: 'Bank X',
+      paymentReference: 'LMS-AAAA-BBBB',
+      amountMinor: 500n,
+      currency: 'PKR',
+      expiresAt,
+      verificationTurnaroundHours: 24,
+    });
+  });
+});
+
+describe('duplicate transaction ids (#59)', () => {
+  const matches = [
+    { orderId: 'o2', paymentReference: 'LMS-2222-2222', transactionId: ' TX-1 ' },
+    { orderId: 'o3', paymentReference: 'LMS-3333-3333', transactionId: 'tx-1' },
+    { orderId: 'o1', paymentReference: 'LMS-1111-1111', transactionId: 'TX-1' },
+  ];
+
+  it('warns about other orders, ignoring case and spaces', () => {
+    const warning = buildDuplicateTransactionIdWarning('o1', 'TX-1', matches);
+    expect(warning?.conflictingOrderIds).toEqual(['o2', 'o3']);
+    expect(warning?.conflictingPaymentReferences).toEqual(['LMS-2222-2222', 'LMS-3333-3333']);
+  });
+
+  it('returns null when only the same order uses it', () => {
+    expect(buildDuplicateTransactionIdWarning('o1', 'TX-1', [matches[2]!])).toBeNull();
+    expect(buildDuplicateTransactionIdWarning('o1', 'TX-9', matches)).toBeNull();
+  });
+
+  it('gives one warning per distinct id', () => {
+    expect(
+      buildDuplicateTransactionIdWarnings('o1', ['TX-1', 'tx-1', 'TX-9'], matches),
+    ).toHaveLength(1);
+  });
+});
+
+describe('last payment decision and next step (#60, #65, #66)', () => {
+  const rejected = {
+    outcome: 'REJECTED' as const,
+    mismatchAction: null,
+    rejectionReason: 'INVALID_TRANSACTION_ID',
+    notes: 'No such transfer',
+    amountReceivedMinor: null,
+  };
+  const topUp = {
+    outcome: 'REJECTED' as const,
+    mismatchAction: 'REQUEST_TOP_UP' as const,
+    rejectionReason: 'AMOUNT_SHORT',
+    notes: null,
+    amountReceivedMinor: 400n,
+  };
+
+  it('reads the latest non-confirming decision', () => {
+    expect(lastPaymentDecision(1000n, [])).toBeNull();
+    expect(lastPaymentDecision(1000n, [topUp])).toEqual({
+      kind: 'TOP_UP_REQUESTED',
+      shortfallMinor: 600n,
+    });
+    expect(lastPaymentDecision(1000n, [topUp, rejected])).toEqual({
+      kind: 'REJECTED',
+      reason: 'The transaction ID could not be matched to a transfer',
+      notes: 'No such transfer',
+    });
+    expect(
+      lastPaymentDecision(1000n, [
+        rejected,
+        { ...rejected, outcome: 'CONFIRMED', rejectionReason: null },
+      ]),
+    ).toBeNull();
+  });
+
+  const describe_ = (
+    status: OrderStatusValue,
+    lastDecision: Parameters<typeof describeStudentOrderNextStep>[0]['lastDecision'] = null,
+  ) =>
+    describeStudentOrderNextStep({
+      status,
+      paymentReference: 'LMS-AAAA-BBBB',
+      totalMinor: 1000n,
+      currency: 'PKR',
+      expiresAt: NOW,
+      verificationTurnaroundHours: 48,
+      lastDecision,
     });
 
-    it.each(['PENDING', 'PROOF_SUBMITTED', 'REJECTED', 'LAPSED', 'REFUNDED'] as const)(
-      'refuses receipt generation when order status is %s (not confirmed)',
-      (status) => {
-        expect(() =>
-          buildOrderReceipt({
-            ...baseOrder,
-            status,
-            verifiedAt: status === 'REFUNDED' ? verifiedAt : null,
-          }),
-        ).toThrow(
-          expect.objectContaining({
-            info: expect.objectContaining({ reason: 'NOT_VERIFIED' }),
-          }),
-        );
-      },
-    );
+  it('asks for payment on a new order', () => {
+    const g = describe_('PENDING');
+    expect(g).toMatchObject({ nextAction: 'SUBMIT_PROOF', canSubmitProof: true });
+    expect(g.whatHappensNext).toContain('LMS-AAAA-BBBB');
+  });
+
+  it('asks for the shortfall after a top-up request', () => {
+    const g = describe_('PENDING', { kind: 'TOP_UP_REQUESTED', shortfallMinor: 600n });
+    expect(g.statusLabel).toBe('Top-up required');
+    expect(g.whatHappensNext).toContain('600');
+  });
+
+  it('promises the turnaround while under review', () => {
+    const g = describe_('PROOF_SUBMITTED');
+    expect(g.nextAction).toBe('WAIT_FOR_VERIFICATION');
+    expect(g.whatHappensNext).toContain('48 hours');
+  });
+
+  it('shows the reason and allows resubmission after rejection', () => {
+    const g = describe_('REJECTED', { kind: 'REJECTED', reason: 'Bad id', notes: 'typo' });
+    expect(g).toMatchObject({ nextAction: 'SUBMIT_PROOF', canSubmitProof: true });
+    expect(g.whatHappensNext).toContain('Bad id (typo)');
+  });
+
+  it.each(['VERIFIED', 'LAPSED', 'REFUNDED'] as const)('%s needs nothing more', (status) => {
+    expect(describe_(status)).toMatchObject({ nextAction: 'NONE', canSubmitProof: false });
+  });
+});
+
+describe('receipt (#62)', () => {
+  const order = {
+    id: 'o1',
+    paymentReference: 'LMS-AAAA-BBBB',
+    verifiedAt: NOW,
+    totalMinor: 1000n,
+    currency: 'PKR',
+    student: { fullName: 'Zain', email: 'z@test.local' },
+    items: [{ courseId: 'c1', courseTitle: 'Chem', teacherName: 'T', priceMinor: 1000n }],
+  };
+
+  it('is issued for a verified order', () => {
+    expect(buildOrderReceipt({ ...order, status: 'VERIFIED' })).toMatchObject({
+      receiptNumber: 'RCT-AAAA-BBBB',
+      issuedAt: NOW,
+      totalMinor: 1000n,
+    });
+  });
+
+  it.each(['PENDING', 'PROOF_SUBMITTED', 'REJECTED', 'LAPSED', 'REFUNDED'] as const)(
+    'is refused for %s',
+    (status) => {
+      expect(() => buildOrderReceipt({ ...order, status })).toThrow(OrderRefusedError);
+    },
+  );
+});
+
+describe('formatAmount (#112)', () => {
+  it('uses the currency decimals', () => {
+    expect(formatAmount(150000n, 'PKR')).toBe('PKR 1,500.00');
+    expect(formatAmount(5n, 'USD')).toBe('USD 0.05');
+    expect(formatAmount(1500n, 'JPY')).toBe('JPY 1,500');
+    expect(formatAmount(-250n, 'GBP')).toBe('-GBP 2.50');
+    expect(formatAmount(1234567n, 'KWD')).toBe('KWD 1,234.567');
   });
 });

@@ -4,12 +4,19 @@ Backend for a learning platform where independent teachers publish courses for C
 
 **Stack:** NestJS 11 · PostgreSQL · Prisma 7 (pg driver adapter) · Zod · Jest. HTTP-only cookie sessions. Background jobs with `@nestjs/schedule`. Video on Bunny Stream, files on S3-compatible storage, email over SMTP.
 
-| Read this                                              | For                                                              |
-| ------------------------------------------------------ | ---------------------------------------------------------------- |
-| [docs/BACKEND_STRUCTURE.md](docs/BACKEND_STRUCTURE.md) | Layer rules, scoping, errors, jobs: **read before writing code** |
-| [docs/PRISMA_SETUP.md](docs/PRISMA_SETUP.md)           | Schema rules (money, ledger, publish guard) and schema additions |
-| [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)           | Bunny, SMTP, S3, Turnstile and MFA key setup for production      |
-| [docs/backlog/](docs/backlog/)                         | How the GitHub issues were imported; issue-number notes          |
+| Read this                                              | For                                                                |
+| ------------------------------------------------------ | ------------------------------------------------------------------ |
+| [docs/BACKEND_STRUCTURE.md](docs/BACKEND_STRUCTURE.md) | Layer rules, scoping, errors, jobs: **read before writing code**   |
+| [docs/PRISMA_SETUP.md](docs/PRISMA_SETUP.md)           | Schema rules (money, ledger, publish guard) and schema additions   |
+| [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)           | Bunny, SMTP, S3, Turnstile and MFA key setup for production        |
+| [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)     | Security review (#119): findings, fixes and open items             |
+| [docs/backlog/](docs/backlog/)                         | How the GitHub issues were imported; issue-number notes            |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)               | Deploy runbook: Docker images, VPS setup, pipeline, rollback       |
+| [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md)           | Environments, server config files, secrets inventory               |
+| [docs/BACKUP_RESTORE.md](docs/BACKUP_RESTORE.md)       | Daily backups to S3, restore test, disaster recovery               |
+| [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)     | Every table and column (generated from the Prisma schema)          |
+| [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md)             | Administrator guide: verification, payouts, course approval, users |
+| [web/README.md](web/README.md)                         | The Next.js web app: running it against the API on :3000           |
 
 ## Quick start
 
@@ -63,31 +70,38 @@ curl -b cookies.txt http://localhost:3000/auth/me
 
 ## What's built
 
-| Module (`src/modules/`)       | Issues         | What it does                                                                                                                                                      |
-| ----------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth`                        | #10–#17        | Registration with email verification, login and logout, server-side sessions, password reset, enforced TOTP MFA for admins, admin account management, rate limits |
-| `teachers`                    | #18–#23        | Public teacher application with CV and captcha, admin review queue, accounts from applications, deactivation, retention purge                                     |
-| `courses`                     | #24–#34        | Course state machine, authoring, sections and lessons, review queue, pricing and commission, unpublish, archive, demo (free previews)                             |
-| `content`                     | #35–#39        | Bunny Stream video (direct upload, webhooks, signed playback), PDF resources, server-side access gate                                                             |
-| `catalogue`                   | #40–#44        | Public catalogue: search, filters, stated ordering, course detail                                                                                                 |
-| `enrollment`                  | #46–#52        | Free enrollment, admin grants and revokes, expiry, teacher roster (view only), student dashboard with completion                                                  |
-| `audit`                       | #107, #108     | Audit log for sensitive actions, admin search                                                                                                                     |
-| `platform-settings`           | #8             | Admin-editable settings (thresholds, windows, retention)                                                                                                          |
-| `reference-data`              | #24            | Boards, levels, subjects                                                                                                                                          |
-| `email`, `storage`, `captcha` | #110, #19, #18 | Infrastructure adapters (SMTP/log/memory, S3/local disk, Turnstile/disabled)                                                                                      |
+| Module (`src/modules/`)       | Issues         | What it does                                                                                                                                                                                     |
+| ----------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auth`                        | #10â€“#17        | Registration with email verification, login and logout, server-side sessions, password reset, enforced TOTP MFA for admins, admin account management, rate limits                                |
+| `teachers`                    | #18â€“#23        | Public teacher application with CV and captcha, admin review queue, accounts from applications, deactivation, retention purge                                                                    |
+| `courses`                     | #24â€“#34        | Course state machine, authoring, sections and lessons, review queue, pricing and commission, unpublish, archive, demo (free previews)                                                            |
+| `content`                     | #35â€“#39        | Bunny Stream video (direct upload, webhooks, signed playback), PDF resources, server-side access gate                                                                                            |
+| `catalogue`                   | #40â€“#44        | Public catalogue: search, filters, stated ordering, course detail                                                                                                                                |
+| `enrollment`                  | #46â€“#52        | Free enrollment, admin grants and revokes, expiry, teacher roster (view only), student dashboard with completion                                                                                 |
+| `progress`                    | #90â€“#97, #77   | Lesson completion (AUTO/MANUAL/QUIZ), skip-resistant watch positions, learner outline with derived unlock states and lock causes, checkpoint gating, teacher progress view                       |
+| `assessment`                  | #68â€“#74, #76   | Quiz builder (MCQ, numeric with exact-decimal tolerance, LaTeX text, question images), server-timed attempts, attempt limits, answer reveal rules                                                |
+| `orders`                      | #54â€“#62        | Cart quote, orders with payment reference and frozen price/commission snapshots, payment proofs, duplicate transaction warnings, student order screens, receipts, expiry job                     |
+| `profiles`                    | #98â€“#100       | Teacher public profiles: editor with photo, public page with published courses, admin moderation (audited)                                                                                       |
+| `verification`                | #63â€“#67        | Admin payment queue (waiting time, duplicate and amount warnings), confirm with amount and value date (grants enrollment, writes earnings), reject with reason, mismatch handling, queue metrics |
+| `ledger`                      | #80            | Append-only teacher ledger; EARNING entries on payment confirmation (payouts and refunds extend it)                                                                                              |
+| `admin`                       | #102, #103     | Admin dashboard queue counts, user overview (enrollments, courses taught), admin-triggered password reset                                                                                        |
+| `audit`                       | #107, #108     | Audit log for sensitive actions, admin search                                                                                                                                                    |
+| `platform-settings`           | #8             | Admin-editable settings (thresholds, windows, retention)                                                                                                                                         |
+| `reference-data`              | #24            | Boards, levels, subjects                                                                                                                                                                         |
+| `email`, `storage`, `captcha` | #110, #19, #18 | Infrastructure adapters (SMTP/log/memory, S3/local disk, Turnstile/disabled)                                                                                                                     |
 
 ### Still to do
 
-- **M2:** cart and orders with frozen price snapshots (#54–#62), payment verification and amount mismatches (#63–#67), quizzes and assessment (#68–#77).
-- **M3:** teacher ledger, refunds and payouts (#78–#89), progress and sequential unlock (#90–#97), teacher profiles (#98–#101), admin dashboards and finance reports (#102–#106), remaining email templates (#111–#113), test and hardening tickets (#114–#119).
+- **M2:** cart and orders with frozen price snapshots (#54â€“#62), payment verification and amount mismatches (#63â€“#67), quiz checkpoint gating (#77).
+- **M3:** teacher ledger, refunds and payouts (#78â€“#89), progress and sequential unlock (#90â€“#97), teacher profiles (#98â€“#101), admin dashboards and finance reports (#102â€“#106), remaining email templates (#111â€“#113), test and hardening tickets (#114â€“#119).
 - **Web app:** Next.js in `/web` (decided), covering the UI tickets (#7, #45, #53, #75, #101, #102, #109, #114) and the screens for everything above.
-- **Deployment:** VPS + Docker + GitHub Actions (decided) for staging and production (#5, #6, #120–#123).
+- **Deployment:** VPS + Docker + GitHub Actions (decided) for staging and production (#5, #6, #120â€“#123).
 
 ### Blocked on information from the client or the team
 
 | Needed                                                                                                                                                                                           | Blocks                                                                                     |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Client answers to #125–#134 (enrollment duration, granularity, bank account and currency, order expiry, refunds, payout cycle, turnaround, quiz pass rule, video threshold, "two country views") | Final behaviour of enrollment, orders, payouts and quizzes; values go in platform settings |
+| Client answers to #125â€“#134 (enrollment duration, granularity, bank account and currency, order expiry, refunds, payout cycle, turnaround, quiz pass rule, video threshold, "two country views") | Final behaviour of enrollment, orders, payouts and quizzes; values go in platform settings |
 | A VPS, its SSH access and a domain                                                                                                                                                               | #5, #6, #119, #120                                                                         |
 | Sending domain and its SPF/DKIM/DMARC records                                                                                                                                                    | #110                                                                                       |
 | Bunny Stream library ID and keys                                                                                                                                                                 | Verifying #36, #37                                                                         |
@@ -112,6 +126,16 @@ curl -b cookies.txt http://localhost:3000/auth/me
 - Money is a string of minor units (`"150000"`). Never parse it into a float.
 - Field names are camelCase. Routes are grouped by caller: public (`/catalogue`, `/auth`), student (`/me`, `/courses/:id/...`), teacher (`/teacher/...`) and admin (`/admin/...`).
 - Everything requires a session unless marked public. Teacher data is scoped in the data layer, so another teacher's records answer 404.
+
+## Deployment
+
+Staging and production run in Docker on a VPS behind Caddy (automatic TLS), deployed by `.github/workflows/deploy.yml` over SSH: staging after CI passes on `main`, production by manual dispatch. The workflow does nothing until the `DEPLOY_SSH_KEY` secret is set. Everything for the server is in `deploy/`; the steps are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+```bash
+docker build -t lms-api .                   # the API image
+docker build --target tools -t lms-tools .  # migrations and seed
+node scripts/schema-doc.mjs > docs/DATABASE_SCHEMA.md && npx prettier --write docs/DATABASE_SCHEMA.md  # after a schema change
+```
 
 ## Working on it
 
