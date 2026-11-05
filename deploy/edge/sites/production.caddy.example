@@ -1,0 +1,10 @@
+# Copy to production.caddy and replace the domains. DNS A/AAAA records must point at this VPS.
+
+api.example.com {
+	import lms_api lms-production-api
+}
+
+# Uncomment once the web app image is deployed in the production stack.
+# example.com, www.example.com {
+# 	import lms_web lms-production-web
+# }

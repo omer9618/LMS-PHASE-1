@@ -16,11 +16,11 @@ import { createTestApp } from './utils/test-app';
  * it is meant to have; a new route that is not added fails the inventory test, and a route whose
  * decorators drift from its entry fails the metadata test.
  *
- * For every route that needs a session: anonymous → 401.
- * For every role-restricted route: a caller without the role → 403 (and an admin whose session has
- * not passed MFA → 403 MFA_REQUIRED).
- * For every teacher-owned route: another teacher → 404, so existence is not revealed (#14).
- * For every student-owned route: another student → 404.
+ * For every route that needs a session: anonymous â†’ 401.
+ * For every role-restricted route: a caller without the role â†’ 403 (and an admin whose session has
+ * not passed MFA â†’ 403 MFA_REQUIRED).
+ * For every teacher-owned route: another teacher â†’ 404, so existence is not revealed (#14).
+ * For every student-owned route: another student â†’ 404.
  */
 
 type Access = 'public' | 'optional' | 'session' | 'teacher' | 'admin';
@@ -57,7 +57,7 @@ const studentOwned = (extra: Omit<Entry, 'access' | 'owned'> = {}): Entry => ({
 const ANY_UUID = '00000000-0000-4000-8000-000000000000';
 
 const MATRIX: Record<string, Entry> = {
-  // ── Infrastructure and public reads ───────────────────────────────
+  // â”€â”€ Infrastructure and public reads â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   'GET /health': PUBLIC('liveness probe'),
   'GET /dev-files/:token': PUBLIC('local storage only; the signed token is the credential'),
   'GET /boards': PUBLIC('reference data'),
@@ -68,8 +68,9 @@ const MATRIX: Record<string, Entry> = {
   'GET /catalogue/subjects': PUBLIC('catalogue'),
   'POST /webhooks/video/:provider': PUBLIC('provider webhook; HMAC signature is the credential'),
   'POST /teacher-applications': PUBLIC('public application form, captcha-protected'),
+  'GET /teachers/:teacherId': PUBLIC('published teacher profile (#99)'),
 
-  // ── Auth and account ──────────────────────────────────────────────
+  // â”€â”€ Auth and account â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   'POST /auth/login': PUBLIC('sign in'),
   'POST /auth/login/mfa': PUBLIC('second sign-in step; the challenge token is the credential'),
   'POST /auth/logout': PUBLIC('idempotent; clears whatever cookie is sent'),
@@ -78,6 +79,7 @@ const MATRIX: Record<string, Entry> = {
   'POST /auth/password-reset/request': PUBLIC('always answers the same, rate-limited'),
   'POST /auth/password-reset/confirm': PUBLIC('emailed single-use token'),
   'GET /auth/me': SESSION,
+  'POST /auth/context': SESSION,
   'POST /auth/verify-email/resend': SESSION,
   'GET /auth/mfa': SESSION,
   'POST /auth/mfa/setup': SESSION,
@@ -85,9 +87,12 @@ const MATRIX: Record<string, Entry> = {
   'POST /auth/mfa/disable': SESSION,
   'POST /auth/mfa/recovery-codes': SESSION,
 
-  // ── Admin ─────────────────────────────────────────────────────────
+  // â”€â”€ Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  'GET /admin/dashboard': ADMIN,
   'GET /admin/users': ADMIN,
   'GET /admin/users/:userId': ADMIN,
+  'GET /admin/users/:userId/overview': ADMIN,
+  'POST /admin/users/:userId/password-reset': ADMIN,
   'POST /admin/users': ADMIN,
   'POST /admin/users/:userId/suspend': ADMIN,
   'POST /admin/users/:userId/reactivate': ADMIN,
@@ -115,12 +120,31 @@ const MATRIX: Record<string, Entry> = {
   'POST /admin/teacher-applications/:applicationId/account': ADMIN,
   'POST /admin/teacher-applications/:applicationId/link': ADMIN,
   'POST /admin/teachers/:teacherId/deactivate': ADMIN,
+  'GET /admin/teachers/:teacherId/profile': ADMIN,
+  'PUT /admin/teachers/:teacherId/profile': ADMIN,
+  'POST /admin/teachers/:teacherId/profile/unpublish': ADMIN,
+  'POST /admin/teachers/:teacherId/profile/photo/remove': ADMIN,
+  'GET /admin/teachers/:teacherId/earnings': ADMIN,
+  'POST /admin/teachers/:teacherId/ledger/adjustments': ADMIN,
   'GET /admin/enrollments': ADMIN,
   'POST /admin/enrollments': ADMIN,
   'POST /admin/enrollments/:enrollmentId/revoke': ADMIN,
   'GET /admin/orders/:orderId': ADMIN,
+  'POST /admin/orders/:orderId/refund': ADMIN,
+  'GET /admin/verification/queue': ADMIN,
+  'GET /admin/verification/metrics': ADMIN,
+  'POST /admin/verification/orders/:orderId/confirm': ADMIN,
+  'POST /admin/verification/orders/:orderId/reject': ADMIN,
 
-  // ── Teacher: courses and outline ──────────────────────────────────
+  // â”€â”€ Teacher: courses and outline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  'GET /teacher/profile': TEACHER,
+  'PUT /teacher/profile': TEACHER,
+  'POST /teacher/profile/photo': TEACHER,
+  'DELETE /teacher/profile/photo': TEACHER,
+  'POST /teacher/profile/publish': TEACHER,
+  'POST /teacher/profile/unpublish': TEACHER,
+  'GET /teacher/earnings': TEACHER,
+  'GET /teacher/ledger': TEACHER,
   'POST /teacher/courses': TEACHER,
   'GET /teacher/courses': TEACHER,
   'GET /teacher/courses/:courseId': teacherOwned(),
@@ -153,7 +177,7 @@ const MATRIX: Record<string, Entry> = {
   'GET /teacher/courses/:courseId/progress': teacherOwned(),
   'GET /teacher/courses/:courseId/progress/students/:studentId': teacherOwned(),
 
-  // ── Teacher: content ──────────────────────────────────────────────
+  // â”€â”€ Teacher: content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   'POST /teacher/courses/:courseId/lessons/:lessonId/video': teacherOwned({
     body: {},
     params: { lessonId: '<videoLessonId>' },
@@ -169,7 +193,7 @@ const MATRIX: Record<string, Entry> = {
     params: { lessonId: '<videoLessonId>' },
   }),
 
-  // ── Teacher: quizzes ──────────────────────────────────────────────
+  // â”€â”€ Teacher: quizzes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   'GET /teacher/courses/:courseId/lessons/:lessonId/quiz': teacherOwned(),
   'POST /teacher/courses/:courseId/lessons/:lessonId/quiz': teacherOwned({ body: {} }),
   'PATCH /teacher/courses/:courseId/lessons/:lessonId/quiz': teacherOwned({
@@ -192,11 +216,12 @@ const MATRIX: Record<string, Entry> = {
   'DELETE /teacher/courses/:courseId/lessons/:lessonId/quiz/questions/:questionId/image':
     teacherOwned(),
 
-  // ── Learners ──────────────────────────────────────────────────────
+  // â”€â”€ Learners â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   'GET /courses/:courseId/lessons/:lessonId/playback': {
     access: 'optional',
     note: 'visitors may play free-preview lessons (the demo); anything else needs a session',
   },
+  'GET /courses/:courseId/lessons/:lessonId/content': SESSION,
   'GET /courses/:courseId/lessons/:lessonId/resources/:resourceId/download': SESSION,
   'POST /courses/:courseId/enroll': SESSION,
   'GET /me/enrollments': SESSION,
@@ -214,18 +239,15 @@ const MATRIX: Record<string, Entry> = {
     body: {},
   }),
 
-  // ── Orders ────────────────────────────────────────────────────────
-  'POST /orders/cart/preview': SESSION,
+  // â”€â”€ Orders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  'POST /cart/quote': SESSION,
   'POST /orders': SESSION,
-  'GET /orders': SESSION,
-  'GET /orders/:orderId': studentOwned(),
-  'GET /orders/:orderId/receipt': studentOwned(),
-  'POST /orders/:orderId/proofs': studentOwned({
-    multipart: { file: 'proof', fields: { transactionId: 'TX-ACCESS-MATRIX' } },
-  }),
   'GET /me/orders': SESSION,
   'GET /me/orders/:orderId': studentOwned(),
   'GET /me/orders/:orderId/receipt': studentOwned(),
+  'POST /me/orders/:orderId/proofs': studentOwned({
+    multipart: { file: 'file', fields: { transactionId: 'TX-ACCESS-MATRIX' } },
+  }),
 };
 
 const PNG = Buffer.from(
@@ -326,7 +348,7 @@ describe('Access-control matrix: every route (#117)', () => {
     const quiz = await http()
       .post(`/teacher/courses/${course.id}/lessons/${quizLessonId}/quiz/questions`)
       .set('Cookie', cookies.teacherA)
-      .send({ type: 'NUMERIC', contentText: 'g in m/s²?', correctAnswer: '9.81' })
+      .send({ type: 'NUMERIC', contentText: 'g in m/sÂ²?', correctAnswer: '9.81' })
       .expect(201);
     const questionId = quiz.body.data.questions[0].id as string;
 
@@ -414,7 +436,7 @@ describe('Access-control matrix: every route (#117)', () => {
     return body !== undefined ? req.send(body) : req;
   }
 
-  /** "GET /x" → reason, for readable failures. */
+  /** "GET /x" â†’ reason, for readable failures. */
   async function collect(
     candidates: RegisteredRoute[],
     cookie: string | undefined,
@@ -427,7 +449,7 @@ describe('Access-control matrix: every route (#117)', () => {
       const okName = !name || res.body?.error?.name === name;
       if (res.status !== expected || !okName) {
         failures.push(
-          `${route.key} → ${res.status} ${res.body?.error?.name ?? ''} (expected ${expected}${name ? ` ${name}` : ''})`,
+          `${route.key} â†’ ${res.status} ${res.body?.error?.name ?? ''} (expected ${expected}${name ? ` ${name}` : ''})`,
         );
       }
     }
@@ -526,9 +548,9 @@ describe('Access-control matrix: every route (#117)', () => {
     it('never fails public routes with 401 or a server error', async () => {
       const failures: string[] = [];
       for (const route of byAccess('public')) {
-        if (route.key === 'POST /webhooks/video/:provider') continue; // unsigned → 401 by design
+        if (route.key === 'POST /webhooks/video/:provider') continue; // unsigned â†’ 401 by design
         const res = await call(route);
-        if (res.status === 401 || res.status >= 500) failures.push(`${route.key} → ${res.status}`);
+        if (res.status === 401 || res.status >= 500) failures.push(`${route.key} â†’ ${res.status}`);
       }
       expect(failures).toEqual([]);
     });
@@ -570,12 +592,12 @@ describe('Access-control matrix: every route (#117)', () => {
       for (const route of reads) {
         const owner = MATRIX[route.key].owned === 'teacher' ? cookies.teacherA : cookies.student;
         const res = await call(route, owner);
-        if (res.status === 404) failures.push(`${route.key} → 404 for its owner`);
+        if (res.status === 404) failures.push(`${route.key} â†’ 404 for its owner`);
       }
       expect(failures).toEqual([]);
     });
 
-    it('left teacher A’s course untouched', async () => {
+    it('left teacher Aâ€™s course untouched', async () => {
       const course = await prisma.course.findUniqueOrThrow({
         where: { id: params.courseId },
         select: { title: true, isEnrollmentOpen: true, status: true },

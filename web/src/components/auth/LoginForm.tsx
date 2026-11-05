@@ -9,7 +9,7 @@ import { api } from '@/lib/api/client';
 import { errorMessage, fieldErrors, isApiError } from '@/lib/api/errors';
 import type { LoginResult } from '@/lib/api/types';
 import { safeNextPath } from '@/lib/format';
-import { useSession } from '@/lib/session';
+import { needsMfaSetup, useSession } from '@/lib/session';
 
 type Step = { kind: 'password' } | { kind: 'mfa'; challengeToken: string };
 
@@ -34,8 +34,9 @@ export function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
 
   async function finish() {
-    await refresh();
-    router.replace(next);
+    const me = await refresh();
+    // An admin who has not enrolled MFA can do nothing else until they do (#16).
+    router.replace(needsMfaSetup(me) ? `/account/mfa?next=${encodeURIComponent(next)}` : next);
     router.refresh();
   }
 

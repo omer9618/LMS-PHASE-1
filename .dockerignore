@@ -1,0 +1,25 @@
+# Keep the build context small and secrets out of every image layer.
+.git
+.github
+.claude
+node_modules
+dist
+coverage
+.storage
+*.log
+
+# Environment files, with or without a suffix. Only the example is safe.
+.env
+.env.*
+!.env.example
+deploy/**/*.env
+deploy/**/.env
+
+# Not needed to build or run the API.
+docs
+test
+web
+deploy
+README.md
+Dockerfile
+.dockerignore

@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { OrderStatus, Prisma, UserStatus } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthUser } from '../../../common/auth/auth-user';
-import { adminScope } from '../../../common/auth/scope';
+import { adminScope, TeacherScope } from '../../../common/auth/scope';
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
 import type { TransactionClient } from '../../../prisma/prisma.types';
@@ -19,7 +19,7 @@ import {
   IncomingFile,
   StorageService,
 } from '../../storage/services/storage.service';
-import { OrderDao, OrderItemRecord, OrderRecord, PaymentProofRecord } from '../dao/order.dao';
+import { OrderDao, OrderItemRecord, OrderRecord, PaymentProofRecord, TeacherOrderItemRecord } from '../dao/order.dao';
 import {
   assertEmailVerifiedForOrder,
   buildCartQuote,
@@ -53,7 +53,7 @@ import type {
   SubmitPaymentProofInput,
 } from '../schemas/order.schema';
 
-export type { DuplicateTransactionIdWarning, OrderItemRecord, OrderReceipt, OrderRecord };
+export type { DuplicateTransactionIdWarning, OrderItemRecord, OrderReceipt, OrderRecord, TeacherOrderItemRecord };
 
 export interface CartQuoteView {
   items: Array<{
@@ -130,7 +130,7 @@ export class OrderService {
     @InjectPinoLogger(OrderService.name) private readonly logger: PinoLogger,
   ) {}
 
-  // ── Student ──────────────────────────────────────────────────────
+  // â”€â”€ Student â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /** #54: validates a cart and totals it. Commission is internal and never shown to students. */
   async quote(user: AuthUser, input: QuoteCartInput): Promise<CartQuoteView> {
@@ -322,7 +322,7 @@ export class OrderService {
     };
   }
 
-  // ── Admin ────────────────────────────────────────────────────────
+  // â”€â”€ Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /** Admin order detail: frozen line snapshots, proofs, decisions and duplicate warnings. */
   async getOrderForAdmin(admin: AuthUser, orderId: string): Promise<AdminOrderView> {
@@ -337,7 +337,7 @@ export class OrderService {
     };
   }
 
-  // ── Expiry job (#61) ─────────────────────────────────────────────
+  // â”€â”€ Expiry job (#61) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * #61: lapses every PENDING or REJECTED order past its window, each in its own transaction with
@@ -381,7 +381,7 @@ export class OrderService {
     return lapsed;
   }
 
-  // ── For the verification module (#63-#67) ───────────────────────
+  // â”€â”€ For the verification module (#63-#67) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /** #63: every order awaiting an admin's decision. */
   listAwaitingVerification(): Promise<OrderRecord[]> {
@@ -473,6 +473,12 @@ export class OrderService {
     return change;
   }
 
+  /** #102: orders whose payment proof awaits admin verification, for the admin dashboard. */
+  async countOrdersAwaitingVerification(admin: AuthUser): Promise<number> {
+    adminScope(admin);
+    return this.orderDao.countOrdersBy({ status: OrderStatus.PROOF_SUBMITTED });
+  }
+
   /**
    * #64, #62, #112: after a confirmation commits, emails the confirmation, the receipt and the
    * enrollment notice. Best-effort: a failed email is logged, never undoes the confirmation.
@@ -530,7 +536,7 @@ export class OrderService {
     });
   }
 
-  // ── Internals ────────────────────────────────────────────────────
+  // â”€â”€ Internals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /** #54: loads sale facts, the buyer's access and open orders, and asks the rules. */
   private async quoteCart(
@@ -639,6 +645,23 @@ export class OrderService {
         lastDecision: decision,
       }),
     };
+  }
+
+  /**
+   * #81 / #84: teacher-scoped order line items filtered by parent order status, so the
+   * ledger module can separate pending (unverified) sales from confirmed sales without
+   * importing OrderDao directly.
+   */
+  listTeacherOrderItems(
+    scope: TeacherScope,
+    statuses?: readonly OrderStatus[],
+    tx?: TransactionClient,
+  ): Promise<TeacherOrderItemRecord[]> {
+    return this.orderDao.getTeacherOrderItemsBy(
+      scope,
+      statuses ? { order: { status: { in: [...statuses] } } } : {},
+      tx,
+    );
   }
 
   private orderUrl(orderId: string): string {

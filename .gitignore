@@ -24,3 +24,9 @@ coverage/
 
 # Local file storage (STORAGE_DRIVER=local)
 .storage/
+
+# Deployment (#5): server-side config copied from deploy/*.example. Never commit the copies.
+deploy/**/api.env
+deploy/**/backup.env
+deploy/**/stack.env
+deploy/edge/sites/*.caddy

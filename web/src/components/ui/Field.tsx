@@ -1,6 +1,12 @@
 'use client';
 
-import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react';
+import {
+  useId,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from 'react';
 import { cx } from './cx';
 import styles from './Field.module.css';
 
@@ -149,6 +155,28 @@ export function Checkbox({ label, hint, error, id, className, ...rest }: Checkbo
           {label}
         </label>
       </div>
+      <FieldText hint={hint} hintId={hintId} error={error} errorId={errorId} />
+    </div>
+  );
+}
+
+export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & FieldOwnProps;
+
+export function Textarea({ label, hint, error, hideLabel, id, className, ...rest }: TextareaProps) {
+  const { controlId, hintId, errorId, describedBy } = useFieldIds(id, hint, error);
+  return (
+    <div className={cx(styles.field, className)}>
+      <Label htmlFor={controlId} required={rest.required} hidden={hideLabel}>
+        {label}
+      </Label>
+      <textarea
+        rows={4}
+        {...rest}
+        id={controlId}
+        className={cx(styles.control, styles.textarea)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+      />
       <FieldText hint={hint} hintId={hintId} error={error} errorId={errorId} />
     </div>
   );

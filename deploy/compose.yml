@@ -1,0 +1,99 @@
+# One LMS environment (staging or production) on a VPS. See docs/DEPLOYMENT.md.
+#
+# Lives in /opt/lms/<environment>/ next to:
+#   .env      - variables for this file (copy stack.env.example); API_TAG is updated by deploy.sh
+#   api.env   - the API's own configuration and secrets (copy api.env.example)
+#
+# The edge proxy (deploy/edge) terminates TLS and reaches the API over the external `edge`
+# network by the alias ${STACK_NAME}-api. Postgres is never published to the host or internet.
+name: ${STACK_NAME:?set STACK_NAME in .env}
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '5'
+
+services:
+  api:
+    image: ${API_IMAGE:?set API_IMAGE in .env}:${API_TAG:?set API_TAG in .env}
+    restart: unless-stopped
+    env_file: api.env
+    environment:
+      # Built here so the database password lives in exactly one place (.env).
+      DATABASE_URL: postgresql://lms:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/lms?schema=public
+      NODE_ENV: production
+      PORT: '3000'
+      # Browser traffic arrives Caddy -> web (Next.js rewrites /api/*) -> API: two proxies.
+      # Caddy discards any X-Forwarded-For sent by clients, so requests reaching the API
+      # straight from Caddy (webhooks, /health) also resolve to the real client IP.
+      TRUST_PROXY_HOPS: '2'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      default: {}
+      edge:
+        aliases:
+          - ${STACK_NAME}-api
+    # Lets in-flight requests finish (Nest shutdown hooks) before Docker kills the container.
+    stop_grace_period: 30s
+    logging: *logging
+
+  # The Next.js web app (web/). Optional until its image is built by the pipeline: start it
+  # with `docker compose --profile web up -d web` and uncomment its block in the Caddy site file.
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/omer9618/lms-phase-1-web}:${WEB_TAG:-${API_TAG}}
+    profiles: ['web']
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # next.config.ts rewrites /api/* here, so the browser only ever talks to the web origin.
+      API_URL: http://api:3000
+    depends_on:
+      - api
+    networks:
+      default: {}
+      edge:
+        aliases:
+          - ${STACK_NAME}-web
+    logging: *logging
+
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lms
+      POSTGRES_DB: lms
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U lms -d lms']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    shm_size: 256m
+    logging: *logging
+
+  # One-off release tasks, never started by `up`:
+  #   docker compose run --rm migrate                      # prisma migrate deploy
+  #   docker compose run --rm migrate npx prisma db seed   # first install only
+  migrate:
+    image: ${TOOLS_IMAGE:?set TOOLS_IMAGE in .env}:${API_TAG}
+    profiles: ['tools']
+    env_file: api.env
+    environment:
+      DATABASE_URL: postgresql://lms:${POSTGRES_PASSWORD}@postgres:5432/lms?schema=public
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  pgdata:
+
+networks:
+  edge:
+    external: true

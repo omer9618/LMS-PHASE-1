@@ -18,8 +18,28 @@ const ledgerEntrySelect = {
   createdAt: true,
 } satisfies Prisma.TeacherLedgerSelect;
 
+const payoutHistorySelect = {
+  id: true,
+  teacherId: true,
+  amountMinor: true,
+  method: true,
+  transactionId: true,
+  periodStart: true,
+  periodEnd: true,
+  status: true,
+  recordedById: true,
+  recordedAt: true,
+  transferDate: true,
+  disputeDeadline: true,
+  acceptedAt: true,
+} satisfies Prisma.PayoutSelect;
+
 export type LedgerEntryRecord = Prisma.TeacherLedgerGetPayload<{
   select: typeof ledgerEntrySelect;
+}>;
+
+export type PayoutHistoryRecord = Prisma.PayoutGetPayload<{
+  select: typeof payoutHistorySelect;
 }>;
 
 export interface CreateLedgerEntryData {
@@ -34,7 +54,7 @@ export interface CreateLedgerEntryData {
 }
 
 /**
- * teacher_ledger (#80). Append-only: there is deliberately no update or delete method.
+ * teacher_ledger (#78-#84). Append-only: there is deliberately no update or delete method.
  * Every read is teacher-scoped (#14); every write takes the owning teacher's scope.
  */
 @Injectable()
@@ -61,6 +81,19 @@ export class LedgerDao {
       where: { AND: [where, scopeWhere(scope)] },
       select: ledgerEntrySelect,
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
+  /** #84: teacher-scoped payout history, newest first. */
+  getPayoutsBy(
+    scope: TeacherScope,
+    where: Prisma.PayoutWhereInput,
+    tx?: TransactionClient,
+  ): Promise<PayoutHistoryRecord[]> {
+    return (tx ?? this.prisma).payout.findMany({
+      where: { AND: [where, scopeWhere(scope)] },
+      select: payoutHistorySelect,
+      orderBy: [{ recordedAt: 'desc' }, { id: 'asc' }],
     });
   }
 }
