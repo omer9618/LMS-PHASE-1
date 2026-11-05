@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { LedgerDao } from '../dao/ledger.dao';
 import {
   assertValidLedgerEntryDraft,
@@ -5,10 +6,12 @@ import {
   buildEarningEntries,
   buildPayoutEntry,
   buildRefundEntries,
+  computeCurrencyBalance,
+  computeDerivedBalances,
   LedgerRefusedError,
 } from './ledger.rules';
 
-describe('ledger rules (#78, #80)', () => {
+describe('ledger rules (#78, #79, #80)', () => {
   const lines = [
     { orderItemId: 'i1', teacherId: 't1', courseTitle: 'Chem', netTeacherMinor: 120000n },
     { orderItemId: 'i2', teacherId: 't2', courseTitle: 'Maths', netTeacherMinor: 0n },
@@ -194,6 +197,68 @@ describe('ledger rules (#78, #80)', () => {
           payoutId: 'p1',
           description: 'Positive payout is invalid',
         }),
+      ).toThrow(LedgerRefusedError);
+    });
+  });
+
+  describe('balance derived from ledger entries (#79)', () => {
+    it('Prisma schema has no stored balance column on any model', () => {
+      for (const model of Prisma.dmmf.datamodel.models) {
+        for (const field of model.fields) {
+          expect(`${model.name}.${field.name}`).not.toMatch(/balance/i);
+        }
+      }
+    });
+
+    it('computes balance as the exact sum of earnings, refunds, payouts, and adjustments per currency', () => {
+      const entries = [
+        { type: 'EARNING' as const, amountMinor: 200000n, currency: 'PKR' },
+        { type: 'EARNING' as const, amountMinor: 150000n, currency: 'PKR' },
+        { type: 'REFUND' as const, amountMinor: -50000n, currency: 'PKR' },
+        { type: 'ADJUSTMENT' as const, amountMinor: 10000n, currency: 'PKR' },
+        { type: 'ADJUSTMENT' as const, amountMinor: -5000n, currency: 'PKR' },
+        { type: 'PAYOUT' as const, amountMinor: -180000n, currency: 'PKR' },
+        { type: 'EARNING' as const, amountMinor: 9000n, currency: 'USD' },
+      ];
+
+      expect(computeDerivedBalances(entries)).toEqual([
+        {
+          currency: 'PKR',
+          balanceMinor: 125000n,
+          earningsMinor: 350000n,
+          refundsMinor: -50000n,
+          payoutsMinor: -180000n,
+          adjustmentsMinor: 5000n,
+          entryCount: 6,
+        },
+        {
+          currency: 'USD',
+          balanceMinor: 9000n,
+          earningsMinor: 9000n,
+          refundsMinor: 0n,
+          payoutsMinor: 0n,
+          adjustmentsMinor: 0n,
+          entryCount: 1,
+        },
+      ]);
+    });
+
+    it('returns zeroed balance for a requested currency with no ledger entries', () => {
+      expect(computeCurrencyBalance([], 'PKR')).toEqual({
+        currency: 'PKR',
+        balanceMinor: 0n,
+        earningsMinor: 0n,
+        refundsMinor: 0n,
+        payoutsMinor: 0n,
+        adjustmentsMinor: 0n,
+        entryCount: 0,
+      });
+    });
+
+    it('refuses invalid currency codes when deriving balance', () => {
+      expect(() => computeCurrencyBalance([], 'pkr')).toThrow(LedgerRefusedError);
+      expect(() =>
+        computeDerivedBalances([{ type: 'EARNING', amountMinor: 100n, currency: 'bad' }]),
       ).toThrow(LedgerRefusedError);
     });
   });
