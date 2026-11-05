@@ -1,12 +1,27 @@
 import { DomainError } from '../../../common/errors/domain.error';
 
 /**
- * Teacher ledger rules (#80, extended by payouts and refunds in M3). Pure.
- * The ledger is append-only: a teacher's balance is the sum of their entries, per currency.
- * Earnings are positive; payouts and refunds (later) are negative entries, never edits.
+ * Teacher ledger rules (#78, #80, extended by payouts and refunds in M3). Pure.
+ * The ledger is append-only: entries are never updated or deleted, and a teacher's
+ * balance is the sum of their entries, per currency.
+ * Earnings are positive; payouts and refunds are negative compensating entries;
+ * manual adjustments are signed (positive credit or negative debit) compensating entries.
  */
 export class LedgerRefusedError extends DomainError {
   readonly code = 'LEDGER_REFUSED';
+}
+
+export type LedgerEntryTypeValue = 'EARNING' | 'PAYOUT' | 'REFUND' | 'ADJUSTMENT';
+
+export interface LedgerEntryDraft {
+  teacherId: string;
+  type: LedgerEntryTypeValue;
+  amountMinor: bigint;
+  currency: string;
+  orderItemId?: string | null;
+  payoutId?: string | null;
+  refundId?: string | null;
+  description: string;
 }
 
 /** A confirmed order line, as frozen at purchase (#56). */
@@ -17,13 +32,137 @@ export interface ConfirmedOrderLine {
   netTeacherMinor: bigint;
 }
 
-export interface EarningEntryDraft {
-  teacherId: string;
+export interface EarningEntryDraft extends LedgerEntryDraft {
   type: 'EARNING';
+  orderItemId: string;
+}
+
+export interface RefundEntryDraft extends LedgerEntryDraft {
+  type: 'REFUND';
+  orderItemId: string;
+  refundId: string;
+}
+
+export interface PayoutEntryDraft extends LedgerEntryDraft {
+  type: 'PAYOUT';
+  payoutId: string;
+}
+
+export interface AdjustmentEntryDraft extends LedgerEntryDraft {
+  type: 'ADJUSTMENT';
+}
+
+export interface BuildAdjustmentEntryInput {
+  teacherId: string;
   amountMinor: bigint;
   currency: string;
-  orderItemId: string;
-  description: string;
+  reason: string;
+}
+
+export interface BuildPayoutEntryInput {
+  teacherId: string;
+  payoutId: string;
+  amountMinor: bigint;
+  currency: string;
+  description?: string;
+}
+
+/**
+ * #78: Validates that a currency is a 3-letter uppercase ISO 4217 code.
+ */
+export function assertLedgerCurrency(currency: string): void {
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    throw new LedgerRefusedError('Ledger currency must be a 3-letter ISO code', {
+      reason: 'INVALID_CURRENCY',
+      currency,
+    });
+  }
+}
+
+/**
+ * #78: Validates append-only invariants on any ledger entry draft before insertion:
+ * - valid 3-letter uppercase currency
+ * - non-empty description
+ * - sign invariant by entry type:
+ *   - EARNING: amountMinor >= 0n, requires orderItemId
+ *   - REFUND: amountMinor <= 0n, requires orderItemId and refundId
+ *   - PAYOUT: amountMinor < 0n, requires payoutId
+ *   - ADJUSTMENT: amountMinor !== 0n
+ */
+export function assertValidLedgerEntryDraft(draft: LedgerEntryDraft): void {
+  assertLedgerCurrency(draft.currency);
+  if (!draft.teacherId || draft.teacherId.trim().length === 0) {
+    throw new LedgerRefusedError('Ledger entry requires a teacherId', {
+      reason: 'MISSING_TEACHER_ID',
+    });
+  }
+  if (!draft.description || draft.description.trim().length === 0) {
+    throw new LedgerRefusedError('Ledger entry requires a description', {
+      reason: 'EMPTY_DESCRIPTION',
+      type: draft.type,
+    });
+  }
+
+  switch (draft.type) {
+    case 'EARNING':
+      if (!draft.orderItemId) {
+        throw new LedgerRefusedError('An earning entry must reference an order item', {
+          reason: 'MISSING_ORDER_ITEM_ID',
+        });
+      }
+      if (draft.amountMinor < 0n) {
+        throw new LedgerRefusedError('An earning cannot be negative', {
+          reason: 'NEGATIVE_EARNING',
+          orderItemId: draft.orderItemId,
+        });
+      }
+      break;
+
+    case 'REFUND':
+      if (!draft.orderItemId || !draft.refundId) {
+        throw new LedgerRefusedError(
+          'A refund ledger entry must reference both orderItemId and refundId',
+          {
+            reason: 'MISSING_REFUND_REFERENCE',
+          },
+        );
+      }
+      if (draft.amountMinor > 0n) {
+        throw new LedgerRefusedError(
+          'A refund compensating entry cannot be positive',
+          {
+            reason: 'POSITIVE_REFUND_ENTRY',
+            orderItemId: draft.orderItemId,
+          },
+        );
+      }
+      break;
+
+    case 'PAYOUT':
+      if (!draft.payoutId) {
+        throw new LedgerRefusedError('A payout ledger entry must reference a payoutId', {
+          reason: 'MISSING_PAYOUT_ID',
+        });
+      }
+      if (draft.amountMinor >= 0n) {
+        throw new LedgerRefusedError(
+          'A payout ledger entry must be a negative debit',
+          {
+            reason: 'NON_NEGATIVE_PAYOUT_ENTRY',
+            payoutId: draft.payoutId,
+          },
+        );
+      }
+      break;
+
+    case 'ADJUSTMENT':
+      if (draft.amountMinor === 0n) {
+        throw new LedgerRefusedError('A manual balance adjustment cannot be zero', {
+          reason: 'ZERO_ADJUSTMENT',
+        });
+      }
+      break;
+  }
 }
 
 /**
@@ -37,12 +176,7 @@ export function buildEarningEntries(
   paymentReference: string,
   orderItemIdsWithEarnings: ReadonlySet<string>,
 ): EarningEntryDraft[] {
-  if (!/^[A-Z]{3}$/.test(currency)) {
-    throw new LedgerRefusedError('Ledger currency must be a 3-letter ISO code', {
-      reason: 'INVALID_CURRENCY',
-      currency,
-    });
-  }
+  assertLedgerCurrency(currency);
   const seen = new Set<string>();
   return lines.map((line) => {
     if (orderItemIdsWithEarnings.has(line.orderItemId) || seen.has(line.orderItemId)) {
@@ -52,13 +186,7 @@ export function buildEarningEntries(
       });
     }
     seen.add(line.orderItemId);
-    if (line.netTeacherMinor < 0n) {
-      throw new LedgerRefusedError('An earning cannot be negative', {
-        reason: 'NEGATIVE_EARNING',
-        orderItemId: line.orderItemId,
-      });
-    }
-    return {
+    const draft: EarningEntryDraft = {
       teacherId: line.teacherId,
       type: 'EARNING',
       amountMinor: line.netTeacherMinor,
@@ -66,5 +194,100 @@ export function buildEarningEntries(
       orderItemId: line.orderItemId,
       description: `Sale of "${line.courseTitle}" (order ${paymentReference})`,
     };
+    assertValidLedgerEntryDraft(draft);
+    return draft;
   });
+}
+
+/**
+ * #78 / #82: Compensating REFUND entries reversing the teacher's net earning for each line
+ * on a refunded order. Never edits or deletes the original EARNING row; writes a negative
+ * entry (-netTeacherMinor) linked to both orderItemId and refundId. Refuses lines that
+ * already have a REFUND entry so a refund cannot debit a teacher twice.
+ */
+export function buildRefundEntries(
+  lines: readonly ConfirmedOrderLine[],
+  currency: string,
+  paymentReference: string,
+  refundId: string,
+  orderItemIdsWithRefunds: ReadonlySet<string>,
+): RefundEntryDraft[] {
+  assertLedgerCurrency(currency);
+  if (!refundId || refundId.trim().length === 0) {
+    throw new LedgerRefusedError('Refund ledger entries require a refundId', {
+      reason: 'MISSING_REFUND_REFERENCE',
+    });
+  }
+  const seen = new Set<string>();
+  return lines.map((line) => {
+    if (orderItemIdsWithRefunds.has(line.orderItemId) || seen.has(line.orderItemId)) {
+      throw new LedgerRefusedError('This order line already has a refund ledger entry', {
+        reason: 'REFUND_ALREADY_RECORDED',
+        orderItemId: line.orderItemId,
+      });
+    }
+    seen.add(line.orderItemId);
+    if (line.netTeacherMinor < 0n) {
+      throw new LedgerRefusedError('Order line net teacher amount cannot be negative', {
+        reason: 'NEGATIVE_EARNING',
+        orderItemId: line.orderItemId,
+      });
+    }
+    const draft: RefundEntryDraft = {
+      teacherId: line.teacherId,
+      type: 'REFUND',
+      amountMinor: -line.netTeacherMinor,
+      currency,
+      orderItemId: line.orderItemId,
+      refundId,
+      description: `Refund of "${line.courseTitle}" (order ${paymentReference})`,
+    };
+    assertValidLedgerEntryDraft(draft);
+    return draft;
+  });
+}
+
+/**
+ * #78 / #83: Compensating ADJUSTMENT entry (signed: positive credit or negative debit)
+ * with a mandatory human-readable reason.
+ */
+export function buildAdjustmentEntry(input: BuildAdjustmentEntryInput): AdjustmentEntryDraft {
+  const trimmedReason = input.reason.trim();
+  if (trimmedReason.length === 0) {
+    throw new LedgerRefusedError('Manual balance adjustment requires a reason', {
+      reason: 'EMPTY_DESCRIPTION',
+      type: 'ADJUSTMENT',
+    });
+  }
+  const draft: AdjustmentEntryDraft = {
+    teacherId: input.teacherId,
+    type: 'ADJUSTMENT',
+    amountMinor: input.amountMinor,
+    currency: input.currency,
+    description: trimmedReason,
+  };
+  assertValidLedgerEntryDraft(draft);
+  return draft;
+}
+
+/**
+ * #78 / #85: Compensating PAYOUT entry (negative debit) for a positive payout amount.
+ */
+export function buildPayoutEntry(input: BuildPayoutEntryInput): PayoutEntryDraft {
+  if (input.amountMinor <= 0n) {
+    throw new LedgerRefusedError('Payout amount must be positive', {
+      reason: 'NON_POSITIVE_PAYOUT_AMOUNT',
+    });
+  }
+  const description = input.description?.trim() || `Payout (${input.payoutId})`;
+  const draft: PayoutEntryDraft = {
+    teacherId: input.teacherId,
+    type: 'PAYOUT',
+    amountMinor: -input.amountMinor,
+    currency: input.currency,
+    payoutId: input.payoutId,
+    description,
+  };
+  assertValidLedgerEntryDraft(draft);
+  return draft;
 }
