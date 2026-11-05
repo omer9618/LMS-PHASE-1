@@ -66,12 +66,13 @@ describe('Admin dashboard and account management (#102, #103)', () => {
       const data = await dashboard();
       const since = new Date(data.today.since);
       expect(since.toISOString()).toMatch(/T00:00:00\.000Z$/);
-      const [courses, applications, proofs, enrollments] = await Promise.all([
+      const [courses, applications, proofs, concerns, enrollments] = await Promise.all([
         prisma.course.count({ where: { status: 'PENDING_APPROVAL' } }),
         prisma.teacherApplication.count({
           where: { status: { in: ['SUBMITTED', 'UNDER_REVIEW'] } },
         }),
         prisma.order.count({ where: { status: 'PROOF_SUBMITTED' } }),
+        prisma.payoutDispute.count({ where: { status: 'OPEN' } }),
         prisma.enrollment.count({ where: { grantedAt: { gte: since } } }),
       ]);
       expect(data).toEqual({
@@ -80,9 +81,9 @@ describe('Admin dashboard and account management (#102, #103)', () => {
           coursesPendingApproval: courses,
           teacherApplicationsOpen: applications,
           paymentVerificationsPending: proofs,
-          payoutConcerns: null,
+          payoutConcerns: concerns,
         },
-        needsAttention: courses + applications + proofs,
+        needsAttention: courses + applications + proofs + concerns,
         today: { since: expect.any(String), enrollmentsGranted: enrollments },
       });
     });
@@ -217,6 +218,154 @@ describe('Admin dashboard and account management (#102, #103)', () => {
         .post(`/admin/users/${suspended.id}/password-reset`)
         .set('Cookie', teacher)
         .expect(403);
+    });
+  });
+
+  describe('Admin finance views (#104, #105, #106)', () => {
+    it('serves period financial summary (#104), per-teacher statement (#105), and aged open concerns (#106)', async () => {
+      const finTeacher = await account(['TEACHER']);
+      const finTeacherCookie = await loginAs(app, {
+        email: finTeacher.email,
+        password: PASSWORD,
+      });
+      const finStudent = await account(['STUDENT']);
+      const finStudentCookie = await loginAs(app, {
+        email: finStudent.email,
+        password: PASSWORD,
+      });
+
+      // Create & approve a paid course (PKR 200,000 minor = PKR 2,000.00, 25% commission -> net 150,000)
+      const course = await createCourse(app, finTeacherCookie, ids, 'Admin Finance E2E Course');
+      await http()
+        .post(`/teacher/courses/${course.id}/submit`)
+        .set('Cookie', finTeacherCookie)
+        .expect(200);
+      await http()
+        .put(`/admin/courses/${course.id}/pricing`)
+        .set('Cookie', admin)
+        .send({ isFree: false, priceMinor: '200000', currency: 'PKR', commissionRateBps: 2500 })
+        .expect(200);
+      await http().post(`/admin/courses/${course.id}/approve`).set('Cookie', admin).expect(200);
+
+      // Student buys and admin verifies order
+      const orderRes = await http()
+        .post('/orders')
+        .set('Cookie', finStudentCookie)
+        .send({ courseIds: [course.id] })
+        .expect(201);
+      const orderId: string = orderRes.body.data.id;
+      await http()
+        .post(`/me/orders/${orderId}/proofs`)
+        .set('Cookie', finStudentCookie)
+        .field('transactionId', 'TX-FIN-E2E-1')
+        .expect(201);
+      await http()
+        .post(`/admin/verification/orders/${orderId}/confirm`)
+        .set('Cookie', admin)
+        .send({ amountReceivedMinor: '200000', valueDate: new Date().toISOString().slice(0, 10) })
+        .expect(200);
+
+      // Admin records a manual adjustment (+10,000) and a payout (60,000)
+      await http()
+        .post(`/admin/teachers/${finTeacher.id}/ledger/adjustments`)
+        .set('Cookie', admin)
+        .send({ amountMinor: '10000', currency: 'PKR', reason: 'Statement bonus' })
+        .expect(201);
+
+      const payoutRes = await http()
+        .post(`/admin/teachers/${finTeacher.id}/payouts`)
+        .set('Cookie', admin)
+        .send({
+          amountMinor: '60000',
+          currency: 'PKR',
+          transactionId: 'BANK-FIN-E2E-1',
+          transferDate: '2026-11-05',
+        })
+        .expect(201);
+      const payoutId: string = payoutRes.body.data.payout.id;
+
+      // Teacher raises a concern on the payout, then we backdate createdAt by 5 hours to verify ageing
+      const concernRes = await http()
+        .post(`/teacher/payouts/${payoutId}/concerns`)
+        .set('Cookie', finTeacherCookie)
+        .send({ reason: 'Please double-check transfer fee deduction' })
+        .expect(201);
+      const disputeId: string = concernRes.body.data.dispute.id;
+      await prisma.payoutDispute.update({
+        where: { id: disputeId },
+        data: { createdAt: new Date(Date.now() - 5 * 3600 * 1000 - 60_000) },
+      });
+
+      // #104: GET /admin/finance/summary
+      const summaryRes = await http()
+        .get('/admin/finance/summary?from=2020-01-01&to=2030-12-31')
+        .set('Cookie', admin)
+        .expect(200);
+      expect(summaryRes.body.data.period).toEqual({ from: '2020-01-01', to: '2030-12-31' });
+      const pkrRow = summaryRes.body.data.currencies.find(
+        (c: { currency: string }) => c.currency === 'PKR',
+      );
+      expect(pkrRow).toBeDefined();
+      expect(BigInt(pkrRow.confirmedSalesGrossMinor)).toBeGreaterThanOrEqual(200000n);
+      expect(BigInt(pkrRow.commissionRetainedMinor)).toBeGreaterThanOrEqual(50000n);
+      expect(BigInt(pkrRow.teacherEarningsMinor)).toBeGreaterThanOrEqual(150000n);
+      expect(BigInt(pkrRow.payoutsMinor)).toBeGreaterThanOrEqual(60000n);
+
+      // Invalid date range -> 400
+      await http()
+        .get('/admin/finance/summary?from=2026-12-31&to=2026-01-01')
+        .set('Cookie', admin)
+        .expect(400);
+
+      // #105: GET /admin/teachers/:teacherId/statement
+      const stmtRes = await http()
+        .get(`/admin/teachers/${finTeacher.id}/statement`)
+        .set('Cookie', admin)
+        .expect(200);
+      expect(stmtRes.body.data).toMatchObject({
+        teacher: { id: finTeacher.id, email: finTeacher.email },
+        balances: [
+          {
+            currency: 'PKR',
+            earningsMinor: '150000',
+            refundsMinor: '0',
+            adjustmentsMinor: '10000',
+            payoutsMinor: '-60000',
+            balanceMinor: '100000',
+          },
+        ],
+        sales: {
+          confirmed: {
+            items: [
+              expect.objectContaining({
+                courseId: course.id,
+                priceMinor: '200000',
+                commissionRateBps: 2500,
+                commissionMinor: '50000',
+                netTeacherMinor: '150000',
+              }),
+            ],
+          },
+        },
+        adjustments: { count: 1 },
+        payouts: { count: 1 },
+        ledger: { count: 3 },
+      });
+
+      // #106: GET /admin/payout-concerns
+      const concernsRes = await http()
+        .get('/admin/payout-concerns')
+        .set('Cookie', admin)
+        .expect(200);
+      expect(concernsRes.body.data.count).toBeGreaterThanOrEqual(1);
+      const ourConcern = concernsRes.body.data.items.find(
+        (c: { id: string }) => c.id === disputeId,
+      );
+      expect(ourConcern).toBeDefined();
+      expect(ourConcern.ageHours).toBeGreaterThanOrEqual(5);
+      expect(ourConcern.ageMinutes).toBeGreaterThanOrEqual(300);
+      expect(ourConcern.payout.id).toBe(payoutId);
+      expect(ourConcern.teacher.id).toBe(finTeacher.id);
     });
   });
 });

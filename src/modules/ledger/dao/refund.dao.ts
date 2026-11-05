@@ -15,7 +15,21 @@ const refundSelect = {
   authorisedBy: { select: { id: true, email: true, fullName: true } },
 } satisfies Prisma.RefundSelect;
 
+const refundWithOrderSelect = {
+  ...refundSelect,
+  order: {
+    select: {
+      id: true,
+      paymentReference: true,
+      currency: true,
+    },
+  },
+} satisfies Prisma.RefundSelect;
+
 export type RefundRecord = Prisma.RefundGetPayload<{ select: typeof refundSelect }>;
+export type RefundWithOrderRecord = Prisma.RefundGetPayload<{
+  select: typeof refundWithOrderSelect;
+}>;
 
 export interface CreateRefundData {
   orderId: string;
@@ -45,6 +59,18 @@ export class RefundDao {
     return (tx ?? this.prisma).refund.findMany({
       where: { orderId },
       select: refundSelect,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
+  /** #104: Admin financial summary — refunds filtered by createdAt range. */
+  getRefundsBy(
+    where: Prisma.RefundWhereInput,
+    tx?: TransactionClient,
+  ): Promise<RefundWithOrderRecord[]> {
+    return (tx ?? this.prisma).refund.findMany({
+      where,
+      select: refundWithOrderSelect,
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
   }

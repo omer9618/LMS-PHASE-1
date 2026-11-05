@@ -29,6 +29,28 @@ describe('email rendering', () => {
     expect(out.text).toContain('30 minutes');
   });
 
+  it('renders PAYOUT_RECORDED email template with amount, transaction ID, transfer date, and itemised sales coverage (#86, #113)', () => {
+    const out = EMAIL_TEMPLATES.PAYOUT_RECORDED({
+      amount: 'PKR 1,600.00',
+      transactionId: 'HBL-TX-900',
+      transferDate: '2026-04-10',
+      period: '2026-04-01 to 2026-04-09',
+      disputeDeadline: '2026-04-17T10:00:00.000Z',
+      coveredLines: [
+        ['Sale: Chemistry (LMS-AAAA-1111)', 'PKR 1,000.00'],
+        ['Sale: Mathematics (LMS-BBBB-2222)', 'PKR 600.00'],
+      ],
+      payoutUrl: 'https://app.test/teacher/payouts/pay-1',
+    });
+    expect(out.subject).toBe('Payout recorded: PKR 1,600.00 (HBL-TX-900)');
+    expect(out.text).toContain('Transaction ID: HBL-TX-900');
+    expect(out.text).toContain('Transfer date: 2026-04-10');
+    expect(out.text).toContain('Covered period: 2026-04-01 to 2026-04-09');
+    expect(out.text).toContain('Sale: Chemistry (LMS-AAAA-1111): PKR 1,000.00');
+    expect(out.text).toContain('Sale: Mathematics (LMS-BBBB-2222): PKR 600.00');
+    expect(out.html).toContain('https://app.test/teacher/payouts/pay-1');
+  });
+
   it('masks recipients in logs', () => {
     expect(maskEmail('teacher.a@lms.local')).toBe('t***@lms.local');
     expect(maskEmail('nonsense')).toBe('***');
