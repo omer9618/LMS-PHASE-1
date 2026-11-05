@@ -8,6 +8,7 @@ import {
   buildEarningEntries,
   buildPayoutEntry,
   buildRefundEntries,
+  buildTeacherEarningsDashboard,
   computeCurrencyBalance,
   separatePendingAndConfirmedSales,
   TeacherSaleOrderItem,
@@ -15,7 +16,7 @@ import {
   LedgerRefusedError,
 } from './ledger.rules';
 
-describe('ledger rules (#78, #79, #80, #81, #82, #83)', () => {
+describe('ledger rules (#78, #79, #80, #81, #82, #83, #84)', () => {
   const lines = [
     { orderItemId: 'i1', teacherId: 't1', courseTitle: 'Chem', netTeacherMinor: 120000n },
     { orderItemId: 'i2', teacherId: 't2', courseTitle: 'Maths', netTeacherMinor: 0n },
@@ -26,7 +27,7 @@ describe('ledger rules (#78, #79, #80, #81, #82, #83)', () => {
       const protoMethods = Object.getOwnPropertyNames(LedgerDao.prototype).filter(
         (name) => name !== 'constructor',
       );
-      expect(protoMethods).toEqual(['createLedgerEntry', 'getLedgerEntriesBy']);
+      expect(protoMethods).toEqual(['createLedgerEntry', 'getLedgerEntriesBy', 'getPayoutsBy']);
       for (const method of protoMethods) {
         expect(method).not.toMatch(/update|delete|upsert|remove|edit/i);
       }
@@ -480,6 +481,70 @@ describe('ledger rules (#78, #79, #80, #81, #82, #83)', () => {
       expect(() => assertTargetIsTeacher('t1', ['STUDENT', 'TEACHER'])).not.toThrow();
       expect(() => assertTargetIsTeacher('s1', ['STUDENT'])).toThrow(LedgerRefusedError);
       expect(() => assertTargetIsTeacher('a1', ['ADMIN'])).toThrow(LedgerRefusedError);
+    });
+  });
+
+  describe('teacher earnings dashboard (#84)', () => {
+    it('assembles derived balances, pending vs confirmed sales, ledger entries, and payout history', () => {
+      const t0 = new Date('2026-04-01T10:00:00.000Z');
+      const dashboard = buildTeacherEarningsDashboard({
+        orderItems: [
+          {
+            id: 'oi-1',
+            orderId: 'o1',
+            paymentReference: 'LMS-1111-AAAA',
+            orderStatus: 'VERIFIED',
+            currency: 'PKR',
+            courseId: 'c1',
+            courseTitle: 'Chemistry',
+            teacherId: 't1',
+            priceMinor: 150000n,
+            commissionRateBps: 2000,
+            commissionMinor: 30000n,
+            netTeacherMinor: 120000n,
+            orderCreatedAt: t0,
+            orderVerifiedAt: t0,
+          },
+        ],
+        ledgerEntries: [
+          {
+            id: 'le-1',
+            teacherId: 't1',
+            type: 'EARNING',
+            amountMinor: 120000n,
+            currency: 'PKR',
+            orderItemId: 'oi-1',
+            payoutId: null,
+            refundId: null,
+            description: 'Sale of "Chemistry"',
+            createdById: 'admin-1',
+            createdAt: t0,
+          },
+        ],
+        payouts: [
+          {
+            id: 'pay-1',
+            teacherId: 't1',
+            amountMinor: 50000n,
+            method: 'BANK_TRANSFER',
+            transactionId: 'HBL-001',
+            periodStart: null,
+            periodEnd: null,
+            status: 'ACCEPTED',
+            recordedById: 'admin-1',
+            recordedAt: t0,
+            transferDate: t0,
+            disputeDeadline: t0,
+            acceptedAt: t0,
+          },
+        ],
+      });
+
+      expect(dashboard.balances[0]?.balanceMinor).toBe(120000n);
+      expect(dashboard.confirmedSales.items).toHaveLength(1);
+      expect(dashboard.pendingSales.items).toHaveLength(0);
+      expect(dashboard.ledgerEntries).toHaveLength(1);
+      expect(dashboard.payouts).toHaveLength(1);
     });
   });
 
