@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { OrderStatus, Prisma } from '@prisma/client';
+import { scopeWhere, TeacherScope } from '../../../common/auth/scope';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { TransactionClient } from '../../../prisma/prisma.types';
 
@@ -71,7 +72,24 @@ const orderSelect = {
 } satisfies Prisma.OrderSelect;
 
 export type OrderRecord = Prisma.OrderGetPayload<{ select: typeof orderSelect }>;
+const teacherOrderItemSelect = {
+  ...orderItemSelect,
+  order: {
+    select: {
+      id: true,
+      paymentReference: true,
+      currency: true,
+      status: true,
+      createdAt: true,
+      verifiedAt: true,
+    },
+  },
+} satisfies Prisma.OrderItemSelect;
+
 export type OrderItemRecord = Prisma.OrderItemGetPayload<{ select: typeof orderItemSelect }>;
+export type TeacherOrderItemRecord = Prisma.OrderItemGetPayload<{
+  select: typeof teacherOrderItemSelect;
+}>;
 export type PaymentProofRecord = Prisma.PaymentProofGetPayload<{
   select: typeof paymentProofSelect;
 }>;
@@ -224,6 +242,22 @@ export class OrderDao {
       },
       select: paymentProofWithOrderSelect,
       orderBy: { submittedAt: 'asc' },
+    });
+  }
+
+  /**
+   * #81 / #84: teacher-scoped order line items with parent order status/currency/timestamps,
+   * so the ledger module can separate pending (unverified) sales from confirmed sales.
+   */
+  getTeacherOrderItemsBy(
+    scope: TeacherScope,
+    where: Prisma.OrderItemWhereInput,
+    tx?: TransactionClient,
+  ): Promise<TeacherOrderItemRecord[]> {
+    return (tx ?? this.prisma).orderItem.findMany({
+      where: { AND: [where, scopeWhere(scope)] },
+      select: teacherOrderItemSelect,
+      orderBy: [{ order: { createdAt: 'desc' } }, { id: 'asc' }],
     });
   }
 }

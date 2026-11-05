@@ -7,11 +7,13 @@ import {
   buildPayoutEntry,
   buildRefundEntries,
   computeCurrencyBalance,
+  separatePendingAndConfirmedSales,
+  TeacherSaleOrderItem,
   computeDerivedBalances,
   LedgerRefusedError,
 } from './ledger.rules';
 
-describe('ledger rules (#78, #79, #80)', () => {
+describe('ledger rules (#78, #79, #80, #81)', () => {
   const lines = [
     { orderItemId: 'i1', teacherId: 't1', courseTitle: 'Chem', netTeacherMinor: 120000n },
     { orderItemId: 'i2', teacherId: 't2', courseTitle: 'Maths', netTeacherMinor: 0n },
@@ -260,6 +262,136 @@ describe('ledger rules (#78, #79, #80)', () => {
       expect(() =>
         computeDerivedBalances([{ type: 'EARNING', amountMinor: 100n, currency: 'bad' }]),
       ).toThrow(LedgerRefusedError);
+    });
+  });
+
+  describe('pending versus confirmed sales separation (#81)', () => {
+    const t0 = new Date('2026-04-01T10:00:00.000Z');
+    const tVerified = new Date('2026-04-01T12:00:00.000Z');
+
+    const saleItems: TeacherSaleOrderItem[] = [
+      {
+        id: 'item-pending',
+        orderId: 'o1',
+        paymentReference: 'LMS-1111-AAAA',
+        orderStatus: 'PENDING',
+        currency: 'PKR',
+        courseId: 'c1',
+        courseTitle: 'Chemistry',
+        teacherId: 't1',
+        priceMinor: 150000n,
+        commissionRateBps: 2000,
+        commissionMinor: 30000n,
+        netTeacherMinor: 120000n,
+        orderCreatedAt: t0,
+        orderVerifiedAt: null,
+      },
+      {
+        id: 'item-proof',
+        orderId: 'o2',
+        paymentReference: 'LMS-2222-BBBB',
+        orderStatus: 'PROOF_SUBMITTED',
+        currency: 'PKR',
+        courseId: 'c2',
+        courseTitle: 'Mathematics',
+        teacherId: 't1',
+        priceMinor: 100000n,
+        commissionRateBps: 2000,
+        commissionMinor: 20000n,
+        netTeacherMinor: 80000n,
+        orderCreatedAt: t0,
+        orderVerifiedAt: null,
+      },
+      {
+        id: 'item-verified',
+        orderId: 'o3',
+        paymentReference: 'LMS-3333-CCCC',
+        orderStatus: 'VERIFIED',
+        currency: 'PKR',
+        courseId: 'c1',
+        courseTitle: 'Chemistry',
+        teacherId: 't1',
+        priceMinor: 150000n,
+        commissionRateBps: 2000,
+        commissionMinor: 30000n,
+        netTeacherMinor: 120000n,
+        orderCreatedAt: t0,
+        orderVerifiedAt: tVerified,
+      },
+      {
+        id: 'item-rejected',
+        orderId: 'o4',
+        paymentReference: 'LMS-4444-DDDD',
+        orderStatus: 'REJECTED',
+        currency: 'PKR',
+        courseId: 'c1',
+        courseTitle: 'Chemistry',
+        teacherId: 't1',
+        priceMinor: 150000n,
+        commissionRateBps: 2000,
+        commissionMinor: 30000n,
+        netTeacherMinor: 120000n,
+        orderCreatedAt: t0,
+        orderVerifiedAt: null,
+      },
+      {
+        id: 'item-lapsed',
+        orderId: 'o5',
+        paymentReference: 'LMS-5555-EEEE',
+        orderStatus: 'LAPSED',
+        currency: 'PKR',
+        courseId: 'c1',
+        courseTitle: 'Chemistry',
+        teacherId: 't1',
+        priceMinor: 150000n,
+        commissionRateBps: 2000,
+        commissionMinor: 30000n,
+        netTeacherMinor: 120000n,
+        orderCreatedAt: t0,
+        orderVerifiedAt: null,
+      },
+    ];
+
+    it('separates unverified sales (PENDING, PROOF_SUBMITTED) from confirmed (VERIFIED) sales and earned ledger balance', () => {
+      const ledgerEntries = [
+        { type: 'EARNING' as const, amountMinor: 120000n, currency: 'PKR' },
+      ];
+      const result = separatePendingAndConfirmedSales(saleItems, ledgerEntries);
+
+      expect(result.pending.items.map((i) => i.id)).toEqual(['item-pending', 'item-proof']);
+      expect(result.pending.totalsByCurrency).toEqual([
+        {
+          currency: 'PKR',
+          itemCount: 2,
+          grossMinor: 250000n,
+          commissionMinor: 50000n,
+          netTeacherMinor: 200000n,
+        },
+      ]);
+
+      expect(result.confirmed.items.map((i) => i.id)).toEqual(['item-verified']);
+      expect(result.confirmed.totalsByCurrency).toEqual([
+        {
+          currency: 'PKR',
+          itemCount: 1,
+          grossMinor: 150000n,
+          commissionMinor: 30000n,
+          netTeacherMinor: 120000n,
+        },
+      ]);
+
+      // Earned balance reflects ONLY the ledger (120000n), never unverified sales (200000n)
+      expect(result.earnedBalances).toEqual([
+        {
+          currency: 'PKR',
+          balanceMinor: 120000n,
+          earningsMinor: 120000n,
+          refundsMinor: 0n,
+          payoutsMinor: 0n,
+          adjustmentsMinor: 0n,
+          entryCount: 1,
+        },
+      ]);
     });
   });
 

@@ -379,3 +379,112 @@ export function computeCurrencyBalance(
     }
   );
 }
+/** Order statuses for sales that are awaiting payment or admin verification (#81). */
+export const PENDING_SALE_ORDER_STATUSES = ['PENDING', 'PROOF_SUBMITTED'] as const;
+/** Order statuses for sales that have been verified (#81). */
+export const CONFIRMED_SALE_ORDER_STATUSES = ['VERIFIED'] as const;
+
+export type SaleOrderStatusValue =
+  | 'PENDING'
+  | 'PROOF_SUBMITTED'
+  | 'VERIFIED'
+  | 'REJECTED'
+  | 'LAPSED'
+  | 'REFUNDED';
+
+/** A teacher's order line item with its parent order context (#81, #84). */
+export interface TeacherSaleOrderItem {
+  id: string;
+  orderId: string;
+  paymentReference: string;
+  orderStatus: SaleOrderStatusValue;
+  currency: string;
+  courseId: string;
+  courseTitle: string;
+  teacherId: string;
+  priceMinor: bigint;
+  commissionRateBps: number;
+  commissionMinor: bigint;
+  netTeacherMinor: bigint;
+  orderCreatedAt: Date;
+  orderVerifiedAt: Date | null;
+}
+
+/** Aggregated totals per currency for a bucket of teacher sales (#81, #84). */
+export interface TeacherSalesCurrencyTotals {
+  currency: string;
+  itemCount: number;
+  grossMinor: bigint;
+  commissionMinor: bigint;
+  netTeacherMinor: bigint;
+}
+
+/**
+ * #81 (FR-8.3): Separation of unverified (pending) sales from confirmed sales,
+ * alongside the teacher's derived earned balance from the ledger (#79).
+ */
+export interface SeparatedTeacherSales {
+  pending: {
+    items: TeacherSaleOrderItem[];
+    totalsByCurrency: TeacherSalesCurrencyTotals[];
+  };
+  confirmed: {
+    items: TeacherSaleOrderItem[];
+    totalsByCurrency: TeacherSalesCurrencyTotals[];
+  };
+  earnedBalances: DerivedCurrencyBalance[];
+}
+
+function summarizeSalesByCurrency(
+  items: readonly TeacherSaleOrderItem[],
+): TeacherSalesCurrencyTotals[] {
+  const byCurrency = new Map<string, TeacherSalesCurrencyTotals>();
+  for (const item of items) {
+    assertLedgerCurrency(item.currency);
+    let summary = byCurrency.get(item.currency);
+    if (!summary) {
+      summary = {
+        currency: item.currency,
+        itemCount: 0,
+        grossMinor: 0n,
+        commissionMinor: 0n,
+        netTeacherMinor: 0n,
+      };
+      byCurrency.set(item.currency, summary);
+    }
+    summary.itemCount += 1;
+    summary.grossMinor += item.priceMinor;
+    summary.commissionMinor += item.commissionMinor;
+    summary.netTeacherMinor += item.netTeacherMinor;
+  }
+  return Array.from(byCurrency.values()).sort((a, b) => a.currency.localeCompare(b.currency));
+}
+
+/**
+ * #81 (FR-8.3): Separates a teacher's order items into pending (PENDING, PROOF_SUBMITTED)
+ * versus confirmed (VERIFIED) sales, and keeps unverified sales strictly separate from
+ * the teacher's earned ledger balance.
+ * Rejected, lapsed, and refunded order items are excluded from both active pending and confirmed sales.
+ */
+export function separatePendingAndConfirmedSales(
+  items: readonly TeacherSaleOrderItem[],
+  ledgerEntries: readonly LedgerBalanceEntry[],
+): SeparatedTeacherSales {
+  const pendingSet = new Set<string>(PENDING_SALE_ORDER_STATUSES);
+  const confirmedSet = new Set<string>(CONFIRMED_SALE_ORDER_STATUSES);
+
+  const pendingItems = items.filter((item) => pendingSet.has(item.orderStatus));
+  const confirmedItems = items.filter((item) => confirmedSet.has(item.orderStatus));
+
+  return {
+    pending: {
+      items: pendingItems,
+      totalsByCurrency: summarizeSalesByCurrency(pendingItems),
+    },
+    confirmed: {
+      items: confirmedItems,
+      totalsByCurrency: summarizeSalesByCurrency(confirmedItems),
+    },
+    earnedBalances: computeDerivedBalances(ledgerEntries),
+  };
+}

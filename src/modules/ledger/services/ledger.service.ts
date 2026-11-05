@@ -1,17 +1,29 @@
 import { Injectable } from '@nestjs/common';
-import { LedgerEntryType } from '@prisma/client';
+import { LedgerEntryType, OrderStatus } from '@prisma/client';
 import type { TeacherScope } from '../../../common/auth/scope';
 import type { TransactionClient } from '../../../prisma/prisma.types';
+import { OrderService, TeacherOrderItemRecord } from '../../orders/services/order.service';
 import { LedgerDao, LedgerEntryRecord } from '../dao/ledger.dao';
 import {
   buildEarningEntries,
   computeCurrencyBalance,
   computeDerivedBalances,
+  CONFIRMED_SALE_ORDER_STATUSES,
   ConfirmedOrderLine,
   DerivedCurrencyBalance,
+  PENDING_SALE_ORDER_STATUSES,
+   SeparatedTeacherSales,
+  separatePendingAndConfirmedSales,
+  TeacherSaleOrderItem,
 } from '../domain/ledger.rules';
 
-export type { ConfirmedOrderLine, DerivedCurrencyBalance, LedgerEntryRecord };
+export type {
+  ConfirmedOrderLine,
+  DerivedCurrencyBalance,
+  LedgerEntryRecord,
+  SeparatedTeacherSales,
+  TeacherSaleOrderItem,
+};
 
 export interface RecordEarningsInput {
   paymentReference: string;
@@ -22,12 +34,15 @@ export interface RecordEarningsInput {
 }
 
 /**
- * The teacher ledger (#78, #79, #80). Payment confirmation writes earnings here; payouts and refunds (M3)
+ * The teacher ledger (#78, #79, #80, #81). Payment confirmation writes earnings here; payouts and refunds (M3)
  * extend this service. Entries are append-only and the balance is their sum.
  */
 @Injectable()
 export class LedgerService {
-  constructor(private readonly ledgerDao: LedgerDao) {}
+  constructor(
+    private readonly ledgerDao: LedgerDao,
+    private readonly orderService: OrderService,
+  ) {}
 
   /**
    * #80: one EARNING entry per confirmed order line for its net teacher amount, inside the
@@ -99,4 +114,45 @@ export class LedgerService {
     const entries = await this.ledgerDao.getLedgerEntriesBy(scope, { currency }, tx);
     return computeCurrencyBalance(entries, currency);
   }
+
+  /**
+   * #81 (FR-8.3): Returns a teacher's pending (unverified: PENDING, PROOF_SUBMITTED) sales
+   * separately from confirmed (VERIFIED) sales and their earned ledger balance.
+   */
+  async getSeparatedSales(
+    scope: TeacherScope,
+    tx?: TransactionClient,
+  ): Promise<SeparatedTeacherSales> {
+    const statuses: OrderStatus[] = [
+      ...PENDING_SALE_ORDER_STATUSES,
+      ...CONFIRMED_SALE_ORDER_STATUSES,
+    ];
+    const [orderItems, ledgerEntries] = await Promise.all([
+      this.orderService.listTeacherOrderItems(scope, statuses, tx),
+      this.ledgerDao.getLedgerEntriesBy(scope, {}, tx),
+    ]);
+    return separatePendingAndConfirmedSales(
+      orderItems.map(toTeacherSaleOrderItem),
+      ledgerEntries,
+    );
+  }
+}
+
+function toTeacherSaleOrderItem(record: TeacherOrderItemRecord): TeacherSaleOrderItem {
+  return {
+    id: record.id,
+    orderId: record.orderId,
+    paymentReference: record.order.paymentReference,
+    orderStatus: record.order.status,
+    currency: record.order.currency,
+    courseId: record.courseId,
+    courseTitle: record.course.title,
+    teacherId: record.teacherId,
+    priceMinor: record.priceMinor,
+    commissionRateBps: record.commissionRateBps,
+    commissionMinor: record.commissionMinor,
+    netTeacherMinor: record.netTeacherMinor,
+    orderCreatedAt: record.order.createdAt,
+    orderVerifiedAt: record.order.verifiedAt,
+  };
 }
