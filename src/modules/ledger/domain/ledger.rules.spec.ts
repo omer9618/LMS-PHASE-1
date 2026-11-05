@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { LedgerDao } from '../dao/ledger.dao';
 import {
+  assertOrderRefundable,
   assertValidLedgerEntryDraft,
   buildAdjustmentEntry,
   buildEarningEntries,
@@ -13,7 +14,7 @@ import {
   LedgerRefusedError,
 } from './ledger.rules';
 
-describe('ledger rules (#78, #79, #80, #81)', () => {
+describe('ledger rules (#78, #79, #80, #81, #82)', () => {
   const lines = [
     { orderItemId: 'i1', teacherId: 't1', courseTitle: 'Chem', netTeacherMinor: 120000n },
     { orderItemId: 'i2', teacherId: 't2', courseTitle: 'Maths', netTeacherMinor: 0n },
@@ -392,6 +393,84 @@ describe('ledger rules (#78, #79, #80, #81)', () => {
           entryCount: 1,
         },
       ]);
+    });
+  });
+
+  describe('order refund validation (#82)', () => {
+    it('accepts a valid refund against a VERIFIED order', () => {
+      expect(() =>
+        assertOrderRefundable({
+          orderId: 'o1',
+          orderStatus: 'VERIFIED',
+          orderTotalMinor: 150000n,
+          amountMinor: 150000n,
+          reason: 'Student requested cancellation within policy',
+          transactionId: 'HBL-REF-001',
+          transferDate: '2026-04-02',
+        }),
+      ).not.toThrow();
+    });
+
+    it('refuses refunds on non-verified orders, excess amounts, or missing fields', () => {
+      expect(() =>
+        assertOrderRefundable({
+          orderId: 'o1',
+          orderStatus: 'PENDING',
+          orderTotalMinor: 150000n,
+          amountMinor: 150000n,
+          reason: 'Reason',
+          transactionId: 'TX-1',
+          transferDate: '2026-04-02',
+        }),
+      ).toThrow(LedgerRefusedError);
+
+      expect(() =>
+        assertOrderRefundable({
+          orderId: 'o1',
+          orderStatus: 'REFUNDED',
+          orderTotalMinor: 150000n,
+          amountMinor: 150000n,
+          reason: 'Already refunded',
+          transactionId: 'TX-1',
+          transferDate: '2026-04-02',
+        }),
+      ).toThrow(LedgerRefusedError);
+
+      expect(() =>
+        assertOrderRefundable({
+          orderId: 'o1',
+          orderStatus: 'VERIFIED',
+          orderTotalMinor: 150000n,
+          amountMinor: 150001n,
+          reason: 'Too much',
+          transactionId: 'TX-1',
+          transferDate: '2026-04-02',
+        }),
+      ).toThrow(LedgerRefusedError);
+
+      expect(() =>
+        assertOrderRefundable({
+          orderId: 'o1',
+          orderStatus: 'VERIFIED',
+          orderTotalMinor: 150000n,
+          amountMinor: 0n,
+          reason: 'Zero refund',
+          transactionId: 'TX-1',
+          transferDate: '2026-04-02',
+        }),
+      ).toThrow(LedgerRefusedError);
+
+      expect(() =>
+        assertOrderRefundable({
+          orderId: 'o1',
+          orderStatus: 'VERIFIED',
+          orderTotalMinor: 150000n,
+          amountMinor: 150000n,
+          reason: '   ',
+          transactionId: 'TX-1',
+          transferDate: '2026-04-02',
+        }),
+      ).toThrow(LedgerRefusedError);
     });
   });
 
