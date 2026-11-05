@@ -4,6 +4,7 @@ import { adminScope } from '../../../common/auth/scope';
 import { CourseService } from '../../courses/services/course.service';
 import { EnrollmentService } from '../../enrollment/services/enrollment.service';
 import { OrderService } from '../../orders/services/order.service';
+import { PayoutService } from '../../payouts/services/payout.service';
 import { TeacherApplicationService } from '../../teachers/services/teacher-application.service';
 import { startOfUtcDay, totalAttention } from '../domain/dashboard.rules';
 
@@ -17,7 +18,7 @@ export interface AdminDashboard {
     teacherApplicationsOpen: number;
     /** Orders with a payment proof waiting for verification (PROOF_SUBMITTED, #58/#63). */
     paymentVerificationsPending: number | null;
-    /** Payout disputes and failed payouts (#84–#89). Not built yet: always null. */
+    /** Open payout disputes (#88–#89). */
     payoutConcerns: number | null;
   };
   /** Sum of the queues above that exist: a single badge for the navigation. */
@@ -41,18 +42,20 @@ export class AdminDashboardService {
     private readonly applicationService: TeacherApplicationService,
     private readonly enrollmentService: EnrollmentService,
     private readonly orderService: OrderService,
+    private readonly payoutService: PayoutService,
   ) {}
 
   async getDashboard(admin: AuthUser, now = new Date()): Promise<AdminDashboard> {
     adminScope(admin);
     const since = startOfUtcDay(now);
-    const [courses, applications, verifications, enrollmentsGranted] = await Promise.all([
-      this.courseService.countCoursesPendingApproval(admin),
-      this.applicationService.countOpenApplications(admin),
-      this.orderService.countOrdersAwaitingVerification(admin),
-      this.enrollmentService.countGrantedSince(admin, since),
-    ]);
-    const payoutConcerns = null;
+    const [courses, applications, verifications, payoutConcerns, enrollmentsGranted] =
+      await Promise.all([
+        this.courseService.countCoursesPendingApproval(admin),
+        this.applicationService.countOpenApplications(admin),
+        this.orderService.countOrdersAwaitingVerification(admin),
+        this.payoutService.countOpenConcerns(admin),
+        this.enrollmentService.countGrantedSince(admin, since),
+      ]);
     return {
       generatedAt: now,
       queues: {

@@ -66,12 +66,13 @@ describe('Admin dashboard and account management (#102, #103)', () => {
       const data = await dashboard();
       const since = new Date(data.today.since);
       expect(since.toISOString()).toMatch(/T00:00:00\.000Z$/);
-      const [courses, applications, proofs, enrollments] = await Promise.all([
+      const [courses, applications, proofs, concerns, enrollments] = await Promise.all([
         prisma.course.count({ where: { status: 'PENDING_APPROVAL' } }),
         prisma.teacherApplication.count({
           where: { status: { in: ['SUBMITTED', 'UNDER_REVIEW'] } },
         }),
         prisma.order.count({ where: { status: 'PROOF_SUBMITTED' } }),
+        prisma.payoutDispute.count({ where: { status: 'OPEN' } }),
         prisma.enrollment.count({ where: { grantedAt: { gte: since } } }),
       ]);
       expect(data).toEqual({
@@ -80,9 +81,9 @@ describe('Admin dashboard and account management (#102, #103)', () => {
           coursesPendingApproval: courses,
           teacherApplicationsOpen: applications,
           paymentVerificationsPending: proofs,
-          payoutConcerns: null,
+          payoutConcerns: concerns,
         },
-        needsAttention: courses + applications + proofs,
+        needsAttention: courses + applications + proofs + concerns,
         today: { since: expect.any(String), enrollmentsGranted: enrollments },
       });
     });

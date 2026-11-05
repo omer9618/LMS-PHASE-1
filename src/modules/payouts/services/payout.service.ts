@@ -319,6 +319,25 @@ export class PayoutService {
     return this.payoutDao.getPayoutsBy({ teacherId: targetUser.id }, {});
   }
 
+  /** #104: Admin lists payouts across the platform, optionally filtered by recordedAt period. */
+  listPayoutsForAdmin(
+    admin: AuthUser,
+    period?: { from?: Date; to?: Date },
+  ): Promise<PayoutRecord[]> {
+    adminScope(admin);
+    return this.payoutDao.getPayoutsBy(
+      { admin: true },
+      period?.from || period?.to
+        ? {
+            recordedAt: {
+              ...(period.from ? { gte: period.from } : {}),
+              ...(period.to ? { lte: period.to } : {}),
+            },
+          }
+        : {},
+    );
+  }
+
   /** Admin views a single payout with its itemised covered sales. */
   async getPayoutForAdmin(admin: AuthUser, payoutId: string): Promise<PayoutDetailView> {
     adminScope(admin);

@@ -89,6 +89,7 @@ const MATRIX: Record<string, Entry> = {
 
   // ── Admin ─────────────────────────────────────────────────────────
   'GET /admin/dashboard': ADMIN,
+  'GET /admin/finance/summary': ADMIN,
   'GET /admin/users': ADMIN,
   'GET /admin/users/:userId': ADMIN,
   'GET /admin/users/:userId/overview': ADMIN,

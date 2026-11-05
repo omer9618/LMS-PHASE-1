@@ -9,7 +9,7 @@ import { UserAdminService } from '../../auth/services/user-admin.service';
 import { EnrollmentService } from '../../enrollment/services/enrollment.service';
 import { OrderService, TeacherOrderItemRecord } from '../../orders/services/order.service';
 import { LedgerDao, LedgerEntryRecord, PayoutHistoryRecord } from '../dao/ledger.dao';
-import { RefundDao, RefundRecord } from '../dao/refund.dao';
+import { RefundDao, RefundRecord, RefundWithOrderRecord } from '../dao/refund.dao';
 import {
   assertOrderRefundable,
   assertTargetIsTeacher,
@@ -39,6 +39,7 @@ export type {
   LedgerEntryRecord,
   PayoutHistoryRecord,
   RefundRecord,
+  RefundWithOrderRecord,
   SeparatedTeacherSales,
   TeacherEarningsDashboard,
   TeacherSaleOrderItem,
@@ -413,6 +414,26 @@ export class LedgerService {
     const targetUser = await this.userAdminService.getUser(admin, teacherId);
     assertTargetIsTeacher(targetUser.id, targetUser.roles);
     return this.getEarningsDashboardForScope({ teacherId: targetUser.id });
+  }
+
+  /**
+   * #104: Admin lists refunds across the platform (optionally filtered by creation period).
+   */
+  listRefundsForAdmin(
+    admin: AuthUser,
+    period?: { from?: Date; to?: Date },
+  ): Promise<RefundWithOrderRecord[]> {
+    adminScope(admin);
+    return this.refundDao.getRefundsBy({
+      ...(period?.from || period?.to
+        ? {
+            createdAt: {
+              ...(period.from ? { gte: period.from } : {}),
+              ...(period.to ? { lte: period.to } : {}),
+            },
+          }
+        : {}),
+    });
   }
 
   private async getEarningsDashboardForScope(

@@ -1,11 +1,17 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { UserIdParams, userIdParamsSchema } from '../../auth/schemas/user-admin.schema';
+import type { AdminFinancialSummary } from '../domain/dashboard.rules';
+import {
+  type FinancialSummaryQuery,
+  financialSummaryQuerySchema,
+} from '../schemas/admin-finance.schema';
 import { AdminDashboard, AdminDashboardService } from '../services/admin-dashboard.service';
+import { AdminFinanceService } from '../services/admin-finance.service';
 import {
   AdminUserOverview,
   AdminUserOverviewService,
@@ -35,5 +41,20 @@ export class AdminUserOverviewController {
     @Param(new ZodValidationPipe(userIdParamsSchema)) params: UserIdParams,
   ): Promise<AdminUserOverview> {
     return this.overviewService.getOverview(admin, params.userId);
+  }
+}
+
+/** #104: admin financial summary by period. */
+@Roles([Role.ADMIN])
+@Controller('admin/finance')
+export class AdminFinanceController {
+  constructor(private readonly financeService: AdminFinanceService) {}
+
+  @Get('summary')
+  getSummary(
+    @CurrentUser() admin: AuthUser,
+    @Query(new ZodValidationPipe(financialSummaryQuerySchema)) query: FinancialSummaryQuery,
+  ): Promise<AdminFinancialSummary> {
+    return this.financeService.getFinancialSummary(admin, query);
   }
 }
