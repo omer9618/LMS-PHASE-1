@@ -146,13 +146,10 @@ export function assertValidLedgerEntryDraft(draft: LedgerEntryDraft): void {
         );
       }
       if (draft.amountMinor > 0n) {
-        throw new LedgerRefusedError(
-          'A refund compensating entry cannot be positive',
-          {
-            reason: 'POSITIVE_REFUND_ENTRY',
-            orderItemId: draft.orderItemId,
-          },
-        );
+        throw new LedgerRefusedError('A refund compensating entry cannot be positive', {
+          reason: 'POSITIVE_REFUND_ENTRY',
+          orderItemId: draft.orderItemId,
+        });
       }
       break;
 
@@ -163,13 +160,10 @@ export function assertValidLedgerEntryDraft(draft: LedgerEntryDraft): void {
         });
       }
       if (draft.amountMinor >= 0n) {
-        throw new LedgerRefusedError(
-          'A payout ledger entry must be a negative debit',
-          {
-            reason: 'NON_NEGATIVE_PAYOUT_ENTRY',
-            payoutId: draft.payoutId,
-          },
-        );
+        throw new LedgerRefusedError('A payout ledger entry must be a negative debit', {
+          reason: 'NON_NEGATIVE_PAYOUT_ENTRY',
+          payoutId: draft.payoutId,
+        });
       }
       break;
 
@@ -385,12 +379,7 @@ export const PENDING_SALE_ORDER_STATUSES = ['PENDING', 'PROOF_SUBMITTED'] as con
 export const CONFIRMED_SALE_ORDER_STATUSES = ['VERIFIED'] as const;
 
 export type SaleOrderStatusValue =
-  | 'PENDING'
-  | 'PROOF_SUBMITTED'
-  | 'VERIFIED'
-  | 'REJECTED'
-  | 'LAPSED'
-  | 'REFUNDED';
+  'PENDING' | 'PROOF_SUBMITTED' | 'VERIFIED' | 'REJECTED' | 'LAPSED' | 'REFUNDED';
 
 /** A teacher's order line item with its parent order context (#81, #84). */
 export interface TeacherSaleOrderItem {

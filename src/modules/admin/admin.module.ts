@@ -29,11 +29,7 @@ import { AdminUserOverviewService } from './services/admin-user-overview.service
     PayoutsModule,
     TeachersModule,
   ],
-  controllers: [
-    AdminDashboardController,
-    AdminUserOverviewController,
-    AdminFinanceController,
-  ],
+  controllers: [AdminDashboardController, AdminUserOverviewController, AdminFinanceController],
   providers: [AdminDashboardService, AdminUserOverviewService, AdminFinanceService],
 })
 export class AdminModule {}

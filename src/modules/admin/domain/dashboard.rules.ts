@@ -38,7 +38,9 @@ export function parseFinancialPeriodBounds(input: {
   to?: string;
 }): FinancialPeriodBounds {
   const from = input.from ? new Date(`${input.from}T00:00:00.000Z`) : null;
-  const to = input.to ? new Date(new Date(`${input.to}T00:00:00.000Z`).getTime() + DAY_MS - 1) : null;
+  const to = input.to
+    ? new Date(new Date(`${input.to}T00:00:00.000Z`).getTime() + DAY_MS - 1)
+    : null;
 
   if (from && to && from.getTime() > to.getTime()) {
     throw new AdminFinanceError('Period start date "from" cannot be after end date "to"', {

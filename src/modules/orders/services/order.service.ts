@@ -19,7 +19,13 @@ import {
   IncomingFile,
   StorageService,
 } from '../../storage/services/storage.service';
-import { OrderDao, OrderItemRecord, OrderRecord, PaymentProofRecord, TeacherOrderItemRecord } from '../dao/order.dao';
+import {
+  OrderDao,
+  OrderItemRecord,
+  OrderRecord,
+  PaymentProofRecord,
+  TeacherOrderItemRecord,
+} from '../dao/order.dao';
 import {
   assertEmailVerifiedForOrder,
   buildCartQuote,
@@ -53,7 +59,13 @@ import type {
   SubmitPaymentProofInput,
 } from '../schemas/order.schema';
 
-export type { DuplicateTransactionIdWarning, OrderItemRecord, OrderReceipt, OrderRecord, TeacherOrderItemRecord };
+export type {
+  DuplicateTransactionIdWarning,
+  OrderItemRecord,
+  OrderReceipt,
+  OrderRecord,
+  TeacherOrderItemRecord,
+};
 
 export interface CartQuoteView {
   items: Array<{

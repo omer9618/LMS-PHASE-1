@@ -7,7 +7,10 @@ const positiveMoneyMinor = z
 
 const signedNonZeroMoneyMinor = z
   .string()
-  .regex(/^-?[1-9]\d{0,17}$/, 'Must be a non-zero signed whole number of minor units, sent as a string')
+  .regex(
+    /^-?[1-9]\d{0,17}$/,
+    'Must be a non-zero signed whole number of minor units, sent as a string',
+  )
   .transform((value) => BigInt(value));
 
 export const refundOrderParamsSchema = z.strictObject({

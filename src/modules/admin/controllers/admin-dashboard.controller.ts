@@ -9,7 +9,10 @@ import {
   type AdminTeacherParams,
   adminTeacherParamsSchema,
 } from '../../ledger/schemas/ledger.schema';
-import type { OpenConcernsSummary, OpenPayoutDisputeRecord } from '../../payouts/services/payout.service';
+import type {
+  OpenConcernsSummary,
+  OpenPayoutDisputeRecord,
+} from '../../payouts/services/payout.service';
 import type { AdminFinancialSummary } from '../domain/dashboard.rules';
 import {
   type FinancialSummaryQuery,

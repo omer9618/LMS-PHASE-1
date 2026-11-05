@@ -146,9 +146,7 @@ describe('payout rules (#85, #86, #87, #88, #89, #113)', () => {
     );
     expect(covered.map((s) => s.orderItemId)).toEqual(['oi-1']);
     expect(formatPayoutMoney(160050n, 'PKR')).toBe('PKR 1,600.50');
-    expect(buildPayoutCoverageEmailLines(covered)).toEqual([
-      ['Sale: Chem (LMS-1)', 'PKR 800.00'],
-    ]);
+    expect(buildPayoutCoverageEmailLines(covered)).toEqual([['Sale: Chem (LMS-1)', 'PKR 800.00']]);
   });
 
   it('#87: auto-accepts only PENDING payouts at or past their disputeDeadline, skipping DISPUTED payouts', () => {
