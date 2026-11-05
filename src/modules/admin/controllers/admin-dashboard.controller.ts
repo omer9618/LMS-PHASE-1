@@ -5,13 +5,20 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { UserIdParams, userIdParamsSchema } from '../../auth/schemas/user-admin.schema';
+import {
+  type AdminTeacherParams,
+  adminTeacherParamsSchema,
+} from '../../ledger/schemas/ledger.schema';
 import type { AdminFinancialSummary } from '../domain/dashboard.rules';
 import {
   type FinancialSummaryQuery,
   financialSummaryQuerySchema,
 } from '../schemas/admin-finance.schema';
 import { AdminDashboard, AdminDashboardService } from '../services/admin-dashboard.service';
-import { AdminFinanceService } from '../services/admin-finance.service';
+import {
+  AdminFinanceService,
+  type AdminTeacherStatementView,
+} from '../services/admin-finance.service';
 import {
   AdminUserOverview,
   AdminUserOverviewService,
@@ -44,17 +51,25 @@ export class AdminUserOverviewController {
   }
 }
 
-/** #104: admin financial summary by period. */
+/** #104, #105: admin financial summary by period and per-teacher account statement. */
 @Roles([Role.ADMIN])
-@Controller('admin/finance')
+@Controller('admin')
 export class AdminFinanceController {
   constructor(private readonly financeService: AdminFinanceService) {}
 
-  @Get('summary')
+  @Get('finance/summary')
   getSummary(
     @CurrentUser() admin: AuthUser,
     @Query(new ZodValidationPipe(financialSummaryQuerySchema)) query: FinancialSummaryQuery,
   ): Promise<AdminFinancialSummary> {
     return this.financeService.getFinancialSummary(admin, query);
+  }
+
+  @Get('teachers/:teacherId/statement')
+  getTeacherStatement(
+    @CurrentUser() admin: AuthUser,
+    @Param(new ZodValidationPipe(adminTeacherParamsSchema)) params: AdminTeacherParams,
+  ): Promise<AdminTeacherStatementView> {
+    return this.financeService.getTeacherStatement(admin, params.teacherId);
   }
 }

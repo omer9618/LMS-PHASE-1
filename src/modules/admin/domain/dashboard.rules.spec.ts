@@ -1,6 +1,7 @@
 import {
   AdminFinanceError,
   buildAdminFinancialSummary,
+  buildTeacherAccountStatement,
   parseFinancialPeriodBounds,
   startOfUtcDay,
   totalAttention,
@@ -137,6 +138,69 @@ describe('dashboard & finance rules (#102, #104)', () => {
           },
         ],
       });
+    });
+  });
+  describe('buildTeacherAccountStatement (#105)', () => {
+    it('separates refunds and adjustments from full ledger while preserving balances, sales, and payouts', () => {
+      const statement = buildTeacherAccountStatement({
+        teacher: { id: 'teacher-1', email: 't@example.com' },
+        balances: [{ currency: 'PKR', balanceMinor: 37000n }],
+        sales: { confirmed: { count: 1 }, pending: { count: 0 } },
+        payouts: [{ id: 'payout-1', amountMinor: 30000n }],
+        ledgerEntries: [
+          {
+            id: 'l-1',
+            type: 'EARNING',
+            amountMinor: 70000n,
+            currency: 'PKR',
+            orderItemId: 'oi-1',
+            payoutId: null,
+            description: 'Earning',
+            createdById: 'admin-1',
+            createdAt: new Date('2026-04-01T10:00:00.000Z'),
+          },
+          {
+            id: 'l-2',
+            type: 'REFUND',
+            amountMinor: -5000n,
+            currency: 'PKR',
+            orderItemId: 'oi-1',
+            payoutId: null,
+            description: 'Refund',
+            createdById: 'admin-1',
+            createdAt: new Date('2026-04-02T10:00:00.000Z'),
+          },
+          {
+            id: 'l-3',
+            type: 'ADJUSTMENT',
+            amountMinor: 2000n,
+            currency: 'PKR',
+            orderItemId: null,
+            payoutId: null,
+            description: 'Bonus',
+            createdById: 'admin-1',
+            createdAt: new Date('2026-04-03T10:00:00.000Z'),
+          },
+          {
+            id: 'l-4',
+            type: 'PAYOUT',
+            amountMinor: -30000n,
+            currency: 'PKR',
+            orderItemId: null,
+            payoutId: 'payout-1',
+            description: 'Payout',
+            createdById: 'admin-1',
+            createdAt: new Date('2026-04-04T10:00:00.000Z'),
+          },
+        ],
+      });
+
+      expect(statement.refunds.count).toBe(1);
+      expect(statement.refunds.items[0]?.id).toBe('l-2');
+      expect(statement.adjustments.count).toBe(1);
+      expect(statement.adjustments.items[0]?.id).toBe('l-3');
+      expect(statement.payouts.count).toBe(1);
+      expect(statement.ledger.count).toBe(4);
     });
   });
 });

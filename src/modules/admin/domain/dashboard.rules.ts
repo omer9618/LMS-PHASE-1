@@ -219,3 +219,93 @@ export function buildAdminFinancialSummary(input: {
     currencies: Array.from(map.values()).sort((a, b) => a.currency.localeCompare(b.currency)),
   };
 }
+export interface TeacherStatementLedgerItem {
+  type: 'EARNING' | 'REFUND' | 'PAYOUT' | 'ADJUSTMENT';
+}
+
+export interface BuildTeacherAccountStatementInput<
+  TTeacher,
+  TBalance,
+  TSeparatedSales,
+  TPayout,
+  TLedgerEntry extends TeacherStatementLedgerItem,
+> {
+  teacher: TTeacher;
+  balances: TBalance[];
+  sales: TSeparatedSales;
+  payouts: TPayout[];
+  ledgerEntries: TLedgerEntry[];
+}
+
+export interface TeacherAccountStatement<
+  TTeacher,
+  TBalance,
+  TSeparatedSales,
+  TPayout,
+  TLedgerEntry extends TeacherStatementLedgerItem,
+> {
+  teacher: TTeacher;
+  balances: TBalance[];
+  sales: TSeparatedSales;
+  refunds: {
+    count: number;
+    items: TLedgerEntry[];
+  };
+  adjustments: {
+    count: number;
+    items: TLedgerEntry[];
+  };
+  payouts: {
+    count: number;
+    items: TPayout[];
+  };
+  ledger: {
+    count: number;
+    items: TLedgerEntry[];
+  };
+}
+
+/**
+ * #105 (FR-12.4): Builds a complete per-teacher account statement combining sales, commission,
+ * refunds, manual adjustments, payouts, full ledger entries, and derived balance per currency.
+ */
+export function buildTeacherAccountStatement<
+  TTeacher,
+  TBalance,
+  TSeparatedSales,
+  TPayout,
+  TLedgerEntry extends TeacherStatementLedgerItem,
+>(
+  input: BuildTeacherAccountStatementInput<
+    TTeacher,
+    TBalance,
+    TSeparatedSales,
+    TPayout,
+    TLedgerEntry
+  >,
+): TeacherAccountStatement<TTeacher, TBalance, TSeparatedSales, TPayout, TLedgerEntry> {
+  const refunds = input.ledgerEntries.filter((entry) => entry.type === 'REFUND');
+  const adjustments = input.ledgerEntries.filter((entry) => entry.type === 'ADJUSTMENT');
+
+  return {
+    teacher: input.teacher,
+    balances: input.balances,
+    sales: input.sales,
+    refunds: {
+      count: refunds.length,
+      items: refunds,
+    },
+    adjustments: {
+      count: adjustments.length,
+      items: adjustments,
+    },
+    payouts: {
+      count: input.payouts.length,
+      items: input.payouts,
+    },
+    ledger: {
+      count: input.ledgerEntries.length,
+      items: input.ledgerEntries,
+    },
+  };
+}
