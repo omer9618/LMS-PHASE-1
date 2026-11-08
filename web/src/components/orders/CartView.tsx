@@ -1,0 +1,171 @@
+'use client';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { Alert, Button, ButtonLink } from '@/components/ui';
+import { ApiError, errorMessage } from '@/lib/api/errors';
+import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
+import { useCart } from '@/lib/cart';
+import { formatMoney } from '@/lib/money';
+import { groupByTeacher } from '@/lib/order-display';
+import { useSession } from '@/lib/session';
+import { useApi } from '@/lib/use-api';
+import styles from './Orders.module.css';
+
+/** The course an ORDER_REFUSED error is about (the API puts it in `info.courseId`). */
+function refusedCourseId(error: unknown): string | null {
+  if (!(error instanceof ApiError) || error.name !== 'ORDER_REFUSED') return null;
+  const info = error.info as { courseId?: unknown } | undefined;
+  return typeof info?.courseId === 'string' ? info.courseId : null;
+}
+
+/**
+ * #54, #55: the cart, priced by the API (POST /cart/quote) and grouped per teacher, and checkout
+ * (POST /orders). The cart is in the browser; the order freezes the prices when it is placed.
+ */
+export function CartView({ client = defaultOrders }: { client?: OrdersApi }) {
+  const cart = useCart();
+  const { status } = useSession();
+  const router = useRouter();
+  const [placing, setPlacing] = useState(false);
+  const [placeError, setPlaceError] = useState<unknown>(null);
+
+  const key = status === 'signed-in' && cart.ids.length > 0 ? `quote:${cart.ids.join(',')}` : null;
+  const quote = useApi(key, () => client.quote(cart.ids));
+
+  async function checkout() {
+    setPlacing(true);
+    setPlaceError(null);
+    try {
+      const order = await client.createOrder(cart.ids);
+      cart.clear();
+      router.push(`/orders/${encodeURIComponent(order.id)}?placed=1`);
+    } catch (error) {
+      setPlaceError(error);
+      setPlacing(false);
+    }
+  }
+
+  if (cart.ids.length === 0) {
+    return (
+      <div className="stack">
+        <h1>Your cart</h1>
+        <p>Your cart is empty.</p>
+        <p>
+          <ButtonLink href="/courses">Browse courses</ButtonLink>
+        </p>
+      </div>
+    );
+  }
+
+  if (status === 'signed-out') {
+    return (
+      <div className="stack">
+        <h1>Your cart</h1>
+        <p>
+          {cart.ids.length} course{cart.ids.length === 1 ? '' : 's'} in your cart.
+        </p>
+        <Alert tone="info" title="Sign in to check out">
+          <ButtonLink href={`/login?next=${encodeURIComponent('/cart')}`}>Sign in</ButtonLink>
+        </Alert>
+      </div>
+    );
+  }
+
+  const refused = refusedCourseId(quote.status === 'error' ? quote.error : placeError);
+
+  return (
+    <div className="stack">
+      <h1>Your cart</h1>
+
+      {quote.status === 'loading' && (
+        <p className="muted" role="status">
+          Pricing your cart…
+        </p>
+      )}
+
+      {quote.status === 'error' && (
+        <Alert tone="danger" title="Your cart cannot be checked out as it is">
+          <p>{errorMessage(quote.error)}</p>
+          {refused ? (
+            <p>
+              <Button variant="secondary" size="sm" onClick={() => cart.remove(refused)}>
+                Remove that course
+              </Button>
+            </p>
+          ) : (
+            <p>
+              <Button variant="secondary" size="sm" onClick={() => cart.clear()}>
+                Empty the cart
+              </Button>
+            </p>
+          )}
+        </Alert>
+      )}
+
+      {quote.status === 'success' && (
+        <>
+          {groupByTeacher(quote.data.items).map((group) => (
+            <section
+              key={group.teacherId}
+              className={styles.card}
+              aria-label={`Courses by ${group.teacherName}`}
+            >
+              <h2 className={styles.groupTitle}>{group.teacherName}</h2>
+              <ul className={styles.lines}>
+                {group.items.map((item) => (
+                  <li key={item.courseId}>
+                    <Link href={`/courses/${encodeURIComponent(item.courseId)}`}>{item.title}</Link>
+                    <span className={styles.lineEnd}>
+                      <strong>{formatMoney(item.priceMinor, item.currency)}</strong>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => cart.remove(item.courseId)}
+                        aria-label={`Remove ${item.title}`}
+                      >
+                        Remove
+                      </Button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {quote.data.teacherCount > 1 && (
+                <p className={styles.subtotal}>
+                  Subtotal: {formatMoney(group.subtotalMinor, quote.data.currency)}
+                </p>
+              )}
+            </section>
+          ))}
+
+          <div className={styles.totalRow}>
+            <span>Total</span>
+            <strong className={styles.bigValue}>
+              {formatMoney(quote.data.totalMinor, quote.data.currency)}
+            </strong>
+          </div>
+          <p className="muted">
+            You pay once, by bank transfer, with the reference you get on the next page. Prices are
+            fixed when you place the order.
+          </p>
+
+          {placeError !== null && (
+            <Alert tone="danger" title="The order could not be placed">
+              <p>{errorMessage(placeError)}</p>
+              {placeError instanceof ApiError && placeError.name === 'EMAIL_NOT_VERIFIED' && (
+                <p>Check your inbox for the verification link, then try again.</p>
+              )}
+            </Alert>
+          )}
+
+          <div>
+            <Button size="lg" onClick={checkout} loading={placing} loadingText="Placing order…">
+              Place order
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,177 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  min-width: 0;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.titleRow code,
+.orderLink code {
+  font-size: 0.95em;
+  overflow-wrap: anywhere;
+}
+
+.groupTitle {
+  font-size: var(--text-lg);
+}
+
+.lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lines li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.lines li:last-child {
+  border-bottom: 0;
+}
+
+.lineEnd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.subtotal {
+  text-align: right;
+  color: var(--color-text-muted);
+}
+
+.totalRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 2px solid var(--color-text);
+  font-size: var(--text-lg);
+}
+
+.bigValue {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ── Payment instructions ── */
+
+.instructions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-subtle);
+}
+
+.payFacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.payFacts dt,
+.receiptFacts dt {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.payFacts dd,
+.receiptFacts dd {
+  margin: 0;
+}
+
+.bankDetails {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.preLine {
+  white-space: pre-line;
+}
+
+/* ── Orders list ── */
+
+.orderList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.orderLink {
+  font-weight: var(--weight-semibold);
+}
+
+.orderMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* ── Receipt ── */
+
+.receipt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  max-width: 40rem;
+}
+
+.receiptFacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+@media print {
+  .noPrint {
+    display: none;
+  }
+
+  .receipt {
+    border: 0;
+    padding: 0;
+  }
+}

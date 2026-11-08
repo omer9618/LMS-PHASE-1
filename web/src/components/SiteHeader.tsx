@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { AccountMenu } from './AccountMenu';
 import { MfaBanner } from './MfaBanner';
+import { PurchaseNav } from './orders/PurchaseNav';
 import { RoleNav } from './RoleNav';
 import { VerifyEmailBanner } from './VerifyEmailBanner';
 import styles from './SiteHeader.module.css';
@@ -15,6 +16,7 @@ export function SiteHeader() {
         <nav aria-label="Main" className={styles.nav}>
           <Link href="/courses">Courses</Link>
           <RoleNav />
+          <PurchaseNav />
         </nav>
         <AccountMenu />
       </div>

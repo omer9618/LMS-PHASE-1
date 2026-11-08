@@ -68,17 +68,19 @@ CI runs all of them in the `web` job of `.github/workflows/ci.yml`.
 
 ## Layout
 
-| Path                                            | What                                                                       |
-| ----------------------------------------------- | -------------------------------------------------------------------------- |
-| `src/app/`                                      | Routes (App Router)                                                        |
-| `src/components/ui/`                            | Base primitives: Button, Input/Select/Checkbox, Badge, Table, Alert        |
-| `src/styles/tokens.css`                         | Design tokens: colour, type, spacing, density                              |
-| `src/lib/api/`                                  | Typed fetch client, error type, response shapes                            |
-| `src/lib/money.ts`                              | Money formatting and parsing with string maths (minor units, never floats) |
-| `src/lib/catalogue-url.ts`                      | Catalogue filter state in the URL (#42)                                    |
-| `src/app/learn/[courseId]`                      | Course player (#53) and quiz taking (#75); `?lesson=` selects the lesson   |
-| `src/components/learn/`, `src/components/quiz/` | Player, outline, video (watch reporting), LaTeX `MathText`, quiz screens   |
-| `src/lib/api/learn.ts`                          | Typed learner API: outline, content, playback, watch, completion, quizzes  |
+| Path                                                                 | What                                                                       |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `src/app/`                                                           | Routes (App Router)                                                        |
+| `src/components/ui/`                                                 | Base primitives: Button, Input/Select/Checkbox, Badge, Table, Alert        |
+| `src/styles/tokens.css`                                              | Design tokens: colour, type, spacing, density                              |
+| `src/lib/api/`                                                       | Typed fetch client, error type, response shapes                            |
+| `src/lib/money.ts`                                                   | Money formatting and parsing with string maths (minor units, never floats) |
+| `src/lib/catalogue-url.ts`                                           | Catalogue filter state in the URL (#42)                                    |
+| `src/app/learn/[courseId]`                                           | Course player (#53) and quiz taking (#75); `?lesson=` selects the lesson   |
+| `src/components/learn/`, `src/components/quiz/`                      | Player, outline, video (watch reporting), LaTeX `MathText`, quiz screens   |
+| `src/lib/api/learn.ts`                                               | Typed learner API: outline, content, playback, watch, completion, quizzes  |
+| `src/app/cart`, `src/app/orders`                                     | Cart and checkout (#54, #55), my orders, proof upload, receipt (#58–#62)   |
+| `src/components/orders/`, `src/lib/cart.ts`, `src/lib/api/orders.ts` | Purchase screens; the cart in localStorage; typed orders API               |
 
 Tests sit next to the code as `*.test.ts(x)` (not `*.spec.ts`, which the API's Jest would pick up).
 
