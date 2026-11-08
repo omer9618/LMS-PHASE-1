@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { BuyButtons } from '@/components/orders/BuyButtons';
 import { Alert, Button, ButtonLink } from '@/components/ui';
 import { api } from '@/lib/api/client';
 import { errorMessage } from '@/lib/api/errors';
@@ -12,7 +13,7 @@ import styles from './Course.module.css';
 
 type Enroll = 'idle' | 'enrolling' | 'enrolled' | { error: string };
 
-/** Price and the way in: free enrollment (#47) for free courses; paid checkout is M2. */
+/** Price and the way in: free enrollment (#47) for free courses; cart and checkout (#54) for paid ones. */
 export function EnrollPanel({ course }: { course: CourseDetail }) {
   const { status, user } = useSession();
   const [enroll, setEnroll] = useState<Enroll>('idle');
@@ -54,9 +55,7 @@ export function EnrollPanel({ course }: { course: CourseDetail }) {
           {enroll === 'enrolled' ? 'Welcome to the course. ' : ''}You have access to every lesson.
         </Alert>
       ) : !course.isFree ? (
-        <Alert tone="info">
-          Paid courses are bought by bank transfer. Online checkout is coming soon.
-        </Alert>
+        <BuyButtons courseId={course.id} />
       ) : status === 'signed-out' ? (
         <ButtonLink href={loginHref} fullWidth size="lg">
           Sign in to enroll for free
