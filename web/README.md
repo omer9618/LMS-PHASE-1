@@ -34,17 +34,22 @@ Behind the proxy every request reaches the API from the web server, so set the A
 
 ## Pages
 
-| Route                                                    | What                                                                                                           |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `/courses`                                               | Catalogue: search, filters (subject, board, level, pacing, free only, price range), sort; all in the URL       |
-| `/courses/:courseId`                                     | Course detail: syllabus coverage, pricing, teacher, demo player, free enrollment                               |
-| `/login`, `/register`                                    | Sign in (with the MFA step for admins), student registration (guardian details optional)                       |
-| `/verify-email?token=`                                   | Email verification link target                                                                                 |
-| `/forgot-password`, `/reset-password?token=[&welcome=1]` | Password reset; `welcome=1` is the first-password link for staff accounts an admin creates                     |
-| `/teach-with-us`                                         | Public teacher application with CV upload and the human check (#18, #19)                                       |
-| `/account/mfa`                                           | Two-step verification set-up (QR code, confirm, recovery codes shown once) and recovery-code replacement (#16) |
-| `/dashboard`                                             | A student's courses with completion (#52)                                                                      |
-| `/dev/components`                                        | Every primitive in both densities (development only; 404 in production builds)                                 |
+| Route                                                    | What                                                                                                                                                |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/courses`                                               | Catalogue: search, filters (subject, board, level, pacing, free only, price range), sort; all in the URL                                            |
+| `/courses/:courseId`                                     | Course detail: syllabus coverage, pricing, teacher, demo player, free enrollment                                                                    |
+| `/login`, `/register`                                    | Sign in (with the MFA step for admins), student registration (guardian details optional)                                                            |
+| `/verify-email?token=`                                   | Email verification link target                                                                                                                      |
+| `/forgot-password`, `/reset-password?token=[&welcome=1]` | Password reset; `welcome=1` is the first-password link for staff accounts an admin creates                                                          |
+| `/teach-with-us`                                         | Public teacher application with CV upload and the human check (#18, #19)                                                                            |
+| `/account/mfa`                                           | Two-step verification set-up (QR code, confirm, recovery codes shown once) and recovery-code replacement (#16)                                      |
+| `/dashboard`                                             | A student's courses with completion (#52)                                                                                                           |
+| `/teacher/courses`, `/teacher/courses/new`               | A teacher's courses; create a course (#24)                                                                                                          |
+| `/teacher/courses/:id`                                   | Details (read-only once submitted), status and rejection reason, submit for review with the checklist, enrollment toggle, archive, delete (#25–#33) |
+| `/teacher/courses/:id/content`                           | Sections and lessons with move up/down, free preview, TUS video upload straight to the video host, PDF files (#27, #34–#38)                         |
+| `/teacher/courses/:id/enrollments`                       | The course's students, view only (#50)                                                                                                              |
+| `/teacher/earnings`                                      | Balance, pending vs confirmed sales, statement, payouts and payout concerns (#79–#88)                                                               |
+| `/dev/components`                                        | Every primitive in both densities (development only; 404 in production builds)                                                                      |
 
 ## Narrow screens (#45)
 
