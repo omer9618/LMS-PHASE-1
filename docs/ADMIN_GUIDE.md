@@ -2,7 +2,7 @@
 
 For the people who run the platform day to day: approving teachers and courses, verifying payments, paying teachers, and managing accounts (#123). Each task names the admin API endpoint behind it, so the guide is usable before the admin screens of the web app exist and stays accurate after (the screens call the same endpoints).
 
-> **Status of this guide.** Sections marked **(coming)** describe features whose backend is still being built (payment verification #63–#67, ledger and payouts #78–#89, finance views #103–#105). They describe the agreed procedure so the operations team can prepare; endpoint names will be added when those features merge.
+> Every procedure below matches the backend as merged. Where a value is still an open client question (enrollment duration #125, bank account and currency #127, refund rules #129, payout cycle #130, verification turnaround #131), it is a platform setting or an optional field, and the guide says so.
 
 ## Contents
 
@@ -11,8 +11,13 @@ For the people who run the platform day to day: approving teachers and courses, 
 - [Teacher applications and teacher accounts](#teacher-applications-and-teacher-accounts)
 - [Course approval](#course-approval)
 - [Enrollments](#enrollments)
+- [Dashboard](#dashboard)
 - [Orders and payment verification](#orders-and-payment-verification)
+- [Refunds](#refunds)
+- [Teacher ledger and manual adjustments](#teacher-ledger-and-manual-adjustments)
 - [Teacher payouts](#teacher-payouts)
+- [Payout concerns](#payout-concerns)
+- [Finance views](#finance-views)
 - [Platform settings](#platform-settings)
 - [Audit log](#audit-log)
 - [Good practice](#good-practice)
@@ -31,7 +36,7 @@ Endpoints: `/admin/users`.
 | Task                   | How                                                                                                                                                              |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Find an account        | `GET /admin/users?q=<name or email>&role=TEACHER&status=ACTIVE`                                                                                                  |
-| See one account        | `GET /admin/users/:userId` (roles, status, verification, last sign-in)                                                                                           |
+| See one account        | `GET /admin/users/:userId` (roles, status, verification, last sign-in); `GET /admin/users/:userId/overview` adds their enrollments, courses taught and orders    |
 | Create a staff account | `POST /admin/users` with email, full name and roles (`ADMIN` and/or `TEACHER`). The person receives an email to set their password. Students register themselves |
 | Suspend an account     | `POST /admin/users/:userId/suspend` with a reason. The user is signed out everywhere immediately                                                                 |
 | Reactivate an account  | `POST /admin/users/:userId/reactivate` with a reason                                                                                                             |
@@ -86,49 +91,139 @@ Endpoints: `/admin/enrollments`.
 
 Teachers can see who is enrolled in their courses but cannot change enrollments.
 
+## Dashboard
+
+`GET /admin/dashboard` shows what needs attention: courses waiting for approval, teacher applications to review, payments waiting for verification and open payout concerns, with one total for the navigation badge, plus today's figures (from midnight UTC). Start each working day here.
+
 ## Orders and payment verification
 
-Students pay by **bank transfer**. They place an order (the price is frozen at that moment), transfer the money, then upload a **payment proof**: the bank's transaction ID and optionally a screenshot or PDF. An order with no proof lapses after the expiry window (setting `ORDER_EXPIRY_WINDOW_HOURS`, default 48), and the student is emailed.
+Students pay by **bank transfer** into the account in the `BANK_TRANSFER_INSTRUCTIONS` setting. They place an order (the price is frozen at that moment and the order gets a **payment reference** they put in the transfer remark), transfer the money, then submit a **payment proof**: the bank's transaction ID, optionally the amount they say they paid, and optionally a screenshot or PDF. An order with no proof lapses after the expiry window (setting `ORDER_EXPIRY_WINDOW_HOURS`, default 48) and the student is emailed.
 
-Order statuses: `PENDING` (waiting for proof) → `PROOF_SUBMITTED` (waiting for you) → `VERIFIED` (access granted, receipt issued) or `REJECTED` (the student may resubmit a proof on the same order, which restarts the expiry clock); also `LAPSED` and `REFUNDED`.
+| Status            | Meaning                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| `PENDING`         | Waiting for the student's proof (also after you asked for a top-up)                                     |
+| `PROOF_SUBMITTED` | Waiting for you: it is in the verification queue                                                        |
+| `VERIFIED`        | Payment confirmed: access granted, receipt issued, teacher earnings written                             |
+| `REJECTED`        | You rejected the proof. The student may submit a new proof on the same order; the expiry clock restarts |
+| `LAPSED`          | No proof within the expiry window                                                                       |
+| `REFUNDED`        | Refunded after verification (see [Refunds](#refunds))                                                   |
 
-Available now: `GET /admin/orders/:orderId` shows an order with its frozen line items and proofs. The system flags a transaction ID that was already used on another order.
+### The verification queue
 
-**Verification procedure (coming, #63–#67):**
+- **Queue:** `GET /admin/verification/queue?limit=50&offset=0`. Oldest first. Each entry shows the order total and currency, the courses and teachers, the student, the proofs you are deciding on now (those since the last full rejection), how long it has waited and whether it is past the published turnaround, what the student claims to have paid against the total, any amount already received before a top-up request, and **duplicate transaction ID warnings** (the same bank transaction ID used on another order).
+- **Metrics:** `GET /admin/verification/metrics`: queue size, the oldest waiting order and its age, and how many orders are past the turnaround (setting `VERIFICATION_TURNAROUND_HOURS`, default 48; the final figure is client question #131).
+- **One order in full:** `GET /admin/orders/:orderId`: frozen line items (price and commission at order time), every proof and every earlier decision.
 
-1. Open the verification queue (oldest first; the queue shows how long the oldest has waited).
-2. For each order, find the transfer **in the bank statement** by transaction ID and amount. Never verify from the screenshot alone: screenshots are easy to fake.
-3. **Confirm** when the money is in the account: enter the amount received and the value date from the statement. Confirmation grants the student access, issues the receipt and credits the teacher's earnings.
-4. **Amount differs:** confirm anyway, ask the student to top up, or reject, and record why.
-5. **Reject** with a reason (no payment found, amount short, invalid transaction ID, duplicate transaction, other). The student is told and can resubmit.
-6. **Duplicate transaction ID warning:** check both orders before confirming; one bank transfer pays for one order.
+### Deciding a payment
 
-Aim to clear the queue at least once every working day. The agreed turnaround is an open client question (#131).
+1. Find the transfer **in the bank statement** by the payment reference, transaction ID and amount. Never decide from the screenshot alone: screenshots are easy to fake.
+2. If there is a duplicate transaction ID warning, open both orders first. One bank transfer pays for one order.
+3. **Confirm:** `POST /admin/verification/orders/:orderId/confirm` with
+
+   ```json
+   { "amountReceivedMinor": "150000", "valueDate": "2026-11-07", "notes": "optional" }
+   ```
+
+   `amountReceivedMinor` is the total that actually reached the account for this order, across all transfers, in minor units. `valueDate` is the bank's value date (`YYYY-MM-DD`, not in the future). When the amount equals the order total, the order becomes `VERIFIED` and, in the same transaction, the student is enrolled in every course on the order (even one whose enrollment has closed since: they paid) and each teacher's earning is written to their ledger. The student gets a confirmation email with the receipt.
+
+4. **Amount differs:** the confirm call then also needs `mismatchAction`:
+
+   | `mismatchAction` | When                             | Result                                                                                                                                                                            |
+   | ---------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `CONFIRM_ANYWAY` | Short or over, and you accept it | Confirmed exactly as above. Explain why in `notes`                                                                                                                                |
+   | `REQUEST_TOP_UP` | Short payments only              | The order goes back to `PENDING` and the student is emailed the missing amount. Their next proof joins this one; when you confirm, enter the total received across both transfers |
+   | `REJECT`         | Short or over                    | Rejected. The reason is `AMOUNT_SHORT` for a short payment; for an overpayment give `rejectionReason` (default `OTHER`) and say in `notes` how the excess will be returned        |
+
+   Sending a `mismatchAction` when the amount matches is refused.
+
+5. **Reject** (no matching transfer, wrong transaction ID...): `POST /admin/verification/orders/:orderId/reject` with `{ "rejectionReason": "...", "notes": "..." }`. Reasons: `NO_PAYMENT_RECEIVED`, `AMOUNT_SHORT`, `INVALID_TRANSACTION_ID`, `DUPLICATE_TRANSACTION`, `OTHER` (`notes` required). The student is emailed the reason and your notes, and can submit a new proof on the same order.
+
+Only an order in `PROOF_SUBMITTED` can be decided; a second admin acting on the same order at the same time gets a refusal, not a double confirmation. Every decision is in the audit log. Aim to keep every order inside the turnaround.
+
+## Refunds
+
+For a **verified** order whose money you have returned to the student (outside the platform, by bank transfer):
+
+`POST /admin/orders/:orderId/refund` with
+
+```json
+{
+  "amountMinor": "150000",
+  "transferDate": "2026-11-07",
+  "transactionId": "bank ref of the refund transfer",
+  "reason": "why"
+}
+```
+
+In one transaction the refund is recorded, the order becomes `REFUNDED`, the student loses access to the order's courses, and each teacher's earning for the order is reversed by a negative `REFUND` entry on their ledger. The amount must be positive and at most the order total. The ledger reversal is always the teacher's full net earning for each line, whatever amount you refunded. If the teacher should keep part of it (a partial refund), record a credit adjustment for that part (next section) and explain it in the reason. A refunded order cannot be refunded twice. The refund rules themselves (who is entitled, time limits) are client question #129.
+
+## Teacher ledger and manual adjustments
+
+Each teacher has an **append-only ledger**: an `EARNING` when a sale is confirmed (price minus the platform commission), a negative `REFUND` when it is refunded, a negative `PAYOUT` when you pay them, and signed `ADJUSTMENT`s. Entries are never edited or deleted; a mistake is corrected by a new entry. The balance is the sum of the entries, per currency.
+
+| Task                       | How                                                                                                                                                                              |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| See earnings               | `GET /admin/teachers/:teacherId/earnings`: pending sales (not yet verified) separately from confirmed sales, gross, commission, net, balances, the ledger and payouts            |
+| Record a manual adjustment | `POST /admin/teachers/:teacherId/ledger/adjustments` `{ "amountMinor": "-5000", "currency": "PKR", "reason": "..." }`. Positive credits the teacher, negative debits; never zero |
+
+Use adjustments sparingly and always with a reason the teacher will understand: they see every entry on their own statement.
 
 ## Teacher payouts
 
-**(coming, #78–#89).** Each teacher has a ledger: an earning entry when one of their sales is confirmed (price minus the platform commission), refunds and manual adjustments as separate entries. Entries are never edited or deleted; corrections are new entries. The balance is the sum of the ledger.
+You pay teachers by bank transfer **outside** the platform, then record it. The payout cycle (weekly, monthly...) is client question #130.
 
-Planned procedure:
+1. Check what is owed: `GET /admin/teachers/:teacherId/statement` (or `/earnings`).
+2. Make the bank transfer.
+3. **Record it:** `POST /admin/teachers/:teacherId/payouts` with
 
-1. Check the teacher's statement (balance, confirmed versus pending sales).
-2. Pay the teacher by bank transfer **outside** the platform.
-3. **Record the payout** with the amount, date and bank reference. The teacher is notified.
-4. The teacher has a dispute window (setting `PAYOUT_DISPUTE_WINDOW_DAYS`, default 7) to raise a concern; otherwise the payout is accepted automatically.
-5. **Concerns** appear in the open concerns view with their age. Investigate, then resolve with a written outcome; if money is owed, record an adjustment and a further payout.
+   ```json
+   {
+     "amountMinor": "120000",
+     "currency": "PKR",
+     "transactionId": "bank ref",
+     "transferDate": "2026-11-07",
+     "method": "IBFT",
+     "periodStart": "2026-10-01",
+     "periodEnd": "2026-10-31"
+   }
+   ```
 
-The payout cycle (weekly, monthly...) is an open client question (#130).
+   `method` and the covered period are optional. The amount cannot exceed the teacher's balance in that currency. A negative `PAYOUT` entry is written to the ledger and the teacher is emailed.
+
+4. The payout is `PENDING` for the dispute window (setting `PAYOUT_DISPUTE_WINDOW_DAYS`, default 7). If the teacher raises nothing, an hourly job marks it `ACCEPTED`.
+
+History: `GET /admin/teachers/:teacherId/payouts`; one payout with its concern: `GET /admin/payouts/:payoutId`.
+
+## Payout concerns
+
+A teacher who disagrees with a payout raises a **concern** within the dispute window; the payout becomes `DISPUTED` and stops auto-accepting.
+
+1. **Open concerns, oldest first, with their age:** `GET /admin/payout-concerns`. None should be left unresolved; they also count on the dashboard.
+2. Investigate with the payout (`GET /admin/payouts/:payoutId`), the teacher's statement and the bank records.
+3. **Resolve:** `POST /admin/payouts/:payoutId/concerns/resolve` with `resolutionNotes` (the teacher reads them) and, if money is owed either way, an optional signed `adjustmentAmountMinor` (and `adjustmentCurrency`), written to the ledger in the same transaction. The payout becomes `RESOLVED`. If the teacher is owed more, record a further payout once you have transferred it.
+
+## Finance views
+
+| View                      | Endpoint                                                   | Shows                                                                                                                                                              |
+| ------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Financial summary         | `GET /admin/finance/summary?from=2026-10-01&to=2026-10-31` | For the period (UTC dates, inclusive, both optional): confirmed sales, platform commission, refunds, payouts, and outstanding liability (what is owed to teachers) |
+| Teacher account statement | `GET /admin/teachers/:teacherId/statement`                 | One teacher's sales, commission, refunds, adjustments, payouts and current balance                                                                                 |
+| Open payout concerns      | `GET /admin/payout-concerns`                               | Every open concern with its age                                                                                                                                    |
+
+Reconcile the summary against the bank statement at the end of each period: confirmed sales should match money received, and payouts and refunds money sent.
 
 ## Platform settings
 
 Values the business may change without a release. Endpoints: `GET /admin/settings`, `PUT /admin/settings/:key` `{ "value": "..." }`. Every change is audited.
 
-| Setting                          | Default | Meaning                                                                  |
-| -------------------------------- | ------- | ------------------------------------------------------------------------ |
-| `ORDER_EXPIRY_WINDOW_HOURS`      | 48      | Hours a pending order waits for a payment proof before it lapses (1–720) |
-| `PAYOUT_DISPUTE_WINDOW_DAYS`     | 7       | Days a teacher has to dispute a payout before it auto-accepts (1–60)     |
-| `VIDEO_COMPLETION_THRESHOLD_PCT` | 90      | Share of a video watched that marks the lesson complete (50–100)         |
-| `APPLICATION_RETENTION_DAYS`     | 180     | Days a rejected teacher application and CV are kept (30–3650)            |
+| Setting                          | Default     | Meaning                                                                                                                             |
+| -------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `ORDER_EXPIRY_WINDOW_HOURS`      | 48          | Hours a pending order waits for a payment proof before it lapses (1–720)                                                            |
+| `PAYOUT_DISPUTE_WINDOW_DAYS`     | 7           | Days a teacher has to dispute a payout before it auto-accepts (1–60)                                                                |
+| `VIDEO_COMPLETION_THRESHOLD_PCT` | 90          | Share of a video watched that marks the lesson complete (50–100)                                                                    |
+| `APPLICATION_RETENTION_DAYS`     | 180         | Days a rejected teacher application and CV are kept (30–3650)                                                                       |
+| `VERIFICATION_TURNAROUND_HOURS`  | 48          | Published promise for verifying a payment; the queue flags orders past it (1–720)                                                   |
+| `BANK_TRANSFER_INSTRUCTIONS`     | placeholder | Bank account details and transfer steps shown at checkout and in the order email. **Set the real account before going live** (#127) |
 
 New settings appear here automatically as features add them.
 
