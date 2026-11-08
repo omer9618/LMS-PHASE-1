@@ -4,7 +4,7 @@ api.staging.example.com {
 	import lms_api lms-staging-api
 }
 
-# Uncomment once the web app image is deployed in the staging stack.
-# staging.example.com {
-# 	import lms_web lms-staging-web
-# }
+# The web app: the only origin browsers use (it forwards /api/* to the API).
+staging.example.com {
+	import lms_web lms-staging-web
+}

@@ -78,7 +78,15 @@ export function CourseDetailContent({ course }: { course: CourseDetail }) {
         </div>
         <h1>{course.title}</h1>
         <p className={styles.teacherLine}>
-          Taught by <strong>{course.teacher.fullName ?? 'a verified teacher'}</strong>
+          Taught by{' '}
+          {course.teacher.profile ? (
+            // Only published profiles are sent, so the link never leads to a 404.
+            <Link href={`/teachers/${course.teacher.id}`}>
+              <strong>{course.teacher.fullName ?? 'a verified teacher'}</strong>
+            </Link>
+          ) : (
+            <strong>{course.teacher.fullName ?? 'a verified teacher'}</strong>
+          )}
         </p>
         <dl className={styles.facts}>
           <div>
@@ -187,7 +195,15 @@ export function CourseDetailContent({ course }: { course: CourseDetail }) {
               />
             )}
             <div className={styles.stack}>
-              <p className={styles.teacherName}>{course.teacher.fullName ?? 'Teacher'}</p>
+              <p className={styles.teacherName}>
+                {course.teacher.profile ? (
+                  <Link href={`/teachers/${course.teacher.id}`}>
+                    {course.teacher.fullName ?? 'Teacher'}
+                  </Link>
+                ) : (
+                  (course.teacher.fullName ?? 'Teacher')
+                )}
+              </p>
               {course.teacher.profile?.qualifications && (
                 <p className="muted">{course.teacher.profile.qualifications}</p>
               )}

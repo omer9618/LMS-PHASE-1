@@ -51,6 +51,7 @@ jobs:
       build: ${{ steps.check.outputs.build }}
       api_image: ${{ steps.check.outputs.api_image }}
       tools_image: ${{ steps.check.outputs.tools_image }}
+      web_image: ${{ steps.check.outputs.web_image }}
     steps:
       - name: Decide what to deploy
         id: check
@@ -77,6 +78,7 @@ jobs:
             if [ -n "$INPUT_TAG" ]; then echo "build=false"; else echo "build=true"; fi
             echo "api_image=ghcr.io/${repo}-api"
             echo "tools_image=ghcr.io/${repo}-tools"
+            echo "web_image=ghcr.io/${repo}-web"
           } >>"$GITHUB_OUTPUT"
 
   build:
@@ -126,6 +128,22 @@ jobs:
           cache-from: type=gha,scope=tools
           cache-to: type=gha,mode=max,scope=tools
 
+      # One image for every environment: the Turnstile site key is public and one widget can
+      # list every environment's hostname (repository variable TURNSTILE_SITE_KEY).
+      - name: Build and push the web image (Next.js)
+        uses: docker/build-push-action@v6
+        with:
+          context: web
+          push: true
+          tags: ${{ needs.gate.outputs.web_image }}:${{ needs.gate.outputs.tag }}
+          build-args: |
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ vars.TURNSTILE_SITE_KEY }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.gate.outputs.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
   deploy:
     needs: [gate, build]
     # Runs after a successful build, or straight away when redeploying an existing tag.
@@ -135,7 +153,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ needs.gate.outputs.environment }}
-      url: ${{ vars.API_PUBLIC_URL }}
+      url: ${{ vars.APP_PUBLIC_URL || vars.API_PUBLIC_URL }}
     permissions:
       contents: read
       packages: read
@@ -147,6 +165,7 @@ jobs:
       DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
       DEPLOY_PATH: ${{ vars.DEPLOY_PATH || format('/opt/lms/{0}', needs.gate.outputs.environment) }}
       API_PUBLIC_URL: ${{ vars.API_PUBLIC_URL }}
+      APP_PUBLIC_URL: ${{ vars.APP_PUBLIC_URL }}
     steps:
       - name: Check the environment is configured
         env:
@@ -217,16 +236,26 @@ jobs:
 
       - name: Health check through the proxy
         run: |
-          for attempt in $(seq 1 20); do
-            if body=$(curl -fsS --max-time 10 "$API_PUBLIC_URL/health"); then
-              echo "$body"
-              exit 0
+          # The API directly, then (when APP_PUBLIC_URL is set) the whole browser path:
+          # Caddy -> web app -> /api rewrite -> API.
+          urls=("$API_PUBLIC_URL/health")
+          [ -z "$APP_PUBLIC_URL" ] || urls+=("$APP_PUBLIC_URL/api/health")
+          for url in "${urls[@]}"; do
+            ok=0
+            for attempt in $(seq 1 20); do
+              if body=$(curl -fsS --max-time 10 "$url"); then
+                echo "$url: $body"
+                ok=1
+                break
+              fi
+              echo "$url: attempt $attempt failed, retrying"
+              sleep 6
+            done
+            if [ "$ok" != 1 ]; then
+              echo "::error::$url did not answer 200 after the deploy"
+              exit 1
             fi
-            echo "attempt $attempt failed, retrying"
-            sleep 6
           done
-          echo "::error::$API_PUBLIC_URL/health did not answer 200 after the deploy"
-          exit 1
 
       - name: Summary
         if: always()
@@ -234,6 +263,6 @@ jobs:
           {
             echo "### Deploy to $ENVIRONMENT: ${{ job.status }}"
             echo "- Image tag: \`$TAG\`"
-            echo "- Health: $API_PUBLIC_URL/health"
+            echo "- Health: $API_PUBLIC_URL/health ${APP_PUBLIC_URL:+and $APP_PUBLIC_URL/api/health}"
             echo "- Roll back: \`ssh $DEPLOY_USER@$DEPLOY_HOST 'cd $DEPLOY_PATH && scripts/rollback.sh'\`"
           } >>"$GITHUB_STEP_SUMMARY"

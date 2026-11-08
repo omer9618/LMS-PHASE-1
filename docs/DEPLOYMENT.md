@@ -27,7 +27,8 @@ How the API is built, shipped and run on a VPS (#5, #6, #121, #122). Environment
 | --------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `Dockerfile`                      | Two images: `api` (server, production deps only, non-root, healthcheck) and `tools` (migrate/seed) |
 | `.dockerignore`                   | Keeps `.env*`, `.git`, tests, docs and `web/` out of the build                                     |
-| `deploy/compose.yml`              | One environment: `api`, `postgres`, and the one-off `migrate` service                              |
+| `web/Dockerfile`                  | The web app: Next.js standalone server, non-root, port 3000, healthcheck; `/api` → `API_URL`       |
+| `deploy/compose.yml`              | One environment: `api`, `web` (profile `web`), `postgres`, and the one-off `migrate` service       |
 | `deploy/stack.env.example`        | Template for `/opt/lms/<env>/.env` (stack name, images, current tag, database password)            |
 | `deploy/api.env.example`          | Template for `/opt/lms/<env>/api.env` (the API's configuration and secrets)                        |
 | `deploy/backup.env.example`       | Template for `/opt/lms/<env>/backup.env` (backup bucket, retention)                                |
@@ -41,25 +42,29 @@ How the API is built, shipped and run on a VPS (#5, #6, #121, #122). Environment
 
 **Request path.** Browsers only talk to the web app's domain. Caddy passes those requests to the Next.js container, which rewrites `/api/*` to the API over the internal network (`API_URL=http://api:3000`), so the session cookie is first-party and no CORS is needed. The API therefore sits behind **two** proxies and compose sets `TRUST_PROXY_HOPS=2`. Caddy (2.5+) ignores any `X-Forwarded-For` a client sends, so the API also sees the real client IP for the few requests that reach it directly through its own domain (Bunny webhooks, `/health`), and per-IP rate limits cannot be dodged by forging the header.
 
-**Web app status.** `compose.yml` already has the `web` service (profile `web`, alias `<STACK_NAME>-web`) and the Caddy site examples have the matching block, commented out. Missing: a `web/Dockerfile` (the web workstream's) and a build step for it in `deploy.yml`. Once those exist: build `ghcr.io/<owner>/lms-phase-1-web:<sha>` in the workflow, start it with `docker compose --profile web up -d web`, and uncomment the web block in `sites/<env>.caddy`.
+**Web app.** `web/Dockerfile` builds the Next.js standalone server. It runs in the `web` service (on when `.env` has `COMPOSE_PROFILES=web`, the template default) with the network alias `<STACK_NAME>-web`, which the web block of `sites/<env>.caddy` points at. `deploy.sh` rolls it right after the API, with the same tag. Two values are fixed when the image is built, not when it starts:
+
+- **`API_URL`** (default `http://api:3000`, the API's address inside every environment). Next.js resolves `rewrites()` at build time and writes the target into the build output, so a different runtime `API_URL` has no effect. The container checks the runtime `API_URL` against the built one and refuses to start on a mismatch. To use another address, rebuild with `--build-arg API_URL=...`.
+- **`NEXT_PUBLIC_TURNSTILE_SITE_KEY`**, inlined into the browser bundle. It comes from the repository variable `TURNSTILE_SITE_KEY`. Use one Turnstile widget that lists every environment's web hostname, so a single image serves staging and production.
 
 Nothing secret is in the repository. Every secret lives in a `chmod 600` file on the server or in GitHub secrets.
 
 ## What happens on a deploy
 
 1. **Trigger.** CI succeeds for a push to `main` (staging), or someone runs _Actions > Deploy > Run workflow_ (staging or production, optionally with an existing image tag).
-2. **Build** (skipped when an image tag is given): `ghcr.io/<owner>/lms-phase-1-api:<sha>` and `ghcr.io/<owner>/lms-phase-1-tools:<sha>`, cached between runs.
+2. **Build** (skipped when an image tag is given): `ghcr.io/<owner>/lms-phase-1-api:<sha>`, `ghcr.io/<owner>/lms-phase-1-tools:<sha>` and `ghcr.io/<owner>/lms-phase-1-web:<sha>`, cached between runs.
 3. **Sync.** `deploy/compose.yml` and `deploy/scripts/*.sh` are copied to `/opt/lms/<env>/`, so the server always runs the scripts from the commit being deployed. The `.env`, `api.env` and `backup.env` files are never touched.
 4. **Registry login** on the server with the job's own short-lived token, logged out at the end.
 5. **`scripts/deploy.sh <sha>`** on the server:
-   - pulls both images;
+   - pulls the images (api, tools, and web when the `web` profile is on);
    - takes a **pre-deploy backup** (when `backup.env` exists);
    - runs **`prisma migrate deploy`** in the tools image. If it fails, the deploy stops and the running release is untouched;
    - **rolling restart:** starts a second API container on the new image next to the old one, waits for its Docker healthcheck (`GET /health`, which also pings the database), then stops the old one with a 30-second grace period. Caddy re-resolves the API's network alias every 2 seconds and retries a refused connection on the other container, so no request fails. If the new container never becomes healthy, it is removed and the old one keeps serving;
+   - the same rolling restart for the **web app**. If only the web roll fails, the API stays on the new release, `.env` records `WEB_TAG=<old>`, and the job fails so someone looks;
    - writes `API_TAG` and `PREVIOUS_API_TAG` to `.env` and prunes images older than 14 days.
-6. **Health check** from the runner through Caddy: `https://<api-domain>/health` must answer 200.
+6. **Health check** from the runner through Caddy: `https://<api-domain>/health`, then (when `APP_PUBLIC_URL` is set) `https://<web-domain>/api/health`, which exercises the whole browser path, must answer 200.
 
-Verified locally (Docker Desktop, production-mode API, a test Caddy built from `deploy/edge/Caddyfile`): first deploy, a rolling deploy with 314 requests in flight and 0 failures, a deliberately broken release aborted with the old one still serving, and a rollback.
+Verified locally (Docker Desktop, production-mode API, a test Caddy built from `deploy/edge/Caddyfile`): first deploy, a rolling deploy with 314 requests in flight and 0 failures, a deliberately broken release aborted with the old one still serving, and a rollback. With the web app: a first deploy of both services, then a rolling deploy of both with 274 requests in flight (pages and `/api/health` through the web app) and 0 failures; the start-up check refusing a mismatched `API_URL`.
 
 ## Migrations: rules for every pull request
 
@@ -146,9 +151,10 @@ Provider setup for `api.env` (SMTP with SPF/DKIM/DMARC, the uploads bucket, Bunn
 
 Repository **Settings > Secrets and variables > Actions**:
 
-| Kind              | Name             | Value                                                                                 |
-| ----------------- | ---------------- | ------------------------------------------------------------------------------------- |
-| Repository secret | `DEPLOY_SSH_KEY` | Contents of `lms_deploy_key` (the private key). **Its presence switches deploys on.** |
+| Kind                | Name                 | Value                                                                                                    |
+| ------------------- | -------------------- | -------------------------------------------------------------------------------------------------------- |
+| Repository secret   | `DEPLOY_SSH_KEY`     | Contents of `lms_deploy_key` (the private key). **Its presence switches deploys on.**                    |
+| Repository variable | `TURNSTILE_SITE_KEY` | The Turnstile widget's public site key (one widget listing every web hostname), built into the web image |
 
 Repository **Settings > Environments**: create `staging` and `production`. In each:
 
@@ -156,6 +162,7 @@ Repository **Settings > Environments**: create `staging` and `production`. In ea
 | -------------------- | -------------------- | ------------------------------------------------------------------------------------------ |
 | Environment secret   | `DEPLOY_KNOWN_HOSTS` | Output of `ssh-keyscan -t ed25519 <server-ip>` (check the fingerprint against the console) |
 | Environment variable | `DEPLOY_HOST`        | Server IP or hostname                                                                      |
+| Environment variable | `APP_PUBLIC_URL`     | `https://staging.<domain>` / `https://<domain>` (optional; adds the web health check)      |
 | Environment variable | `API_PUBLIC_URL`     | `https://api.staging.<domain>` / `https://api.<domain>`                                    |
 | Environment variable | `DEPLOY_USER`        | Optional, default `deploy`                                                                 |
 | Environment variable | `DEPLOY_PORT`        | Optional, default `22`                                                                     |

@@ -27,7 +27,7 @@
 	log
 }
 
-# Web app (Next.js in /web) upstream, for when its image is deployed. {args[0]} as above.
+# Web app (Next.js, web/Dockerfile) upstream. {args[0]} is its alias, e.g. lms-staging-web.
 (lms_web) {
 	encode zstd gzip
 	reverse_proxy {

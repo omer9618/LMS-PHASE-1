@@ -28,6 +28,11 @@ export function RoleNav() {
           My teaching
         </Link>
       )}
+      {user.roles.includes('ADMIN') && (
+        <Link href="/admin" aria-current={current('/admin')}>
+          Admin
+        </Link>
+      )}
     </>
   );
 }

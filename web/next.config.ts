@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
   // /web is its own package inside the API's repo: build from here, not from the repo root.
   turbopack: { root: __dirname },
   poweredByHeader: false,
+  // Docker image (web/Dockerfile): a self-contained server.js with only the files it needs.
+  output: 'standalone',
   async rewrites() {
     return [{ source: '/api/:path*', destination: `${apiUrl}/:path*` }];
   },

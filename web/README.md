@@ -34,17 +34,24 @@ Behind the proxy every request reaches the API from the web server, so set the A
 
 ## Pages
 
-| Route                                                    | What                                                                                                           |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `/courses`                                               | Catalogue: search, filters (subject, board, level, pacing, free only, price range), sort; all in the URL       |
-| `/courses/:courseId`                                     | Course detail: syllabus coverage, pricing, teacher, demo player, free enrollment                               |
-| `/login`, `/register`                                    | Sign in (with the MFA step for admins), student registration (guardian details optional)                       |
-| `/verify-email?token=`                                   | Email verification link target                                                                                 |
-| `/forgot-password`, `/reset-password?token=[&welcome=1]` | Password reset; `welcome=1` is the first-password link for staff accounts an admin creates                     |
-| `/teach-with-us`                                         | Public teacher application with CV upload and the human check (#18, #19)                                       |
-| `/account/mfa`                                           | Two-step verification set-up (QR code, confirm, recovery codes shown once) and recovery-code replacement (#16) |
-| `/dashboard`                                             | A student's courses with completion (#52)                                                                      |
-| `/dev/components`                                        | Every primitive in both densities (development only; 404 in production builds)                                 |
+| Route                                                    | What                                                                                                                                                |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/courses`                                               | Catalogue: search, filters (subject, board, level, pacing, free only, price range), sort; all in the URL                                            |
+| `/courses/:courseId`                                     | Course detail: syllabus coverage, pricing, teacher, demo player, free enrollment                                                                    |
+| `/login`, `/register`                                    | Sign in (with the MFA step for admins), student registration (guardian details optional)                                                            |
+| `/verify-email?token=`                                   | Email verification link target                                                                                                                      |
+| `/forgot-password`, `/reset-password?token=[&welcome=1]` | Password reset; `welcome=1` is the first-password link for staff accounts an admin creates                                                          |
+| `/teach-with-us`                                         | Public teacher application with CV upload and the human check (#18, #19)                                                                            |
+| `/account/mfa`                                           | Two-step verification set-up (QR code, confirm, recovery codes shown once) and recovery-code replacement (#16)                                      |
+| `/dashboard`                                             | A student's courses with completion (#52)                                                                                                           |
+| `/teacher/courses`, `/teacher/courses/new`               | A teacher's courses; create a course (#24)                                                                                                          |
+| `/teacher/courses/:id`                                   | Details (read-only once submitted), status and rejection reason, submit for review with the checklist, enrollment toggle, archive, delete (#25–#33) |
+| `/teacher/courses/:id/content`                           | Sections and lessons with move up/down, free preview, TUS video upload straight to the video host, PDF files (#27, #34–#38)                         |
+| `/teacher/courses/:id/enrollments`                       | The course's students, view only (#50)                                                                                                              |
+| `/teacher/earnings`                                      | Balance, pending vs confirmed sales, statement, payouts and payout concerns (#79–#88)                                                               |
+| `/teacher/profile`                                       | Bio, qualifications, links, face-to-face places, photo; publish and unpublish; the admin's unpublish reason (#98, #100)                             |
+| `/teachers/:teacherId`                                   | Public teacher profile, server-rendered with meta tags; 404 unless published (#99, #101). Fetched server-side from `API_URL` and cached for 60 s    |
+| `/dev/components`                                        | Every primitive in both densities (development only; 404 in production builds)                                                                      |
 
 ## Narrow screens (#45)
 
@@ -68,17 +75,19 @@ CI runs all of them in the `web` job of `.github/workflows/ci.yml`.
 
 ## Layout
 
-| Path                                            | What                                                                       |
-| ----------------------------------------------- | -------------------------------------------------------------------------- |
-| `src/app/`                                      | Routes (App Router)                                                        |
-| `src/components/ui/`                            | Base primitives: Button, Input/Select/Checkbox, Badge, Table, Alert        |
-| `src/styles/tokens.css`                         | Design tokens: colour, type, spacing, density                              |
-| `src/lib/api/`                                  | Typed fetch client, error type, response shapes                            |
-| `src/lib/money.ts`                              | Money formatting and parsing with string maths (minor units, never floats) |
-| `src/lib/catalogue-url.ts`                      | Catalogue filter state in the URL (#42)                                    |
-| `src/app/learn/[courseId]`                      | Course player (#53) and quiz taking (#75); `?lesson=` selects the lesson   |
-| `src/components/learn/`, `src/components/quiz/` | Player, outline, video (watch reporting), LaTeX `MathText`, quiz screens   |
-| `src/lib/api/learn.ts`                          | Typed learner API: outline, content, playback, watch, completion, quizzes  |
+| Path                                                                 | What                                                                       |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `src/app/`                                                           | Routes (App Router)                                                        |
+| `src/components/ui/`                                                 | Base primitives: Button, Input/Select/Checkbox, Badge, Table, Alert        |
+| `src/styles/tokens.css`                                              | Design tokens: colour, type, spacing, density                              |
+| `src/lib/api/`                                                       | Typed fetch client, error type, response shapes                            |
+| `src/lib/money.ts`                                                   | Money formatting and parsing with string maths (minor units, never floats) |
+| `src/lib/catalogue-url.ts`                                           | Catalogue filter state in the URL (#42)                                    |
+| `src/app/learn/[courseId]`                                           | Course player (#53) and quiz taking (#75); `?lesson=` selects the lesson   |
+| `src/components/learn/`, `src/components/quiz/`                      | Player, outline, video (watch reporting), LaTeX `MathText`, quiz screens   |
+| `src/lib/api/learn.ts`                                               | Typed learner API: outline, content, playback, watch, completion, quizzes  |
+| `src/app/cart`, `src/app/orders`                                     | Cart and checkout (#54, #55), my orders, proof upload, receipt (#58–#62)   |
+| `src/components/orders/`, `src/lib/cart.ts`, `src/lib/api/orders.ts` | Purchase screens; the cart in localStorage; typed orders API               |
 
 Tests sit next to the code as `*.test.ts(x)` (not `*.spec.ts`, which the API's Jest would pick up).
 
