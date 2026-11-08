@@ -63,10 +63,13 @@ describe('MFA for admin accounts (#16)', () => {
       .set('Cookie', cookie)
       .send({ code: codeIn(secret, 5) })
       .expect(401);
+    // Pin codes to the enrolment instant so a 30 s step boundary mid-test can't change them.
+    const enrolledAt = Date.now();
+    const codeAfterEnrol = (steps: number) => totpAt(secret, new Date(enrolledAt + steps * 30_000));
     const enabled = await http()
       .post('/auth/mfa/enable')
       .set('Cookie', cookie)
-      .send({ code: codeIn(secret, 0) })
+      .send({ code: codeAfterEnrol(0) })
       .expect(200);
     const recoveryCodes: string[] = enabled.body.data.recoveryCodes;
     expect(recoveryCodes).toHaveLength(10);
@@ -89,18 +92,18 @@ describe('MFA for admin accounts (#16)', () => {
     // The code used to enrol cannot be replayed; the next step's code works once.
     await http()
       .post('/auth/login/mfa')
-      .send({ challengeToken, code: codeIn(secret, 0) })
+      .send({ challengeToken, code: codeAfterEnrol(0) })
       .expect(401);
     const signedIn = await http()
       .post('/auth/login/mfa')
-      .send({ challengeToken, code: codeIn(secret, 1) })
+      .send({ challengeToken, code: codeAfterEnrol(1) })
       .expect(200);
     await http().get('/admin/settings').set('Cookie', cookieOf(signedIn)).expect(200);
 
     // A challenge is single-use.
     await http()
       .post('/auth/login/mfa')
-      .send({ challengeToken, code: codeIn(secret, 1) })
+      .send({ challengeToken, code: codeAfterEnrol(1) })
       .expect(400);
 
     // Recovery codes work once each, in any case/dash format.
