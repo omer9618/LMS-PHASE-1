@@ -49,6 +49,8 @@ Behind the proxy every request reaches the API from the web server, so set the A
 | `/teacher/courses/:id/content`                           | Sections and lessons with move up/down, free preview, TUS video upload straight to the video host, PDF files (#27, #34–#38)                         |
 | `/teacher/courses/:id/enrollments`                       | The course's students, view only (#50)                                                                                                              |
 | `/teacher/earnings`                                      | Balance, pending vs confirmed sales, statement, payouts and payout concerns (#79–#88)                                                               |
+| `/teacher/profile`                                       | Bio, qualifications, links, face-to-face places, photo; publish and unpublish; the admin's unpublish reason (#98, #100)                             |
+| `/teachers/:teacherId`                                   | Public teacher profile, server-rendered with meta tags; 404 unless published (#99, #101). Fetched server-side from `API_URL` and cached for 60 s    |
 | `/dev/components`                                        | Every primitive in both densities (development only; 404 in production builds)                                                                      |
 
 ## Narrow screens (#45)

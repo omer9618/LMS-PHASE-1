@@ -7,6 +7,7 @@ import styles from './Teacher.module.css';
 const LINKS = [
   { href: '/teacher/courses', label: 'Courses' },
   { href: '/teacher/earnings', label: 'Earnings' },
+  { href: '/teacher/profile', label: 'Profile' },
 ];
 
 /** The teacher area's own navigation. */

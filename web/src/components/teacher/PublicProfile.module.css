@@ -1,0 +1,70 @@
+/* Mobile first: one column from 320px up (#45, #101). */
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: var(--space-4) var(--page-gutter) var(--space-12);
+}
+
+.breadcrumb {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.photo {
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.qualifications {
+  color: var(--color-text-muted);
+  white-space: pre-line;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.prose {
+  max-width: 70ch;
+  white-space: pre-line;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

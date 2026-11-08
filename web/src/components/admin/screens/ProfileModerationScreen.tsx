@@ -41,7 +41,17 @@ export function ProfileModerationScreen({ teacherId }: { teacherId: string }) {
         <>
           <PageHeader
             title={`Public profile: ${p.fullName ?? 'teacher'}`}
-            description={<Link href={`/admin/users/${teacherId}`}>Back to the account</Link>}
+            description={
+              <>
+                <Link href={`/admin/users/${teacherId}`}>Back to the account</Link>
+                {p.isPublished && (
+                  <>
+                    {' · '}
+                    <Link href={`/teachers/${teacherId}`}>View public page</Link>
+                  </>
+                )}
+              </>
+            }
             actions={
               <Badge tone={p.isPublished ? 'success' : 'neutral'}>
                 {p.isPublished ? 'Published' : 'Not published'}

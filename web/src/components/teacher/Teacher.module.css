@@ -140,3 +140,38 @@
     align-items: start;
   }
 }
+
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.legend {
+  padding: 0 var(--space-1);
+  font-weight: var(--weight-semibold);
+}
+
+.rowFields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.rowFields > div {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+.photo {
+  border-radius: 50%;
+  object-fit: cover;
+}

@@ -53,6 +53,20 @@ describe('CourseDetailView', () => {
     expect(screen.getByText(/Step by step/)).toBeVisible();
   });
 
+  it('links the teacher to their public profile only when it is published (#101)', async () => {
+    renderCourse(courseDetail());
+    const links = await screen.findAllByRole('link', { name: 'Omar Siddiqui' });
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) expect(link).toHaveAttribute('href', '/teachers/t-1');
+  });
+
+  it('does not link an unpublished teacher profile', async () => {
+    const detail = courseDetail();
+    renderCourse({ ...detail, teacher: { ...detail.teacher, profile: null } });
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.queryByRole('link', { name: 'Omar Siddiqui' })).not.toBeInTheDocument();
+  });
+
   it('plays a free-preview lesson in an iframe with a strict referrer policy', async () => {
     renderCourse(courseDetail());
     await userEvent.click(await screen.findByRole('button', { name: '▶ Welcome' }));
