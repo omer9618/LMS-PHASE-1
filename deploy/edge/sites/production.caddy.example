@@ -4,7 +4,7 @@ api.example.com {
 	import lms_api lms-production-api
 }
 
-# Uncomment once the web app image is deployed in the production stack.
-# example.com, www.example.com {
-# 	import lms_web lms-production-web
-# }
+# The web app: the only origin browsers use (it forwards /api/* to the API).
+example.com, www.example.com {
+	import lms_web lms-production-web
+}

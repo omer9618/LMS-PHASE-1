@@ -1,0 +1,10 @@
+# Build context for web/Dockerfile.
+node_modules
+.next
+out
+coverage
+*.tsbuildinfo
+.env
+.env.*
+Dockerfile
+.dockerignore

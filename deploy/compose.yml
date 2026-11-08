@@ -40,18 +40,19 @@ services:
     stop_grace_period: 30s
     logging: *logging
 
-  # The Next.js web app (web/). Optional until its image is built by the pipeline: start it
-  # with `docker compose --profile web up -d web` and uncomment its block in the Caddy site file.
+  # The Next.js web app (web/Dockerfile), deployed with the API by deploy.sh. On when .env has
+  # COMPOSE_PROFILES=web. Browsers only talk to it; it forwards /api/* to the API.
   web:
     image: ${WEB_IMAGE:-ghcr.io/omer9618/lms-phase-1-web}:${WEB_TAG:-${API_TAG}}
     profiles: ['web']
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      # next.config.ts rewrites /api/* here, so the browser only ever talks to the web origin.
+      # The /api rewrite target (web/Dockerfile). http://api:3000 is the API's address here.
       API_URL: http://api:3000
     depends_on:
       - api
+    stop_grace_period: 30s
     networks:
       default: {}
       edge:
