@@ -6,7 +6,9 @@
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
   font-size: var(--badge-font-size);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
   line-height: var(--leading-normal);
   white-space: nowrap;
   overflow: hidden;
@@ -14,8 +16,9 @@
 }
 
 .neutral {
-  background: var(--color-surface-sunken);
-  color: var(--color-text);
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
 }
 
 .primary {
@@ -41,4 +44,11 @@
 .danger {
   background: var(--color-danger-subtle);
   color: var(--color-danger);
+}
+
+.highlight {
+  background: var(--color-highlight);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  letter-spacing: 0;
 }

@@ -3,7 +3,17 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
-import { Button, Input, Select, Table, Textarea } from '@/components/ui';
+import {
+  Button,
+  Input,
+  Loadable,
+  PageHeader,
+  Section,
+  Select,
+  StatusBadge,
+  Table,
+  Textarea,
+} from '@/components/ui';
 import {
   grantEnrollment,
   listEnrollments,
@@ -15,17 +25,8 @@ import type { EnrollmentStatus } from '@/lib/api/types';
 import { formatDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import {
-  humanize,
-  Loadable,
-  MutationStatus,
-  PageHeader,
-  Pager,
-  ReasonAction,
-  Section,
-  StatusBadge,
-  useMutation,
-} from '../kit';
+import { MutationStatus, Pager, ReasonAction, useMutation } from '../kit';
+import { humanize } from '@/lib/format';
 
 const LIMIT = 50;
 

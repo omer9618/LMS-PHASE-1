@@ -2,11 +2,11 @@
 
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { Button, Input, Table } from '@/components/ui';
+import { Button, Input, Loadable, PageHeader, Table } from '@/components/ui';
 import { searchAuditLog, type AuditEntry, type AuditQuery } from '@/lib/api/admin';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, Loadable, PageHeader, Pager } from '../kit';
+import { formatDateTime, Pager } from '../kit';
 
 const LIMIT = 50;
 

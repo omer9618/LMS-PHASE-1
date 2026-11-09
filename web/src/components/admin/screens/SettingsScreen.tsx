@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { Button, Checkbox, Input, Textarea } from '@/components/ui';
+import { Button, Checkbox, Input, Loadable, PageHeader, Section, Textarea } from '@/components/ui';
 import { listSettings, updateSetting, type PlatformSetting } from '@/lib/api/admin';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, Loadable, MutationStatus, PageHeader, Section, useMutation } from '../kit';
+import { formatDateTime, MutationStatus, useMutation } from '../kit';
 
 /** #8: values admins change without a deploy. Each change is audited by the API. */
 export function SettingsScreen() {

@@ -2,7 +2,20 @@
 
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { Button, Checkbox, Input, Select, Table, Textarea } from '@/components/ui';
+import {
+  Button,
+  Checkbox,
+  Facts,
+  Input,
+  Loadable,
+  Money,
+  PageHeader,
+  Section,
+  Select,
+  StatusBadge,
+  Table,
+  Textarea,
+} from '@/components/ui';
 import {
   approveCourse,
   archiveCourse,
@@ -23,20 +36,14 @@ import { minorToMajorInput, minorUnitExponent, parseMajorToMinor } from '@/lib/m
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
 import {
-  Facts,
   formatDateTime,
-  humanize,
-  Loadable,
-  Money,
   MutationStatus,
-  PageHeader,
   ReasonAction,
-  Section,
   SimplePager,
-  StatusBadge,
   useMutation,
   type Mutation,
 } from '../kit';
+import { humanize } from '@/lib/format';
 
 const LIMIT = 50;
 const STATUSES: CourseStatus[] = ['PENDING_APPROVAL', 'PUBLISHED', 'DRAFT', 'REJECTED', 'ARCHIVED'];

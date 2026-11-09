@@ -51,6 +51,12 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-GB', {
   year: 'numeric',
 });
 
+/** An API enum value as words: "PENDING_APPROVAL" → "Pending approval". */
+export function humanize(value: string): string {
+  const words = value.toLowerCase().replace(/_/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 /** An ISO timestamp as "2 Nov 2026" in the viewer's time zone; "" when missing or invalid. */
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '';

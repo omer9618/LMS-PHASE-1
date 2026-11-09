@@ -2,7 +2,18 @@
 
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { Button, Input, Select, Table, Textarea } from '@/components/ui';
+import {
+  Button,
+  Facts,
+  Input,
+  Loadable,
+  PageHeader,
+  Section,
+  Select,
+  StatusBadge,
+  Table,
+  Textarea,
+} from '@/components/ui';
 import {
   createAccountFromApplication,
   getApplication,
@@ -16,17 +27,7 @@ import {
 import { formatDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import {
-  Facts,
-  formatDateTime,
-  Loadable,
-  MutationStatus,
-  PageHeader,
-  Pager,
-  Section,
-  StatusBadge,
-  useMutation,
-} from '../kit';
+import { formatDateTime, MutationStatus, Pager, useMutation } from '../kit';
 
 const LIMIT = 50;
 

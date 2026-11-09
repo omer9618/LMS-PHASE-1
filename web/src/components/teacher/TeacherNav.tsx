@@ -1,8 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import styles from './Teacher.module.css';
+import { StaffBar } from '@/components/chrome/StaffBar';
 
 const LINKS = [
   { href: '/teacher/courses', label: 'Courses' },
@@ -10,24 +9,15 @@ const LINKS = [
   { href: '/teacher/profile', label: 'Profile' },
 ];
 
-/** The teacher area's own navigation. */
+/** The teacher area's own navigation: the dark staff bar. */
 export function TeacherNav() {
   const pathname = usePathname() ?? '';
   return (
-    <nav aria-label="Teaching" className={styles.areaNav}>
-      <ul className={styles.tabs}>
-        {LINKS.map((link) => (
-          <li key={link.href}>
-            <Link
-              href={link.href}
-              className={styles.tab}
-              aria-current={pathname.startsWith(link.href) ? 'page' : undefined}
-            >
-              {link.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </nav>
+    <StaffBar
+      area="Teaching"
+      home="/teacher/courses"
+      label="Teaching"
+      links={LINKS.map((link) => ({ ...link, current: pathname.startsWith(link.href) }))}
+    />
   );
 }

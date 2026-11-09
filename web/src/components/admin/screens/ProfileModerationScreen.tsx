@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { Badge, Button, Textarea } from '@/components/ui';
+import { Badge, Button, Loadable, PageHeader, Section, Textarea } from '@/components/ui';
 import {
   getTeacherProfile,
   removeTeacherPhoto,
@@ -18,16 +18,7 @@ import {
 } from '@/lib/admin/profile-lines';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import {
-  formatDateTime,
-  Loadable,
-  MutationStatus,
-  PageHeader,
-  ReasonAction,
-  Section,
-  useMutation,
-  type Mutation,
-} from '../kit';
+import { formatDateTime, MutationStatus, ReasonAction, useMutation, type Mutation } from '../kit';
 
 /** #100: an admin edits or unpublishes any teacher's public profile. Every change is audited. */
 export function ProfileModerationScreen({ teacherId }: { teacherId: string }) {

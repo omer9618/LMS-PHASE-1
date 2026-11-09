@@ -3,7 +3,19 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
-import { Alert, Badge, Button, Input, Select, Textarea } from '@/components/ui';
+import {
+  Alert,
+  Badge,
+  Button,
+  Facts,
+  Input,
+  Loadable,
+  Money,
+  PageHeader,
+  Section,
+  Select,
+  Textarea,
+} from '@/components/ui';
 import {
   confirmPayment,
   getVerificationMetrics,
@@ -20,18 +32,8 @@ import { absMinor, checkReceived, MISMATCH_LABELS } from '@/lib/admin/verificati
 import { formatMoney, minorToMajorInput, minorUnitExponent, parseMajorToMinor } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import {
-  Facts,
-  formatDateTime,
-  humanize,
-  Loadable,
-  Money,
-  MutationStatus,
-  PageHeader,
-  Pager,
-  Section,
-  useMutation,
-} from '../kit';
+import { formatDateTime, MutationStatus, Pager, useMutation } from '../kit';
+import { humanize } from '@/lib/format';
 
 const LIMIT = 20;
 

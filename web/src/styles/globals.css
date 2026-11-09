@@ -22,25 +22,38 @@ body {
   overflow-wrap: anywhere;
 }
 
+/* Headings are set like a question paper: serif, exam blue. */
 h1,
 h2,
 h3,
 h4 {
   margin: 0;
+  font-family: var(--font-serif);
   line-height: var(--leading-tight);
   font-weight: var(--weight-semibold);
+  color: var(--color-primary);
+  text-wrap: balance;
 }
 
 h1 {
   font-size: var(--text-2xl);
+  letter-spacing: -0.01em;
 }
 
 h2 {
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
 }
 
 h3 {
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
+  color: var(--color-text);
+}
+
+code,
+kbd,
+samp {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
 }
 
 p {
@@ -74,12 +87,6 @@ a:hover {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
-  }
-}
-
-@media (min-width: 48rem) {
-  h1 {
-    font-size: var(--text-3xl);
   }
 }
 
@@ -117,6 +124,17 @@ a:hover {
   padding: var(--space-6) var(--page-gutter) var(--space-12);
 }
 
+.page-wide {
+  max-width: var(--content-max-width-wide);
+}
+
+/* Teacher and admin areas: sand ground under paper cards. */
+.staff-ground {
+  min-height: 100vh;
+  background: var(--color-surface);
+  font-size: var(--density-body-size);
+}
+
 .stack {
   display: flex;
   flex-direction: column;
@@ -125,4 +143,27 @@ a:hover {
 
 .muted {
   color: var(--color-text-muted);
+}
+
+/* Codes, references, money and timers: mono with aligned digits. */
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Uppercase mono label above a title, in a stat tile or a table header. */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* The graph-paper pattern (heroes, worked equations). */
+.grid-paper {
+  background-color: var(--color-bg);
+  background-image: var(--grid-paper);
+  background-size: var(--grid-paper-size);
 }

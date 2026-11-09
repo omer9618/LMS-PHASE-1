@@ -2,7 +2,18 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Badge, Button, ButtonLink, Select, Table } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  ButtonLink,
+  Facts,
+  Loadable,
+  PageHeader,
+  Section,
+  Select,
+  StatusBadge,
+  Table,
+} from '@/components/ui';
 import {
   deactivateTeacher,
   getUserOverview,
@@ -18,18 +29,8 @@ import type { Role } from '@/lib/api/types';
 import { formatDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import {
-  Facts,
-  formatDateTime,
-  humanize,
-  Loadable,
-  MutationStatus,
-  PageHeader,
-  ReasonAction,
-  Section,
-  StatusBadge,
-  useMutation,
-} from '../kit';
+import { formatDateTime, MutationStatus, ReasonAction, useMutation } from '../kit';
+import { humanize } from '@/lib/format';
 
 const ROLES: Role[] = ['STUDENT', 'TEACHER', 'ADMIN'];
 

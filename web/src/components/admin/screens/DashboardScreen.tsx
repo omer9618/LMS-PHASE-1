@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { getDashboard } from '@/lib/api/admin';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, Loadable, PageHeader } from '../kit';
+import { formatDateTime } from '../kit';
+import { Loadable, PageHeader } from '@/components/ui';
 
 /** #102: what needs an admin now, with links into each queue. */
 export function DashboardScreen() {

@@ -86,47 +86,49 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const counts = dashboard.status === 'success' ? dashboard.data.queues : null;
 
   return (
-    <div className={styles.shell} data-density="compact">
-      {access === 'ok' ? (
-        <>
-          <aside className={styles.sidebar}>
-            <ContextBar user={user} />
-            <nav aria-label="Admin">
-              {ADMIN_NAV.map((group) => (
-                <div key={group.group} className={styles.group}>
-                  <p className={styles.groupLabel}>{group.group}</p>
-                  <ul className={styles.navList}>
-                    {group.items.map((item) => {
-                      const count = item.queue && counts ? counts[item.queue] : null;
-                      return (
-                        <li key={item.href}>
-                          <Link
-                            href={item.href}
-                            className={styles.navLink}
-                            aria-current={isCurrent(pathname, item.href) ? 'page' : undefined}
-                          >
-                            <span>{item.label}</span>
-                            {typeof count === 'number' && count > 0 && (
-                              <Badge tone="warning" aria-label={`${count} waiting`}>
-                                {count}
-                              </Badge>
-                            )}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))}
-            </nav>
-          </aside>
-          <div className={styles.content}>{children}</div>
-        </>
-      ) : (
-        <div className={styles.gate}>
-          <Gate access={access} user={user} />
-        </div>
-      )}
+    <div className={styles.ground}>
+      <div className={styles.shell} data-density="compact">
+        {access === 'ok' ? (
+          <>
+            <aside className={styles.sidebar}>
+              <ContextBar user={user} />
+              <nav aria-label="Admin">
+                {ADMIN_NAV.map((group) => (
+                  <div key={group.group} className={styles.group}>
+                    <p className={styles.groupLabel}>{group.group}</p>
+                    <ul className={styles.navList}>
+                      {group.items.map((item) => {
+                        const count = item.queue && counts ? counts[item.queue] : null;
+                        return (
+                          <li key={item.href}>
+                            <Link
+                              href={item.href}
+                              className={styles.navLink}
+                              aria-current={isCurrent(pathname, item.href) ? 'page' : undefined}
+                            >
+                              <span>{item.label}</span>
+                              {typeof count === 'number' && count > 0 && (
+                                <Badge tone="highlight" aria-label={`${count} waiting`}>
+                                  {count}
+                                </Badge>
+                              )}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </nav>
+            </aside>
+            <div className={styles.content}>{children}</div>
+          </>
+        ) : (
+          <div className={styles.gate}>
+            <Gate access={access} user={user} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
