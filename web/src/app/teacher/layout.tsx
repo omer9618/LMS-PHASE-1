@@ -7,12 +7,13 @@ export const metadata: Metadata = {
   title: { default: 'Teaching', template: '%s · Teaching · LMS' },
 };
 
+/** The teacher area: sand ground, compact density, the dark staff bar. */
 export default function TeacherLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="page">
+    <div className="staff-ground" data-density="compact">
       <TeacherGuard>
         <TeacherNav />
-        {children}
+        <div className="page page-wide">{children}</div>
       </TeacherGuard>
     </div>
   );

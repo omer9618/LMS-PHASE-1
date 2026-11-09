@@ -1,0 +1,105 @@
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+}
+
+.factsOne {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.fact {
+  min-width: 0;
+}
+
+.fact dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.fact dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.money {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-md);
+  min-width: 0;
+}
+
+.statLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.statValue {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  line-height: 2rem;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.statNote {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.stat-primary {
+  background: var(--color-primary-subtle);
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.stat-primary .statLabel,
+.stat-primary .statValue {
+  color: var(--color-primary);
+}
+
+.stat-warning {
+  background: var(--color-warning-subtle);
+  box-shadow: 0 0 0 1px var(--color-highlight-border);
+}
+
+.stat-warning .statLabel,
+.stat-warning .statValue,
+.stat-warning .statNote {
+  color: var(--color-warning);
+}
+
+.stat-danger {
+  background: var(--color-danger-subtle);
+  box-shadow: 0 0 0 1px var(--color-danger-border);
+}
+
+.stat-danger .statLabel,
+.stat-danger .statValue {
+  color: var(--color-danger);
+}

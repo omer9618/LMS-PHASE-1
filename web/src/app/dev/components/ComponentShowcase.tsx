@@ -1,7 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { Alert, Badge, Button, Checkbox, Input, Select, Table, type Column } from '@/components/ui';
+import {
+  Alert,
+  Badge,
+  Button,
+  Checkbox,
+  Facts,
+  Input,
+  Money,
+  PageHeader,
+  Section,
+  Select,
+  StatGrid,
+  StatTile,
+  StatusBadge,
+  Table,
+  type Column,
+} from '@/components/ui';
 import { formatMoney } from '@/lib/money';
 import styles from './showcase.module.css';
 
@@ -110,7 +126,46 @@ export function ComponentShowcase({ density }: { density: 'comfortable' | 'compa
           <Badge tone="success">Success</Badge>
           <Badge tone="warning">Warning</Badge>
           <Badge tone="danger">Danger</Badge>
+          <Badge tone="highlight">7</Badge>
+          <StatusBadge status="PENDING_APPROVAL" />
         </div>
+      </div>
+
+      <div className={styles.group}>
+        <h3>Page header, stats and facts</h3>
+        <PageHeader
+          eyebrow="Orders · proof submitted · oldest first"
+          title="Payment verification"
+          description="Match each transfer by transaction ID and amount before confirming."
+          actions={<Button size="sm">Export</Button>}
+        />
+        <StatGrid label="Queue">
+          <StatTile label="In queue" value="7" />
+          <StatTile label="Balance owed" value="48,960.00" tone="primary" />
+          <StatTile label="Need a second look" value="2" tone="warning" />
+          <StatTile label="Past 48h" value="1" tone="danger" />
+        </StatGrid>
+        <Section
+          title="Order"
+          actions={
+            <Button size="sm" variant="ghost">
+              Open
+            </Button>
+          }
+        >
+          <Facts
+            items={[
+              [
+                'Reference',
+                <span key="ref" className="mono">
+                  LMS-Q4HN-2BZE
+                </span>,
+              ],
+              ['Total', <Money key="total" minor="320000" currency="PKR" />],
+              ['Txn ID', null],
+            ]}
+          />
+        </Section>
       </div>
 
       <div className={styles.group}>

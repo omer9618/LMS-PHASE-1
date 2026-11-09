@@ -3,8 +3,7 @@
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid currentColor;
-  border-left-width: 4px;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
 }
 
@@ -18,6 +17,7 @@
 
 .info {
   background: var(--color-info-subtle);
+  border-color: var(--color-border);
   color: var(--color-info);
 }
 
@@ -28,10 +28,12 @@
 
 .warning {
   background: var(--color-warning-subtle);
+  border-color: var(--color-highlight-border);
   color: var(--color-warning);
 }
 
 .danger {
   background: var(--color-danger-subtle);
+  border-color: var(--color-danger-border);
   color: var(--color-danger);
 }

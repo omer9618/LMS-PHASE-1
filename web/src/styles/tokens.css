@@ -1,62 +1,83 @@
 /*
- * Design tokens (#7). Every colour, size and space in the app comes from here.
+ * Design tokens (#7): the Exam Hall design system. Every colour, size and space in the app comes
+ * from here; a component stylesheet never hard-codes a value. docs/UI_PLAN.md has the plan.
  *
- * The palette is a neutral placeholder until the client supplies branding (open question). Text
- * and interactive colours meet WCAG 2.2 AA on --color-bg and --color-surface (contrast ratios noted).
+ * Text and interactive colours meet WCAG 2.2 AA on --color-bg and --color-surface (tokens.test.ts
+ * checks every pair).
  *
- * Density: "comfortable" (students, teachers) is the default. Set data-density="compact" on any
- * element (the admin area sets it on its layout) to tighten the controls and tables inside it.
- * Only the density-dependent tokens at the bottom change; colours and type scale never do.
+ * Grounds: students read on paper (--color-bg); teachers and admins work on sand (--color-surface)
+ * with paper cards. Serif for headings and questions, sans for UI, mono for codes, money and time.
+ *
+ * Density: "comfortable" is the default. Set data-density="compact" on any element (the admin and
+ * teacher shells do) to tighten the controls and tables inside it. Only the density-dependent
+ * tokens at the bottom change; colours and type scale never do.
  */
 :root {
   /* ── Colour: neutrals ── */
-  --color-bg: #ffffff;
-  --color-surface: #f6f7f9;
-  --color-surface-sunken: #eceef2;
-  --color-border: #d0d5dd;
-  --color-border-strong: #8a93a3; /* 3.3:1 on bg: the minimum for control borders (1.4.11) */
-  --color-text: #161b26; /* 17.4:1 */
-  --color-text-muted: #4b5565; /* 7.4:1 */
+  --color-bg: #fbfcfe; /* paper */
+  --color-surface: #f4f3ee; /* sand */
+  --color-surface-sunken: #ebe9e1;
+  --color-border: #d5dbe8; /* grid */
+  --color-border-row: #ebeef5;
+  --color-border-strong: #757683; /* 4.5:1 on bg: control borders (1.4.11) */
+  --color-text: #14213d; /* ink, 15.6:1 */
+  --color-text-muted: #4a5568; /* slate, 7.3:1 */
   --color-text-inverse: #ffffff;
 
-  /* ── Colour: brand placeholder (slate blue) ── */
-  --color-primary: #2c4a9a; /* 8.4:1, white text on it 8.4:1 */
-  --color-primary-hover: #223a7a;
-  --color-primary-subtle: #e8edf8;
-  --color-on-primary: #ffffff;
+  /* ── Colour: exam blue ── */
+  --color-primary: #1f3a93; /* 10.4:1 */
+  --color-primary-hover: #172d75;
+  --color-primary-subtle: #e9edff;
+  --color-on-primary: #fbfcfe;
+
+  /* ── Colour: the highlighter (counts, "look again"; never text on paper) ── */
+  --color-highlight: #ffe066;
+  --color-highlight-border: #ebd98a;
 
   /* ── Colour: status ── */
-  --color-success: #17643a; /* 7.0:1 */
-  --color-success-subtle: #e6f4ec;
-  --color-warning: #8a4b00; /* 6.6:1 */
-  --color-warning-subtle: #fdf1df;
-  --color-danger: #b42318; /* 6.4:1 */
-  --color-danger-hover: #912018;
-  --color-danger-subtle: #fdecea;
-  --color-info: #1f5a85; /* 7.3:1 */
-  --color-info-subtle: #e5f0f8;
+  --color-success: #1e6b45; /* 6.3:1 */
+  --color-success-subtle: #e3f2e9;
+  --color-warning: #544600; /* text on --color-warning-subtle, 9.6:1 */
+  --color-warning-subtle: #fff4c2;
+  --color-danger: #b3261e; /* 6.4:1 */
+  --color-danger-hover: #8f1e18;
+  --color-danger-subtle: #fbeae8;
+  --color-danger-border: #f2c4bf;
+  --color-info: #1f3a93;
+  --color-info-subtle: #e9edff;
+
+  /* ── Colour: the dark staff bar (teacher and admin) ── */
+  --color-nav-bg: #14213d;
+  --color-nav-active: #23304d;
+  --color-nav-text: #d9e2ff; /* 12.6:1 on --color-nav-bg */
+  --color-nav-ok-text: #a7f3c3;
+  --color-nav-ok-border: #73bd90;
 
   /* ── Focus ── */
-  --focus-ring-color: #1a56db;
-  --focus-ring: 0 0 0 3px var(--color-bg), 0 0 0 5px var(--focus-ring-color);
+  --focus-ring-color: #1f3a93;
+  --focus-ring: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--focus-ring-color);
 
-  /* ── Typography ── */
+  /* ── Typography (faces loaded by next/font in app/layout.tsx) ── */
   --font-sans:
-    system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: ui-monospace, 'Cascadia Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+    var(--font-face-sans), 'Source Sans 3', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-serif: var(--font-face-serif), 'Source Serif 4', Georgia, serif;
+  --font-mono: var(--font-face-mono), 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  --text-2xs: 0.6875rem; /* 11px: mono eyebrow labels */
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
-  --text-md: 1rem;
+  --text-md: 0.9375rem; /* 15px body */
   --text-lg: 1.125rem;
   --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
-  --text-3xl: 1.875rem;
+  --text-2xl: 1.75rem; /* 28px page title */
+  --text-3xl: 2.25rem;
   --leading-tight: 1.25;
-  --leading-normal: 1.5;
+  --leading-normal: 1.45;
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
   --weight-bold: 700;
+  --tracking-label: 0.02em;
+  --tracking-eyebrow: 0.04em;
 
   /* ── Spacing (4px scale) ── */
   --space-0: 0;
@@ -71,15 +92,23 @@
   --space-12: 3rem;
 
   /* ── Shape and depth ── */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  --radius-pill: 999px;
-  --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.06);
-  --shadow-md: 0 2px 8px rgb(16 24 40 / 0.1);
+  --radius-sm: 4px; /* controls */
+  --radius-md: 8px; /* cards, tables */
+  --radius-lg: 12px; /* showcase frames */
+  --radius-pill: 9999px; /* chips */
+  --shadow-sm: 0 1px 3px rgb(20 33 61 / 0.04);
+  --shadow-md: 0 2px 6px -1px rgb(20 33 61 / 0.08), 0 0 0 1px #d5dbe8; /* the ring is the border */
+  --shadow-lg: 0 8px 24px -4px rgb(20 33 61 / 0.14);
+
+  /* ── Pattern: graph paper ── */
+  --grid-paper:
+    linear-gradient(rgb(213 219 232 / 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(213 219 232 / 0.4) 1px, transparent 1px);
+  --grid-paper-size: 16px 16px;
 
   /* ── Layout ── */
-  --content-max-width: 72rem;
+  --content-max-width: 80rem;
+  --content-max-width-wide: 90rem;
   --form-max-width: 28rem;
   --page-gutter: var(--space-4);
 
@@ -97,24 +126,24 @@
   --table-cell-padding-x: var(--space-4);
   --table-font-size: var(--text-md);
   --badge-padding: 0.125rem var(--space-2);
-  --badge-font-size: var(--text-sm);
+  --badge-font-size: var(--text-xs);
 }
 
 [data-density='compact'] {
   --density-body-size: var(--text-sm);
-  --control-height: 2rem; /* 32px: still above the 24px minimum target (2.5.8) */
+  --control-height: 2.25rem; /* 36px */
   --control-height-sm: 1.75rem;
   --control-height-lg: 2.5rem;
   --control-padding-x: var(--space-3);
   --control-font-size: var(--text-sm);
   --control-gap: var(--space-1);
-  --field-gap: 0.125rem;
-  --stack-gap: var(--space-3);
-  --table-cell-padding-y: var(--space-1);
-  --table-cell-padding-x: var(--space-2);
-  --table-font-size: var(--text-sm);
-  --badge-padding: 0 var(--space-1);
-  --badge-font-size: var(--text-xs);
+  --field-gap: var(--space-1);
+  --stack-gap: var(--space-4);
+  --table-cell-padding-y: var(--space-2);
+  --table-cell-padding-x: var(--space-3);
+  --table-font-size: 0.8125rem; /* 13px */
+  --badge-padding: 0.0625rem var(--space-2);
+  --badge-font-size: var(--text-2xs);
 }
 
 @media (min-width: 48rem) {

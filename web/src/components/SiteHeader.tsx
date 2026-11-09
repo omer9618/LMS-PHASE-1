@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AccountMenu } from './AccountMenu';
+import { BrandMark } from './chrome/BrandMark';
 import { MfaBanner } from './MfaBanner';
 import { PurchaseNav } from './orders/PurchaseNav';
 import { RoleNav } from './RoleNav';
@@ -10,9 +11,7 @@ export function SiteHeader() {
   return (
     <header className={styles.header}>
       <div className={styles.inner}>
-        <Link href="/" className={styles.brand}>
-          LMS
-        </Link>
+        <BrandMark />
         <nav aria-label="Main" className={styles.nav}>
           <Link href="/courses">Courses</Link>
           <RoleNav />

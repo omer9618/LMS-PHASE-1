@@ -2,7 +2,15 @@ import type { HTMLAttributes } from 'react';
 import { cx } from './cx';
 import styles from './Badge.module.css';
 
-export type BadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'primary';
+export type BadgeTone =
+  | 'neutral'
+  | 'info'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'primary'
+  /** Highlighter yellow: queue counts in navigation. */
+  | 'highlight';
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   tone?: BadgeTone;

@@ -17,6 +17,7 @@ Backend for a learning platform where independent teachers publish courses for C
 | [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)     | Every table and column (generated from the Prisma schema)          |
 | [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md)             | Administrator guide: verification, payouts, course approval, users |
 | [web/README.md](web/README.md)                         | The Next.js web app: running it against the API on :3000           |
+| [docs/UI_PLAN.md](docs/UI_PLAN.md)                     | Web UI plan: Exam Hall reskin, zod at the API boundary, phases     |
 
 ## Quick start
 

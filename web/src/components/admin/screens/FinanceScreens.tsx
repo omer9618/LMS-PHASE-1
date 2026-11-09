@@ -2,7 +2,18 @@
 
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { Button, Input, Table, Textarea } from '@/components/ui';
+import {
+  Button,
+  Facts,
+  Input,
+  Loadable,
+  Money,
+  PageHeader,
+  Section,
+  StatusBadge,
+  Table,
+  Textarea,
+} from '@/components/ui';
 import {
   getFinancialSummary,
   getPayout,
@@ -29,18 +40,8 @@ import { formatDate } from '@/lib/format';
 import { minorToMajorInput, minorUnitExponent } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import {
-  Facts,
-  formatDateTime,
-  humanize,
-  Loadable,
-  Money,
-  MutationStatus,
-  PageHeader,
-  Section,
-  StatusBadge,
-  useMutation,
-} from '../kit';
+import { formatDateTime, MutationStatus, useMutation } from '../kit';
+import { humanize } from '@/lib/format';
 
 // ── #104 Financial summary by period ──
 

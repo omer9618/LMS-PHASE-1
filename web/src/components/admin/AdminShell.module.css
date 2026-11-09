@@ -1,3 +1,8 @@
+.ground {
+  background: var(--color-surface);
+  min-height: 100vh;
+}
+
 .shell {
   display: flex;
   flex-direction: column;
@@ -14,6 +19,10 @@
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-nav-bg);
+  color: var(--color-nav-text);
 }
 
 .content {
@@ -37,7 +46,7 @@
 }
 
 .error {
-  color: var(--color-danger);
+  color: var(--color-danger-subtle);
   font-size: var(--text-sm);
 }
 
@@ -49,11 +58,12 @@
 }
 
 .groupLabel {
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
+  color: var(--color-nav-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-eyebrow);
 }
 
 .navList {
@@ -73,18 +83,26 @@
   min-height: var(--control-height-sm);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
-  color: var(--color-text);
+  color: var(--color-nav-text);
+  font-weight: var(--weight-semibold);
   text-decoration: none;
 }
 
-.navLink:hover {
-  background: var(--color-surface-sunken);
+.navLink:hover,
+.navLink[aria-current='page'] {
+  background: var(--color-nav-active);
+  color: var(--color-text-inverse);
 }
 
-.navLink[aria-current='page'] {
-  background: var(--color-primary-subtle);
-  color: var(--color-primary);
-  font-weight: var(--weight-semibold);
+.navLink:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--color-nav-bg),
+    0 0 0 4px var(--color-nav-text);
+}
+
+/* The current context and switch sit on the dark rail too. */
+.context a {
+  color: var(--color-text-inverse);
 }
 
 @media (min-width: 64rem) {

@@ -2,25 +2,27 @@
 
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { Alert, Button, Input, Table, Textarea } from '@/components/ui';
+import {
+  Alert,
+  Button,
+  Facts,
+  Input,
+  Loadable,
+  Money,
+  PageHeader,
+  Section,
+  StatusBadge,
+  Table,
+  Textarea,
+} from '@/components/ui';
 import { getOrder, recordRefund, type AdminOrder } from '@/lib/api/admin-money';
 import { formatBps, parsePositiveMajorToMinor, todayIso } from '@/lib/admin/format';
 import { minorToMajorInput, minorUnitExponent } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import {
-  Facts,
-  formatDateTime,
-  humanize,
-  Loadable,
-  Money,
-  MutationStatus,
-  PageHeader,
-  Section,
-  StatusBadge,
-  useMutation,
-} from '../kit';
+import { formatDateTime, MutationStatus, useMutation } from '../kit';
 import { DecisionPanel, OrderLookup, ProofList } from './VerificationScreen';
+import { humanize } from '@/lib/format';
 
 /** Orders are reached from the verification queue, statements, or by ID. */
 export function OrdersScreen() {

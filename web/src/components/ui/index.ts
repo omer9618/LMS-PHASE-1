@@ -8,6 +8,7 @@ export {
   type ButtonSize,
   type ButtonVariant,
 } from './Button';
+export { Facts, Money, StatGrid, StatTile, StatusBadge, type StatTone } from './Data';
 export {
   Checkbox,
   Input,
@@ -18,4 +19,6 @@ export {
   type SelectProps,
   type TextareaProps,
 } from './Field';
+export { Loadable } from './Loadable';
+export { PageHeader, Section, SplitLayout, type PageHeaderProps, type SectionProps } from './Page';
 export { Table, type Column, type TableProps } from './Table';
