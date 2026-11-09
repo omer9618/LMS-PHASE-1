@@ -11,6 +11,7 @@ import { useApi } from '@/lib/use-api';
 import { DemoPlayer } from './DemoPlayer';
 import { EnrollPanel } from './EnrollPanel';
 import styles from './Course.module.css';
+import * as catalogueSchema from '@/lib/api/schemas/catalogue';
 
 const LESSON_TYPE_LABELS: Record<string, string> = {
   VIDEO: 'Video',
@@ -22,7 +23,7 @@ const LESSON_TYPE_LABELS: Record<string, string> = {
 /** Course detail (#43): syllabus coverage, pricing, teacher, the demo (#34) and enrollment. */
 export function CourseDetailView({ courseId }: { courseId: string }) {
   const course = useApi(`course:${courseId}`, (signal) =>
-    api.get<CourseDetail>(`/catalogue/courses/${courseId}`, undefined, signal),
+    api.get(`/catalogue/courses/${courseId}`, catalogueSchema.courseDetail, undefined, signal),
   );
 
   if (course.status === 'loading') {

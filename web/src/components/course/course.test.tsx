@@ -7,6 +7,7 @@ import { COURSE_ID, courseDetail } from '@/test/fixtures';
 import { apiMock, resetMocks } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';
 import { CourseDetailView } from './CourseDetailView';
+import * as catalogueSchema from '@/lib/api/schemas/catalogue';
 
 vi.mock('next/navigation', async () => (await import('@/test/mocks')).navigationMock);
 vi.mock('@/lib/api/client', async () => (await import('@/test/mocks')).apiClientMock);
@@ -76,6 +77,7 @@ describe('CourseDetailView', () => {
     expect(frame).toHaveAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
     expect(apiMock.get).toHaveBeenCalledWith(
       `/courses/${COURSE_ID}/lessons/l-1/playback`,
+      catalogueSchema.playback,
       undefined,
       expect.anything(),
     );

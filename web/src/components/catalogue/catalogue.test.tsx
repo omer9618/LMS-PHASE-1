@@ -6,6 +6,7 @@ import { BOARD_ID, courseCard, LEVEL_ID, listing, SUBJECT_ID } from '@/test/fixt
 import { apiMock, resetMocks, router, setSearch } from '@/test/mocks';
 import { renderWithSession } from '@/test/render';
 import { CatalogueBrowser } from './CatalogueBrowser';
+import * as catalogueSchema from '@/lib/api/schemas/catalogue';
 
 vi.mock('next/navigation', async () => (await import('@/test/mocks')).navigationMock);
 vi.mock('@/lib/api/client', async () => (await import('@/test/mocks')).apiClientMock);
@@ -63,6 +64,7 @@ describe('CatalogueBrowser', () => {
     await screen.findByRole('heading', { name: '1 course' });
     expect(apiMock.get).toHaveBeenCalledWith(
       '/catalogue/courses',
+      catalogueSchema.catalogueListing,
       expect.objectContaining({
         q: 'mechanics',
         subjectId: SUBJECT_ID,

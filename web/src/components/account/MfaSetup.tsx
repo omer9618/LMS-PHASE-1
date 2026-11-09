@@ -8,18 +8,18 @@ import { Alert, Button, ButtonLink, Checkbox, Input } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
 import { api } from '@/lib/api/client';
 import { errorMessage } from '@/lib/api/errors';
-import type { MfaStatus } from '@/lib/api/types';
 import { safeNextPath } from '@/lib/format';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import mfa from './Mfa.module.css';
+import * as authSchema from '@/lib/api/schemas/auth';
 
 /** "JBSWY3DPEHPK3PXP" → "JBSW Y3DP EHPK 3PXP": easier to type into an authenticator app. */
 export function groupSecret(secret: string): string {
   return secret.replace(/(.{4})(?=.)/g, '$1 ');
 }
 
-type Setup = { secret: string; otpauthUri: string };
+type Setup = authSchema.MfaSetup;
 
 /**
  * #16: TOTP enrolment. Start → scan the QR code (or type the key) → confirm a code → the
@@ -29,7 +29,7 @@ export function MfaSetup() {
   const next = safeNextPath(useSearchParams().get('next'), '/courses');
   const { status: sessionStatus, user, refresh } = useSession();
   const mfaStatus = useApi(user ? `mfa:${user.id}` : null, (signal) =>
-    api.get<MfaStatus>('/auth/mfa', undefined, signal),
+    api.get('/auth/mfa', authSchema.mfaStatus, undefined, signal),
   );
   const [setup, setSetup] = useState<Setup | null>(null);
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
@@ -72,7 +72,7 @@ export function MfaSetup() {
           intro="The old codes stop working. Enter a code from your authenticator app to continue."
           submitLabel="Create new recovery codes"
           onCode={async (code) => {
-            const result = await api.post<{ recoveryCodes: string[] }>('/auth/mfa/recovery-codes', {
+            const result = await api.post('/auth/mfa/recovery-codes', authSchema.recoveryCodes, {
               code,
             });
             setRecoveryCodes(result.recoveryCodes);
@@ -86,7 +86,7 @@ export function MfaSetup() {
     setStarting(true);
     setStartError(null);
     try {
-      setSetup(await api.post<Setup>('/auth/mfa/setup'));
+      setSetup(await api.post('/auth/mfa/setup', authSchema.mfaSetup));
     } catch (error) {
       setStartError(errorMessage(error));
     } finally {
@@ -119,7 +119,7 @@ export function MfaSetup() {
             intro="Enter the 6-digit code your app now shows."
             submitLabel="Turn on two-step verification"
             onCode={async (code) => {
-              const result = await api.post<{ recoveryCodes: string[] }>('/auth/mfa/enable', {
+              const result = await api.post('/auth/mfa/enable', authSchema.recoveryCodes, {
                 code,
               });
               setRecoveryCodes(result.recoveryCodes);

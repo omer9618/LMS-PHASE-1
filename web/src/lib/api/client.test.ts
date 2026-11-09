@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import { buildUrl, createApiClient } from './client';
 import { ApiError, errorMessage, fieldErrors, isApiError } from './errors';
 
@@ -26,6 +27,49 @@ async function caught(promise: Promise<unknown>): Promise<ApiError> {
   }
   throw new Error('expected the promise to reject');
 }
+
+describe('createApiClient with a schema', () => {
+  const thing = z.object({ id: z.string(), count: z.number() });
+
+  it('resolves with the parsed data, dropping fields the schema does not name', async () => {
+    const { client } = clientReturning(
+      jsonResponse(200, { success: true, data: { id: 'a', count: 2, extra: true } }),
+    );
+    await expect(client.get('/things/a', thing)).resolves.toEqual({ id: 'a', count: 2 });
+  });
+
+  it('turns a shape mismatch into BAD_RESPONSE with the issues', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { client } = clientReturning(
+      jsonResponse(
+        200,
+        { success: true, data: { id: 'a', count: '2' } },
+        { 'x-request-id': 'r-1' },
+      ),
+    );
+    const error = await caught(client.get('/things/a', thing));
+    expect(error.name).toBe('BAD_RESPONSE');
+    expect(error.requestId).toBe('r-1');
+    expect(Array.isArray(error.info)).toBe(true);
+  });
+
+  it('passes query and signal after the schema, and the body after it on writes', async () => {
+    // A fresh response per call: a body can be read only once.
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      jsonResponse(200, { success: true, data: { id: 'a', count: 1 } }),
+    );
+    const client = createApiClient({ baseUrl: '/api', fetchImpl });
+    await client.get('/things', thing, { q: 'x' });
+    expect(fetchImpl.mock.calls[0]![0]).toBe('/api/things?q=x');
+    await client.post('/things', thing, { name: 'n' });
+    expect(fetchImpl.mock.calls[1]![1]!.body).toBe(JSON.stringify({ name: 'n' }));
+  });
+
+  it('still accepts calls without a schema (areas not moved yet)', async () => {
+    const { client } = clientReturning(jsonResponse(200, { success: true, data: { any: 1 } }));
+    await expect(client.post<{ any: number }>('/x', { body: 1 })).resolves.toEqual({ any: 1 });
+  });
+});
 
 describe('buildUrl', () => {
   it('joins base and path and drops empty query values', () => {

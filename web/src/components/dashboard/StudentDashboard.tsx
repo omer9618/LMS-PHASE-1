@@ -9,6 +9,7 @@ import { formatDate } from '@/lib/format';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import styles from './Dashboard.module.css';
+import * as enrollmentSchema from '@/lib/api/schemas/enrollment';
 
 const ACCESS: Record<AccessState, { label: string; tone: BadgeTone }> = {
   ACTIVE: { label: 'Active', tone: 'success' },
@@ -36,7 +37,7 @@ export function sortEntries(entries: DashboardEntry[]): DashboardEntry[] {
 export function StudentDashboard() {
   const { status, user } = useSession();
   const enrollments = useApi(user ? `dashboard:${user.id}` : null, (signal) =>
-    api.get<DashboardEntry[]>('/me/enrollments', undefined, signal),
+    api.get('/me/enrollments', enrollmentSchema.dashboard, undefined, signal),
   );
 
   if (status === 'loading') return <p role="status">Loading…</p>;
