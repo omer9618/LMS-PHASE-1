@@ -2,10 +2,13 @@
 
 import { useState, type FormEvent } from 'react';
 import { Alert, Button, Input, Select, Textarea } from '@/components/ui';
+import { z } from 'zod';
 import { api } from '@/lib/api/client';
+import * as catalogueSchema from '@/lib/api/schemas/catalogue';
+import { namedRef } from '@/lib/api/schemas/common';
 import { errorMessage, fieldErrors } from '@/lib/api/errors';
 import type { CourseDetailsInput } from '@/lib/api/teacher';
-import type { Board, Level, NamedRef, Pacing, TeacherCourse } from '@/lib/api/types';
+import type { Pacing, TeacherCourse } from '@/lib/api/types';
 import { PACING_HINTS, PACING_LABELS } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import styles from './Teacher.module.css';
@@ -96,12 +99,14 @@ export function CourseDetailsForm({
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const boards = useApi('boards', (signal) => api.get<Board[]>('/boards', undefined, signal));
+  const boards = useApi('boards', (signal) =>
+    api.get('/boards', z.array(catalogueSchema.board), undefined, signal),
+  );
   const subjects = useApi('subjects', (signal) =>
-    api.get<NamedRef[]>('/subjects', undefined, signal),
+    api.get('/subjects', z.array(namedRef), undefined, signal),
   );
   const levels = useApi(values.boardId ? `levels:${values.boardId}` : null, (signal) =>
-    api.get<Level[]>(`/boards/${values.boardId}/levels`, undefined, signal),
+    api.get(`/boards/${values.boardId}/levels`, z.array(catalogueSchema.level), undefined, signal),
   );
 
   const set = (key: keyof DetailsValues, value: string) => {

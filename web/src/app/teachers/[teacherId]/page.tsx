@@ -5,6 +5,7 @@ import { PublicProfile, profileDescription } from '@/components/teacher/PublicPr
 import { isApiError } from '@/lib/api/errors';
 import type { PublicTeacherProfile } from '@/lib/api/profile';
 import { serverApi } from '@/lib/api/server';
+import { publicTeacherProfile } from '@/lib/api/schemas/teacher';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -17,7 +18,7 @@ type Params = { params: Promise<{ teacherId: string }> };
 const loadProfile = cache(async (teacherId: string): Promise<PublicTeacherProfile> => {
   if (!UUID.test(teacherId)) notFound();
   try {
-    return await serverApi.get<PublicTeacherProfile>(`/teachers/${teacherId}`, { limit: 60 });
+    return await serverApi.get(`/teachers/${teacherId}`, publicTeacherProfile, { limit: 60 });
   } catch (error) {
     if (isApiError(error, 'NOT_FOUND') || isApiError(error, 'VALIDATION_FAILED')) notFound();
     throw error;
