@@ -3,21 +3,19 @@
 import { useState } from 'react';
 import { Button, type ButtonProps } from '@/components/ui';
 import { authApi } from '@/lib/api/auth';
-import { errorMessage } from '@/lib/api/errors';
+import { useMutation } from '@/lib/use-mutation';
 import styles from '@/components/forms/Form.module.css';
 
 /** POST /auth/verify-email/resend for the signed-in user, with its outcome announced. */
 export function ResendVerificationButton(props: Pick<ButtonProps, 'variant' | 'size'>) {
-  const [state, setState] = useState<'idle' | 'sending' | 'sent' | { error: string }>('idle');
+  const send = useMutation();
+  const [state, setState] = useState<'idle' | 'sent' | 'already'>('idle');
 
   async function resend() {
-    setState('sending');
-    try {
+    await send.run(async () => {
       const result = await authApi.resendVerification();
-      setState(result.sent ? 'sent' : { error: 'Your email address is already verified.' });
-    } catch (error) {
-      setState({ error: errorMessage(error) });
-    }
+      setState(result.sent ? 'sent' : 'already');
+    });
   }
 
   return (
@@ -25,7 +23,7 @@ export function ResendVerificationButton(props: Pick<ButtonProps, 'variant' | 's
       <Button
         variant={props.variant ?? 'secondary'}
         size={props.size}
-        loading={state === 'sending'}
+        loading={send.pending}
         loadingText="Sending…"
         disabled={state === 'sent'}
         onClick={() => void resend()}
@@ -34,7 +32,8 @@ export function ResendVerificationButton(props: Pick<ButtonProps, 'variant' | 's
       </Button>
       <span role="status">
         {state === 'sent' && 'Check your inbox for the new link.'}
-        {typeof state === 'object' && state.error}
+        {state === 'already' && 'Your email address is already verified.'}
+        {send.error}
       </span>
     </span>
   );

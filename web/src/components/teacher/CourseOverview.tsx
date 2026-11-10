@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { Alert, Button, Checkbox, Input, Icon } from '@/components/ui';
 import { errorMessage, isApiError } from '@/lib/api/errors';
+import { useMutation } from '@/lib/use-mutation';
 import { submitChecklist, teacherApi } from '@/lib/api/teacher';
 import type { TeacherCourse } from '@/lib/api/schemas/teacher';
 import { canArchive, canSubmit, detailsEditable, detailsLockReason } from '@/lib/course-status';
@@ -229,8 +230,8 @@ function ManagePanel({
   setCourse: (c: TeacherCourse) => void;
 }) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [toggling, setToggling] = useState(false);
+  const manage = useMutation();
+  const toggling = manage.pending;
   const showToggle = course.status === 'PUBLISHED' || course.status === 'DRAFT';
 
   if (!showToggle && !canArchive(course.status) && !canSubmit(course.status)) return null;
@@ -240,7 +241,7 @@ function ManagePanel({
       <h2 id="manage-heading" className={styles.panelTitle}>
         Manage
       </h2>
-      {error && <Alert tone="danger">{error}</Alert>}
+      {manage.error && <Alert tone="danger">{manage.error}</Alert>}
       {showToggle && (
         <Checkbox
           label="Open for new enrollments"
@@ -249,15 +250,9 @@ function ManagePanel({
           disabled={toggling}
           onChange={async (e) => {
             const open = e.target.checked;
-            setToggling(true);
-            setError(null);
-            try {
-              setCourse(await teacherApi.setEnrollmentOpen(course.id, open));
-            } catch (err) {
-              setError(errorMessage(err));
-            } finally {
-              setToggling(false);
-            }
+            await manage.run(async () =>
+              setCourse(await teacherApi.setEnrollmentOpen(course.id, open)),
+            );
           }}
         />
       )}
@@ -267,12 +262,7 @@ function ManagePanel({
             question="Archive this course?"
             confirmLabel="Archive"
             onConfirm={async () => {
-              setError(null);
-              try {
-                setCourse(await teacherApi.archiveCourse(course.id));
-              } catch (err) {
-                setError(errorMessage(err));
-              }
+              await manage.run(async () => setCourse(await teacherApi.archiveCourse(course.id)));
             }}
           >
             Archive course
@@ -283,13 +273,10 @@ function ManagePanel({
             question="Delete this course for good?"
             confirmLabel="Delete"
             onConfirm={async () => {
-              setError(null);
-              try {
+              await manage.run(async () => {
                 await teacherApi.deleteCourse(course.id);
                 router.push('/teacher/courses');
-              } catch (err) {
-                setError(errorMessage(err));
-              }
+              });
             }}
           >
             Delete course

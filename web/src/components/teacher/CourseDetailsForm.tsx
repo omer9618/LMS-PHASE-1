@@ -3,7 +3,6 @@
 import { useState, type FormEvent } from 'react';
 import { Alert, Button, Input, Select, Textarea } from '@/components/ui';
 import { catalogueApi } from '@/lib/api/catalogue';
-import { errorMessage, fieldErrors } from '@/lib/api/errors';
 import type { CourseDetailsInput } from '@/lib/api/teacher';
 import type { Pacing } from '@/lib/api/schemas/catalogue';
 import type { TeacherCourse } from '@/lib/api/schemas/teacher';
@@ -15,6 +14,7 @@ import {
   initialValues,
   type DetailsValues,
 } from '@/lib/forms/course';
+import { useMutation } from '@/lib/use-mutation';
 import { validateForm } from '@/lib/zod-form';
 import styles from './Teacher.module.css';
 
@@ -30,9 +30,9 @@ export function CourseDetailsForm({
 }) {
   const [values, setValues] = useState<DetailsValues>(() => initialValues(course));
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [formError, setFormError] = useState<string | null>(null);
+  const save = useMutation();
+  const shown = { ...errors, ...save.fieldErrors };
   const [saved, setSaved] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
   const boards = useApi('boards', (signal) => catalogueApi.boards(signal));
   const subjects = useApi('subjects', (signal) => catalogueApi.allSubjects(signal));
@@ -54,7 +54,6 @@ export function CourseDetailsForm({
     const checked = validateForm(courseDetailsForm, values);
     const invalid = checked.ok ? {} : checked.errors;
     setErrors(invalid);
-    setFormError(null);
     setSaved(false);
     if (Object.keys(invalid).length > 0) return;
     const body = detailsBody(values, course);
@@ -62,21 +61,12 @@ export function CourseDetailsForm({
       setSaved(true);
       return;
     }
-    setSubmitting(true);
-    try {
-      await onSubmit(body);
-      setSaved(true);
-    } catch (error) {
-      setErrors(fieldErrors(error));
-      setFormError(errorMessage(error));
-    } finally {
-      setSubmitting(false);
-    }
+    if (await save.run(() => onSubmit(body))) setSaved(true);
   }
 
   return (
     <form noValidate onSubmit={submit} className="stack" aria-label="Course details">
-      {formError && <Alert tone="danger">{formError}</Alert>}
+      {save.error && <Alert tone="danger">{save.error}</Alert>}
       {saved && course && <Alert tone="success">Details saved.</Alert>}
       <div className={styles.grid}>
         <Input
@@ -85,14 +75,14 @@ export function CourseDetailsForm({
           value={values.title}
           maxLength={200}
           onChange={(e) => set('title', e.target.value)}
-          error={errors.title}
+          error={shown.title}
           required
         />
         <Select
           label="Exam board"
           value={values.boardId}
           onChange={(e) => set('boardId', e.target.value)}
-          error={errors.boardId}
+          error={shown.boardId}
           required
         >
           <option value="">Choose…</option>
@@ -108,7 +98,7 @@ export function CourseDetailsForm({
           disabled={!values.boardId}
           hint={values.boardId ? undefined : 'Choose an exam board first'}
           onChange={(e) => set('levelId', e.target.value)}
-          error={errors.levelId}
+          error={shown.levelId}
           required
         >
           <option value="">Choose…</option>
@@ -122,7 +112,7 @@ export function CourseDetailsForm({
           label="Subject"
           value={values.subjectId}
           onChange={(e) => set('subjectId', e.target.value)}
-          error={errors.subjectId}
+          error={shown.subjectId}
           required
         >
           <option value="">Choose…</option>
@@ -138,14 +128,14 @@ export function CourseDetailsForm({
           value={values.syllabusArea}
           maxLength={200}
           onChange={(e) => set('syllabusArea', e.target.value)}
-          error={errors.syllabusArea}
+          error={shown.syllabusArea}
         />
         <Select
           label="Pacing"
           value={values.progressionMode}
           hint={PACING_HINTS[values.progressionMode]}
           onChange={(e) => set('progressionMode', e.target.value)}
-          error={errors.progressionMode}
+          error={shown.progressionMode}
         >
           {(Object.keys(PACING_LABELS) as Pacing[]).map((p) => (
             <option key={p} value={p}>
@@ -160,11 +150,11 @@ export function CourseDetailsForm({
           maxLength={5000}
           value={values.description}
           onChange={(e) => set('description', e.target.value)}
-          error={errors.description}
+          error={shown.description}
         />
       </div>
       <div className="cluster">
-        <Button type="submit" loading={submitting} loadingText="Saving…">
+        <Button type="submit" loading={save.pending} loadingText="Saving…">
           {submitLabel}
         </Button>
       </div>

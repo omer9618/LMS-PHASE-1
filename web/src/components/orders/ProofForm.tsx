@@ -2,9 +2,9 @@
 
 import { useState, type FormEvent } from 'react';
 import { Alert, Button, Input } from '@/components/ui';
-import { errorMessage, fieldErrors } from '@/lib/api/errors';
 import type { OrdersApi, StudentOrder, SubmittedProof } from '@/lib/api/orders';
 import { validateProofForm } from '@/lib/forms/orders';
+import { useMutation } from '@/lib/use-mutation';
 import styles from './Orders.module.css';
 
 /** The API's PAYMENT_PROOF policy: PDF, PNG, JPEG or WebP, up to 5 MB (checked again there). */
@@ -26,8 +26,13 @@ export function ProofForm({ order, client, onSubmitted }: ProofFormProps) {
   const [amount, setAmount] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [formError, setFormError] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
+  const send = useMutation();
+  const server = send.fieldErrors;
+  const shown: Record<string, string> = {
+    ...errors,
+    ...server,
+    ...(server.amountClaimedMinor ? { amount: server.amountClaimedMinor } : {}),
+  };
 
   const resubmit = order.status === 'REJECTED';
   const additional =
@@ -35,7 +40,6 @@ export function ProofForm({ order, client, onSubmitted }: ProofFormProps) {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    setFormError(null);
     const checked = validateProofForm({ transactionId, amount }, order.currency);
     const fileError = file && file.size > MAX_BYTES ? 'The file must be 5 MB or smaller' : null;
     if (!checked.ok || fileError) {
@@ -46,8 +50,7 @@ export function ProofForm({ order, client, onSubmitted }: ProofFormProps) {
       return;
     }
     setErrors({});
-    setSending(true);
-    try {
+    await send.run(async () => {
       const result = await client.submitProof(order.id, {
         transactionId: checked.transactionId,
         amountClaimedMinor: checked.amountClaimedMinor,
@@ -57,14 +60,7 @@ export function ProofForm({ order, client, onSubmitted }: ProofFormProps) {
       setAmount('');
       setFile(null);
       onSubmitted(result);
-    } catch (error) {
-      const fields = fieldErrors(error);
-      if (fields.amountClaimedMinor) fields.amount = fields.amountClaimedMinor;
-      setErrors(fields);
-      setFormError(errorMessage(error));
-    } finally {
-      setSending(false);
-    }
+    });
   }
 
   return (
@@ -81,13 +77,13 @@ export function ProofForm({ order, client, onSubmitted }: ProofFormProps) {
           ? 'Made a further transfer (for example a top-up)? Add its transaction ID here.'
           : 'Enter the transaction ID from your bank or wallet app. A screenshot helps us confirm faster.'}
       </p>
-      {formError && <Alert tone="danger">{formError}</Alert>}
+      {send.error && <Alert tone="danger">{send.error}</Alert>}
       <Input
         label="Transaction ID"
         required
         value={transactionId}
         onChange={(e) => setTransactionId(e.target.value)}
-        error={errors.transactionId}
+        error={shown.transactionId}
         autoComplete="off"
         maxLength={120}
       />
@@ -97,7 +93,7 @@ export function ProofForm({ order, client, onSubmitted }: ProofFormProps) {
         inputMode="decimal"
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
-        error={errors.amount}
+        error={shown.amount}
         autoComplete="off"
       />
       <Input
@@ -106,10 +102,10 @@ export function ProofForm({ order, client, onSubmitted }: ProofFormProps) {
         type="file"
         accept={ACCEPT}
         onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-        error={errors.file}
+        error={shown.file}
       />
       <div>
-        <Button type="submit" loading={sending} loadingText="Sending…">
+        <Button type="submit" loading={send.pending} loadingText="Sending…">
           Submit payment details
         </Button>
       </div>

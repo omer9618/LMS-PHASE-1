@@ -182,23 +182,17 @@ function GrantForm({
     event.preventDefault();
     const body = form.check();
     if (!body) return;
-    let failure: unknown;
     const ok = await mutation.run(
       () =>
-        adminApi
-          .grantEnrollment({
-            ...body,
-            expiresAt: body.expiresAt
-              ? new Date(`${body.expiresAt}T23:59:59`).toISOString()
-              : undefined,
-          })
-          .catch((e) => {
-            failure = e;
-            throw e;
-          }),
+        adminApi.grantEnrollment({
+          ...body,
+          expiresAt: body.expiresAt
+            ? new Date(`${body.expiresAt}T23:59:59`).toISOString()
+            : undefined,
+        }),
       `Access granted to ${body.studentEmail}.`,
+      (error) => form.setErrors(fieldErrors(error)),
     );
-    form.setErrors(ok ? {} : fieldErrors(failure));
     if (ok) {
       form.setValues({ ...form.values, studentEmail: '', reason: '' });
       onGranted();

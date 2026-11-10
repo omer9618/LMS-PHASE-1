@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useMutation } from '@/lib/use-mutation';
 import { useState, type FormEvent } from 'react';
 import { Alert, Badge, Button, Input, MutationStatus, PageHeader, Textarea } from '@/components/ui';
-import { errorMessage, fieldErrors, isApiError } from '@/lib/api/errors';
+import { errorMessage } from '@/lib/api/errors';
 import {
   checkPhoto,
   MAX_F2F_LOCATIONS,
@@ -103,24 +103,17 @@ function PublishPanel({
   profile: TeacherProfile;
   onChange: (p: TeacherProfile) => void;
 }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toggling = useMutation();
+  const busy = toggling.pending;
+  const error =
+    toggling.failure?.name === 'PROFILE_INCOMPLETE'
+      ? 'Add a bio and save it before publishing your profile.'
+      : toggling.error;
 
-  async function toggle() {
-    setBusy(true);
-    setError(null);
-    try {
-      onChange(profile.isPublished ? await profileApi.unpublish() : await profileApi.publish());
-    } catch (err) {
-      setError(
-        isApiError(err) && err.name === 'PROFILE_INCOMPLETE'
-          ? 'Add a bio and save it before publishing your profile.'
-          : errorMessage(err),
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
+  const toggle = () =>
+    toggling.run(async () =>
+      onChange(profile.isPublished ? await profileApi.unpublish() : await profileApi.publish()),
+    );
 
   return (
     <section className={styles.panel} aria-labelledby="publish-heading">
@@ -177,7 +170,8 @@ function ProfileForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const save = useMutation();
+  const shown = { ...errors, ...save.fieldErrors };
 
   const edit = (change: Partial<Draft>) => {
     setSaved(false);
@@ -194,27 +188,22 @@ function ProfileForm({
       setFormError('Please correct the fields marked below.');
       return;
     }
-    setSaving(true);
-    try {
-      onSaved(await profileApi.update(updateBody(draft)));
+    if (await save.run(async () => onSaved(await profileApi.update(updateBody(draft))))) {
       setSaved(true);
-    } catch (err) {
-      const byField = fieldErrors(err);
-      setErrors(byField);
-      setFormError(
-        Object.keys(byField).length > 0
-          ? 'Please correct the fields marked below.'
-          : errorMessage(err),
-      );
-    } finally {
-      setSaving(false);
     }
   }
 
   return (
     <form className={`${styles.panel} stack`} noValidate onSubmit={submit} aria-label="Profile">
       <h2 className={styles.panelTitle}>About you</h2>
-      {formError && <Alert tone="danger">{formError}</Alert>}
+      {(formError ?? save.error) && (
+        <Alert tone="danger">
+          {formError ??
+            (Object.keys(save.fieldErrors).length > 0
+              ? 'Please correct the fields marked below.'
+              : save.error)}
+        </Alert>
+      )}
       {saved && <Alert tone="success">Profile saved.</Alert>}
       <Textarea
         label="Bio"
@@ -223,7 +212,7 @@ function ProfileForm({
         maxLength={5000}
         value={draft.bio}
         onChange={(e) => edit({ bio: e.target.value })}
-        error={errors.bio}
+        error={shown.bio}
       />
       <Textarea
         label="Qualifications (optional)"
@@ -231,7 +220,7 @@ function ProfileForm({
         maxLength={2000}
         value={draft.qualifications}
         onChange={(e) => edit({ qualifications: e.target.value })}
-        error={errors.qualifications}
+        error={shown.qualifications}
       />
 
       <fieldset className={styles.fieldset}>
@@ -348,7 +337,7 @@ function ProfileForm({
       </fieldset>
 
       <div>
-        <Button type="submit" loading={saving} loadingText="Saving…">
+        <Button type="submit" loading={save.pending} loadingText="Saving…">
           Save profile
         </Button>
       </div>
