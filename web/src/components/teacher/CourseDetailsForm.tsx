@@ -2,84 +2,21 @@
 
 import { useState, type FormEvent } from 'react';
 import { Alert, Button, Input, Select, Textarea } from '@/components/ui';
-import { z } from 'zod';
-import { api } from '@/lib/api/client';
-import * as catalogueSchema from '@/lib/api/schemas/catalogue';
-import { namedRef } from '@/lib/api/schemas/common';
+import { catalogueApi } from '@/lib/api/catalogue';
 import { errorMessage, fieldErrors } from '@/lib/api/errors';
 import type { CourseDetailsInput } from '@/lib/api/teacher';
-import type { Pacing, TeacherCourse } from '@/lib/api/types';
+import type { Pacing } from '@/lib/api/schemas/catalogue';
+import type { TeacherCourse } from '@/lib/api/schemas/teacher';
 import { PACING_HINTS, PACING_LABELS } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
-import { courseDetailsForm } from '@/lib/forms/course';
+import {
+  courseDetailsForm,
+  detailsBody,
+  initialValues,
+  type DetailsValues,
+} from '@/lib/forms/course';
 import { validateForm } from '@/lib/zod-form';
 import styles from './Teacher.module.css';
-
-export interface DetailsValues {
-  boardId: string;
-  levelId: string;
-  subjectId: string;
-  title: string;
-  syllabusArea: string;
-  description: string;
-  progressionMode: Pacing;
-}
-
-export function initialValues(course?: TeacherCourse): DetailsValues {
-  return {
-    boardId: course?.boardId ?? '',
-    levelId: course?.levelId ?? '',
-    subjectId: course?.subjectId ?? '',
-    title: course?.title ?? '',
-    syllabusArea: course?.syllabusArea ?? '',
-    description: course?.description ?? '',
-    progressionMode: course?.progressionMode ?? 'FREE',
-  };
-}
-
-export function validateDetails(values: DetailsValues): Record<string, string> {
-  const result = validateForm(courseDetailsForm, values);
-  return result.ok ? {} : result.errors;
-}
-
-/**
- * The body to send: everything when creating; only what changed when editing, with board, level
- * and subject always together (the API validates them as one classification).
- */
-export function detailsBody(values: DetailsValues, course?: TeacherCourse): CourseDetailsInput {
-  const full: CourseDetailsInput = {
-    boardId: values.boardId,
-    levelId: values.levelId,
-    subjectId: values.subjectId,
-    title: values.title.trim(),
-    syllabusArea: values.syllabusArea.trim() || null,
-    description: values.description.trim() || null,
-    progressionMode: values.progressionMode,
-  };
-  if (!course) {
-    if (!full.syllabusArea) delete full.syllabusArea;
-    if (!full.description) delete full.description;
-    return full;
-  }
-  const before = detailsBody(initialValues(course));
-  const changed: CourseDetailsInput = {};
-  if (
-    full.boardId !== course.boardId ||
-    full.levelId !== course.levelId ||
-    full.subjectId !== course.subjectId
-  ) {
-    changed.boardId = full.boardId;
-    changed.levelId = full.levelId;
-    changed.subjectId = full.subjectId;
-  }
-  if (full.title !== course.title) changed.title = full.title;
-  if (full.syllabusArea !== (before.syllabusArea ?? null)) changed.syllabusArea = full.syllabusArea;
-  if (full.description !== (before.description ?? null)) changed.description = full.description;
-  if (full.progressionMode !== course.progressionMode) {
-    changed.progressionMode = full.progressionMode;
-  }
-  return changed;
-}
 
 /** #24 create and #26 edit of a course's details. */
 export function CourseDetailsForm({
@@ -97,14 +34,10 @@ export function CourseDetailsForm({
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const boards = useApi('boards', (signal) =>
-    api.get('/boards', z.array(catalogueSchema.board), undefined, signal),
-  );
-  const subjects = useApi('subjects', (signal) =>
-    api.get('/subjects', z.array(namedRef), undefined, signal),
-  );
+  const boards = useApi('boards', (signal) => catalogueApi.boards(signal));
+  const subjects = useApi('subjects', (signal) => catalogueApi.allSubjects(signal));
   const levels = useApi(values.boardId ? `levels:${values.boardId}` : null, (signal) =>
-    api.get(`/boards/${values.boardId}/levels`, z.array(catalogueSchema.level), undefined, signal),
+    catalogueApi.levels(values.boardId, signal),
   );
 
   const set = (key: keyof DetailsValues, value: string) => {
@@ -118,7 +51,8 @@ export function CourseDetailsForm({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const invalid = validateDetails(values);
+    const checked = validateForm(courseDetailsForm, values);
+    const invalid = checked.ok ? {} : checked.errors;
     setErrors(invalid);
     setFormError(null);
     setSaved(false);
@@ -229,7 +163,7 @@ export function CourseDetailsForm({
           error={errors.description}
         />
       </div>
-      <div className={styles.actions}>
+      <div className="cluster">
         <Button type="submit" loading={submitting} loadingText="Saving…">
           {submitLabel}
         </Button>

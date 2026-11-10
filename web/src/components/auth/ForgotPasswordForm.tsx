@@ -4,11 +4,10 @@ import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { Alert, Button, Input } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
-import { api } from '@/lib/api/client';
+import { authApi } from '@/lib/api/auth';
 import { errorMessage, fieldErrors } from '@/lib/api/errors';
 import { forgotPasswordForm } from '@/lib/forms/auth';
 import { validateForm } from '@/lib/zod-form';
-import { ignored } from '@/lib/api/schemas/common';
 
 /** #13: request a reset link. The answer never reveals whether the account exists. */
 export function ForgotPasswordForm() {
@@ -30,7 +29,7 @@ export function ForgotPasswordForm() {
     setError(undefined);
     setSubmitting(true);
     try {
-      await api.post('/auth/password-reset/request', ignored, { email: value });
+      await authApi.requestPasswordReset(value);
       setSentTo(value);
     } catch (err) {
       setError(fieldErrors(err).email);

@@ -1,5 +1,5 @@
 import type { QueryValue } from './api/client';
-import type { Pacing } from './api/types';
+import type { Pacing } from './api/schemas/catalogue';
 import { z } from 'zod';
 
 /**

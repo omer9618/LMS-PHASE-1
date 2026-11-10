@@ -12,13 +12,12 @@ import {
   type BadgeTone,
   type Column,
 } from '@/components/ui';
-import { listUsers } from '@/lib/api/admin';
+import { adminApi } from '@/lib/api/admin';
 import {
-  getTeacherStatement,
-  listOpenConcerns,
+  adminFinanceApi,
   type CurrencyBalance,
   type TeacherStatement,
-} from '@/lib/api/admin-money';
+} from '@/lib/api/admin-finance';
 import { formatDate } from '@/lib/format';
 import { formatMoney } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
@@ -120,13 +119,13 @@ const COLUMNS: Array<Column<RunRow>> = [
  */
 export function PayoutRunScreen() {
   const run = useApi('payout-run', async (signal) => {
-    const teachers = await listUsers(
+    const teachers = await adminApi.listUsers(
       { role: 'TEACHER', status: 'ACTIVE', limit: MAX_TEACHERS },
       signal,
     );
     const [statements, concerns] = await Promise.all([
-      Promise.all(teachers.items.map((t) => getTeacherStatement(t.id, signal))),
-      listOpenConcerns(signal),
+      Promise.all(teachers.items.map((t) => adminFinanceApi.getTeacherStatement(t.id, signal))),
+      adminFinanceApi.listOpenConcerns(signal),
     ]);
     return {
       rows: sortRun(statements.map(toRunRow)),

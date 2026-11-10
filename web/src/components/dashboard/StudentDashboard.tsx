@@ -10,9 +10,8 @@ import {
   StatTile,
   type BadgeTone,
 } from '@/components/ui';
-import { api } from '@/lib/api/client';
-import * as enrollmentSchema from '@/lib/api/schemas/enrollment';
-import type { AccessState, DashboardEntry } from '@/lib/api/types';
+import { enrollmentApi } from '@/lib/api/enrollment';
+import type { AccessState, DashboardEntry } from '@/lib/api/schemas/enrollment';
 import { formatDate } from '@/lib/format';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
@@ -44,7 +43,7 @@ export function sortEntries(entries: DashboardEntry[]): DashboardEntry[] {
 export function StudentDashboard() {
   const { status, user } = useSession();
   const enrollments = useApi(user ? `dashboard:${user.id}` : null, (signal) =>
-    api.get('/me/enrollments', enrollmentSchema.dashboard, undefined, signal),
+    enrollmentApi.mine(signal),
   );
 
   if (status === 'loading') return <p role="status">Loading…</p>;
@@ -130,7 +129,7 @@ function EnrollmentCard({ entry }: { entry: DashboardEntry }) {
         </h2>
         <Badge tone={access.tone}>{access.label}</Badge>
       </div>
-      <p className={styles.meta}>
+      <p className="hint">
         {[entry.course.subject?.name, entry.course.teacher?.fullName].filter(Boolean).join(' · ')}
       </p>
       <div className={styles.progressRow}>
@@ -151,7 +150,7 @@ function EnrollmentCard({ entry }: { entry: DashboardEntry }) {
         </span>
       </div>
       {entry.expiresAt && (
-        <p className={styles.meta}>
+        <p className="hint">
           {entry.access === 'ACTIVE' ? 'Access until' : 'Access ended'}{' '}
           {formatDate(entry.expiresAt)}
         </p>

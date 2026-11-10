@@ -15,18 +15,14 @@ import {
   StatusBadge,
   Table,
 } from '@/components/ui';
-import {
-  createStaffAccount,
-  listUsers,
-  type AdminUser,
-  type UserListQuery,
-  type UserStatus,
-} from '@/lib/api/admin';
+import { adminApi, type AdminUser, type UserListQuery, type UserStatus } from '@/lib/api/admin';
 import { fieldErrors } from '@/lib/api/errors';
-import type { Role } from '@/lib/api/types';
+import type { Role } from '@/lib/api/schemas/auth';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, useMutation } from '../kit';
+import { MutationStatus } from '@/components/ui';
+import { useMutation } from '@/lib/use-mutation';
+import { formatDateTime } from '@/lib/format';
 import { staffForm } from '@/lib/forms/admin';
 import { useZodForm } from '@/lib/use-zod-form';
 
@@ -37,7 +33,7 @@ export function UsersScreen() {
   const [draft, setDraft] = useState<UserListQuery>({ role: '', status: '', q: '' });
   const [query, setQuery] = useState<UserListQuery>({ offset: 0 });
   const users = useApi(`admin-users:${JSON.stringify(query)}`, (signal) =>
-    listUsers({ ...query, limit: LIMIT }, signal),
+    adminApi.listUsers({ ...query, limit: LIMIT }, signal),
   );
 
   return (
@@ -144,7 +140,7 @@ function CreateStaffAccount({ onCreated }: { onCreated: () => void }) {
     let failure: unknown;
     const ok = await mutation.run(
       () =>
-        createStaffAccount(body).catch((e) => {
+        adminApi.createStaffAccount(body).catch((e) => {
           failure = e;
           throw e;
         }),

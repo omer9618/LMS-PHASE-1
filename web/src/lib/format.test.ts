@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDuration, safeNextPath } from './format';
+import { formatAgeHours, formatAgeMinutes, formatDuration, safeNextPath, todayIso } from './format';
 
 describe('formatDuration', () => {
   it.each([
@@ -26,4 +26,19 @@ describe('safeNextPath', () => {
       expect(safeNextPath(raw)).toBe('/courses');
     },
   );
+});
+
+describe('ages and dates', () => {
+  it('describes ages for queues and concerns', () => {
+    expect(formatAgeHours(0)).toBe('under an hour');
+    expect(formatAgeHours(5)).toBe('5 h');
+    expect(formatAgeHours(48)).toBe('2 d');
+    expect(formatAgeHours(50)).toBe('2 d 2 h');
+    expect(formatAgeHours(null)).toBe('—');
+    expect(formatAgeMinutes(125)).toBe('2 h');
+  });
+
+  it('gives today as a UTC date', () => {
+    expect(todayIso(new Date('2026-11-08T23:30:00Z'))).toBe('2026-11-08');
+  });
 });

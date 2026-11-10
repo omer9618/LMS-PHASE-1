@@ -4,10 +4,10 @@ import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { z } from 'zod';
 import { Button, Input, Loadable, PageHeader, Pager, Table } from '@/components/ui';
-import { searchAuditLog, type AuditEntry, type AuditQuery } from '@/lib/api/admin';
+import { adminApi, type AuditEntry, type AuditQuery } from '@/lib/api/admin';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime } from '../kit';
+import { formatDateTime } from '@/lib/format';
 
 const LIMIT = 50;
 
@@ -38,7 +38,7 @@ export function AuditScreen() {
     offset: 0,
   });
   const entries = useApi(`admin-audit:${JSON.stringify(query)}`, (signal) =>
-    searchAuditLog({ ...query, limit: LIMIT }, signal),
+    adminApi.searchAuditLog({ ...query, limit: LIMIT }, signal),
   );
   const field = (key: keyof typeof draft, label: string, extra: object = {}) => (
     <Input

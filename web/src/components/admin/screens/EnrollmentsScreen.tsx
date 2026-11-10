@@ -15,18 +15,14 @@ import {
   Table,
   Textarea,
 } from '@/components/ui';
-import {
-  grantEnrollment,
-  listEnrollments,
-  revokeEnrollment,
-  type AdminEnrollment,
-} from '@/lib/api/admin';
+import { adminApi, type AdminEnrollment } from '@/lib/api/admin';
 import { fieldErrors } from '@/lib/api/errors';
-import type { EnrollmentStatus } from '@/lib/api/types';
+import type { EnrollmentStatus } from '@/lib/api/schemas/enrollment';
 import { formatDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { MutationStatus, ReasonAction, useMutation } from '../kit';
+import { MutationStatus, ReasonAction } from '@/components/ui';
+import { useMutation } from '@/lib/use-mutation';
 import { humanize } from '@/lib/format';
 import { grantForm } from '@/lib/forms/admin';
 import { useZodForm } from '@/lib/use-zod-form';
@@ -44,7 +40,7 @@ export function EnrollmentsScreen() {
   const [draft, setDraft] = useState(initial);
   const [query, setQuery] = useState({ ...initial, offset: 0 });
   const enrollments = useApi(`admin-enrollments:${JSON.stringify(query)}`, (signal) =>
-    listEnrollments({ ...query, limit: LIMIT }, signal),
+    adminApi.listEnrollments({ ...query, limit: LIMIT }, signal),
   );
   const mutation = useMutation();
 
@@ -140,7 +136,7 @@ export function EnrollmentsScreen() {
                         variant="danger"
                         onConfirm={async (reason) => {
                           const ok = await mutation.run(
-                            () => revokeEnrollment(e.id, reason),
+                            () => adminApi.revokeEnrollment(e.id, reason),
                             `Access to ${e.course.title} revoked.`,
                           );
                           if (ok) enrollments.reload();
@@ -189,15 +185,17 @@ function GrantForm({
     let failure: unknown;
     const ok = await mutation.run(
       () =>
-        grantEnrollment({
-          ...body,
-          expiresAt: body.expiresAt
-            ? new Date(`${body.expiresAt}T23:59:59`).toISOString()
-            : undefined,
-        }).catch((e) => {
-          failure = e;
-          throw e;
-        }),
+        adminApi
+          .grantEnrollment({
+            ...body,
+            expiresAt: body.expiresAt
+              ? new Date(`${body.expiresAt}T23:59:59`).toISOString()
+              : undefined,
+          })
+          .catch((e) => {
+            failure = e;
+            throw e;
+          }),
       `Access granted to ${body.studentEmail}.`,
     );
     form.setErrors(ok ? {} : fieldErrors(failure));

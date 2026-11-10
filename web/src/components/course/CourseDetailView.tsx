@@ -3,15 +3,14 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { Alert, Badge, Button } from '@/components/ui';
-import { api } from '@/lib/api/client';
+import { catalogueApi } from '@/lib/api/catalogue';
 import { errorMessage } from '@/lib/api/errors';
-import type { CourseDetail, OutlineLesson } from '@/lib/api/types';
+import type { CourseDetail, OutlineLesson } from '@/lib/api/schemas/catalogue';
 import { formatDuration, PACING_HINTS, PACING_LABELS } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { DemoPlayer } from './DemoPlayer';
 import { EnrollPanel } from './EnrollPanel';
 import styles from './Course.module.css';
-import * as catalogueSchema from '@/lib/api/schemas/catalogue';
 
 const LESSON_TYPE_LABELS: Record<string, string> = {
   VIDEO: 'Video',
@@ -22,9 +21,7 @@ const LESSON_TYPE_LABELS: Record<string, string> = {
 
 /** Course detail (#43): syllabus coverage, pricing, teacher, the demo (#34) and enrollment. */
 export function CourseDetailView({ courseId }: { courseId: string }) {
-  const course = useApi(`course:${courseId}`, (signal) =>
-    api.get(`/catalogue/courses/${courseId}`, catalogueSchema.courseDetail, undefined, signal),
-  );
+  const course = useApi(`course:${courseId}`, (signal) => catalogueApi.course(courseId, signal));
 
   if (course.status === 'loading') {
     return (

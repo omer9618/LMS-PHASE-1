@@ -13,7 +13,8 @@ import {
 } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { teacherApi } from '@/lib/api/teacher';
-import type { EnrollmentSource, EnrollmentStatus, RosterEntry } from '@/lib/api/types';
+import type { EnrollmentSource, EnrollmentStatus } from '@/lib/api/schemas/enrollment';
+import type { RosterEntry } from '@/lib/api/schemas/teacher';
 import { formatDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { useCourseWorkspace } from './CourseWorkspace';

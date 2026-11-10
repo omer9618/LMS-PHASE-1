@@ -3,15 +3,13 @@
 import { useState } from 'react';
 import { BuyButtons } from '@/components/orders/BuyButtons';
 import { Alert, Button, ButtonLink } from '@/components/ui';
-import { api } from '@/lib/api/client';
+import { enrollmentApi } from '@/lib/api/enrollment';
 import { errorMessage } from '@/lib/api/errors';
-import type { CourseDetail } from '@/lib/api/types';
+import type { CourseDetail } from '@/lib/api/schemas/catalogue';
 import { formatPrice } from '@/lib/money';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import styles from './Course.module.css';
-import * as enrollmentSchema from '@/lib/api/schemas/enrollment';
-import { ignored } from '@/lib/api/schemas/common';
 
 type Enroll = 'idle' | 'enrolling' | 'enrolled' | { error: string };
 
@@ -22,7 +20,7 @@ export function EnrollPanel({ course }: { course: CourseDetail }) {
 
   // Students see whether they already have this course (GET /me/enrollments).
   const enrollments = useApi(user ? `enrollments:${user.id}` : null, (signal) =>
-    api.get('/me/enrollments', enrollmentSchema.dashboard, undefined, signal),
+    enrollmentApi.mine(signal),
   );
   const alreadyEnrolled =
     enrollments.status === 'success' &&
@@ -31,7 +29,7 @@ export function EnrollPanel({ course }: { course: CourseDetail }) {
   async function enrollFree() {
     setEnroll('enrolling');
     try {
-      await api.post(`/courses/${course.id}/enroll`, ignored);
+      await enrollmentApi.enrollFree(course.id);
       setEnroll('enrolled');
     } catch (error) {
       setEnroll({ error: errorMessage(error) });

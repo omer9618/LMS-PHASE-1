@@ -2,10 +2,12 @@
 
 import { type FormEvent } from 'react';
 import { Button, Checkbox, Input, Loadable, PageHeader, Section, Textarea } from '@/components/ui';
-import { listSettings, updateSetting, type PlatformSetting } from '@/lib/api/admin';
+import { adminApi, type PlatformSetting } from '@/lib/api/admin';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, useMutation } from '../kit';
+import { MutationStatus } from '@/components/ui';
+import { useMutation } from '@/lib/use-mutation';
+import { formatDateTime } from '@/lib/format';
 import { useMemo } from 'react';
 import { z } from 'zod';
 import { settingValue } from '@/lib/forms/admin';
@@ -13,7 +15,7 @@ import { useZodForm } from '@/lib/use-zod-form';
 
 /** #8: values admins change without a deploy. Each change is audited by the API. */
 export function SettingsScreen() {
-  const settings = useApi('admin-settings', (signal) => listSettings(signal));
+  const settings = useApi('admin-settings', (signal) => adminApi.listSettings(signal));
   return (
     <>
       <PageHeader
@@ -46,7 +48,8 @@ function SettingForm({ setting, onSaved }: { setting: PlatformSetting; onSaved: 
     event.preventDefault();
     const body = form.check();
     if (!body) return;
-    if (await mutation.run(() => updateSetting(setting.key, body.value), 'Saved.')) onSaved();
+    if (await mutation.run(() => adminApi.updateSetting(setting.key, body.value), 'Saved.'))
+      onSaved();
   }
 
   return (

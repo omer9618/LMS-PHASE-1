@@ -5,12 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { Alert, Badge, Button, ButtonLink } from '@/components/ui';
 import { adminAccess, canSwitchContext } from '@/lib/admin/access';
-import {
-  getDashboard,
-  switchContext,
-  type AdminDashboard,
-  type MeWithContext,
-} from '@/lib/api/admin';
+import { adminApi, type AdminDashboard, type MeWithContext } from '@/lib/api/admin';
 import { errorMessage } from '@/lib/api/errors';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
@@ -84,7 +79,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const access = adminAccess(session.status, user);
   const pathname = usePathname() ?? '/admin';
   const dashboard = useApi(access === 'ok' ? `admin-nav:${pathname}` : null, (signal) =>
-    getDashboard(signal),
+    adminApi.getDashboard(signal),
   );
   const counts = dashboard.status === 'success' ? dashboard.data.queues : null;
 
@@ -162,7 +157,7 @@ function ContextBar({ user }: { user: MeWithContext | null }) {
           setBusy(true);
           setError(null);
           try {
-            await switchContext('TEACHER');
+            await adminApi.switchContext('TEACHER');
             await refresh();
             router.push('/teacher/courses');
           } catch (e) {
@@ -238,7 +233,7 @@ function Gate({
               setBusy(true);
               setError(null);
               try {
-                await switchContext('ADMIN');
+                await adminApi.switchContext('ADMIN');
                 await refresh();
               } catch (e) {
                 setError(errorMessage(e));

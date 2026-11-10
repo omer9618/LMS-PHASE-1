@@ -1,55 +1,13 @@
 'use client';
 
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { Alert, Button, Textarea, type ButtonVariant } from '@/components/ui';
-import { errorMessage } from '@/lib/api/errors';
-import styles from './Admin.module.css';
 import { reasonForm } from '@/lib/forms/admin';
+import type { Mutation } from '@/lib/use-mutation';
 import { validateForm } from '@/lib/zod-form';
-
-/**
- * Admin-only building blocks: writes with feedback, reason dialogs, paging. Generic layout and
- * data pieces (PageHeader, Section, Facts, Money, StatusBadge, Loadable) live in components/ui.
- */
-
-export interface Mutation {
-  pending: boolean;
-  error: string | null;
-  notice: string | null;
-  run(action: () => Promise<unknown>, success?: string): Promise<boolean>;
-  clear(): void;
-}
-
-/** One write at a time, with its error or success message. */
-export function useMutation(): Mutation {
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  return {
-    pending,
-    error,
-    notice,
-    clear: () => {
-      setError(null);
-      setNotice(null);
-    },
-    async run(action, success) {
-      setPending(true);
-      setError(null);
-      setNotice(null);
-      try {
-        await action();
-        if (success) setNotice(success);
-        return true;
-      } catch (e) {
-        setError(errorMessage(e));
-        return false;
-      } finally {
-        setPending(false);
-      }
-    },
-  };
-}
+import { Alert } from './Alert';
+import { Button, type ButtonProps, type ButtonVariant } from './Button';
+import { Textarea } from './Field';
+import styles from './Mutation.module.css';
 
 export function MutationStatus({ mutation }: { mutation: Mutation }) {
   if (mutation.error) {
@@ -129,7 +87,7 @@ export function ReasonAction({
         aria-required={!optional}
         onChange={(e) => setReason(e.target.value)}
       />
-      <div className={styles.actions}>
+      <div className="cluster">
         <Button
           type="submit"
           size="sm"
@@ -146,16 +104,62 @@ export function ReasonAction({
   );
 }
 
-/** "2 Nov 2026, 14:05" in the viewer's time zone. */
-export function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
+/**
+ * A destructive action that asks once more inline (no modal): the first press reveals the
+ * question with Confirm and Cancel.
+ */
+export function ConfirmButton({
+  children,
+  question,
+  confirmLabel,
+  onConfirm,
+  variant = 'danger',
+  size = 'sm',
+}: {
+  children: ReactNode;
+  question: ReactNode;
+  confirmLabel: string;
+  onConfirm: () => Promise<void>;
+  variant?: ButtonProps['variant'];
+  size?: ButtonProps['size'];
+}) {
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  if (!asking) {
+    return (
+      <Button
+        variant={variant === 'danger' ? 'secondary' : variant}
+        size={size}
+        onClick={() => setAsking(true)}
+      >
+        {children}
+      </Button>
+    );
+  }
+  return (
+    <span className="cluster" role="group" aria-label="Confirm">
+      <span>{question}</span>
+      <Button
+        variant={variant}
+        size={size}
+        loading={busy}
+        loadingText="Working…"
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await onConfirm();
+          } finally {
+            setBusy(false);
+            setAsking(false);
+          }
+        }}
+      >
+        {confirmLabel}
+      </Button>
+      <Button variant="ghost" size={size} onClick={() => setAsking(false)} disabled={busy}>
+        Cancel
+      </Button>
+    </span>
+  );
 }

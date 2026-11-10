@@ -3,13 +3,7 @@
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { Badge, Button, Loadable, PageHeader, Section, Textarea } from '@/components/ui';
-import {
-  getTeacherProfile,
-  removeTeacherPhoto,
-  unpublishTeacherProfile,
-  updateTeacherProfile,
-  type TeacherProfile,
-} from '@/lib/api/admin';
+import { adminApi, type TeacherProfile } from '@/lib/api/admin';
 import {
   linesToLinks,
   linesToLocations,
@@ -18,12 +12,14 @@ import {
 } from '@/lib/admin/profile-lines';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, ReasonAction, useMutation, type Mutation } from '../kit';
+import { MutationStatus, ReasonAction } from '@/components/ui';
+import { useMutation, type Mutation } from '@/lib/use-mutation';
+import { formatDateTime } from '@/lib/format';
 
 /** #100: an admin edits or unpublishes any teacher's public profile. Every change is audited. */
 export function ProfileModerationScreen({ teacherId }: { teacherId: string }) {
   const profile = useApi(`admin-profile:${teacherId}`, (signal) =>
-    getTeacherProfile(teacherId, signal),
+    adminApi.getTeacherProfile(teacherId, signal),
   );
   const mutation = useMutation();
   return (
@@ -71,7 +67,7 @@ export function ProfileModerationScreen({ teacherId }: { teacherId: string }) {
                   hint="The teacher sees this reason and may republish after fixing it."
                   onConfirm={async (reason) => {
                     const ok = await mutation.run(
-                      () => unpublishTeacherProfile(teacherId, reason),
+                      () => adminApi.unpublishTeacherProfile(teacherId, reason),
                       'Profile unpublished.',
                     );
                     if (ok) profile.reload();
@@ -85,7 +81,7 @@ export function ProfileModerationScreen({ teacherId }: { teacherId: string }) {
                   variant="danger"
                   onConfirm={async (reason) => {
                     const ok = await mutation.run(
-                      () => removeTeacherPhoto(teacherId, reason),
+                      () => adminApi.removeTeacherPhoto(teacherId, reason),
                       'Photo removed.',
                     );
                     if (ok) profile.reload();
@@ -132,7 +128,7 @@ function ProfileForm({
     event.preventDefault();
     const ok = await mutation.run(
       () =>
-        updateTeacherProfile(teacherId, {
+        adminApi.updateTeacherProfile(teacherId, {
           bio: bio.trim() || null,
           qualifications: qualifications.trim() || null,
           socialLinks: linesToLinks(links),

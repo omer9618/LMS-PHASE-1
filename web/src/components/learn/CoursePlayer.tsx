@@ -135,7 +135,7 @@ export function CoursePlayer({ courseId, client = learn }: CoursePlayerProps) {
           <Alert tone="info">This course has no lessons yet.</Alert>
         ) : (
           <>
-            <div className={styles.lessonHeader}>
+            <div className="cluster">
               <h2 id="lesson-title">{selected.title}</h2>
               {selected.state === 'COMPLETED' && <Badge tone="success">Completed</Badge>}
               {selected.isCheckpoint && <Badge tone="warning">Checkpoint</Badge>}

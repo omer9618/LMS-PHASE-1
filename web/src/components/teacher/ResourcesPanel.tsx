@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Alert, Button, Input } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { teacherApi } from '@/lib/api/teacher';
-import type { AuthoringLesson } from '@/lib/api/types';
+import type { AuthoringLesson } from '@/lib/api/schemas/teacher';
 import { formatBytes } from '@/lib/format';
 import styles from './Outline.module.css';
 import { RESOURCE_MAX_BYTES, resourceFile } from '@/lib/forms/teacher';
@@ -69,7 +69,7 @@ export function ResourcesPanel({
       ) : (
         <ul className={styles.files}>
           {lesson.resources.map((r) => (
-            <li key={r.id} className={styles.row}>
+            <li key={r.id} className="cluster">
               <span>{r.fileName}</span>
               <span className="muted">{formatBytes(r.fileSizeBytes)}</span>
               {editable && (

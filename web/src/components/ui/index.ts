@@ -20,6 +20,7 @@ export {
   type TextareaProps,
 } from './Field';
 export { Loadable } from './Loadable';
+export { ConfirmButton, MutationStatus, ReasonAction } from './Mutation';
 export { MarkSheet, type MarkPoint, type MarkSheetProps } from './MarkSheet';
 export { PageHeader, Section, SplitLayout, type PageHeaderProps, type SectionProps } from './Page';
 export { Pager, SimplePager } from './Pager';

@@ -3,15 +3,10 @@
 import { useState, type FormEvent } from 'react';
 import { MathText } from '@/components/learn/MathText';
 import { Badge, Button, Input, Section, Select, Textarea } from '@/components/ui';
-import {
-  questionForm,
-  QUIZ_LIMITS,
-  type QuestionInput,
-  type QuestionType,
-  type QuizQuestion,
-} from '@/lib/api/quiz-builder';
+import { type QuestionType, type QuizQuestion } from '@/lib/api/quiz-builder';
+import { questionForm, QUIZ_LIMITS, type QuestionInput } from '@/lib/forms/quiz';
 import { validateForm, type FieldErrors } from '@/lib/zod-form';
-import { ConfirmButton } from '../ConfirmButton';
+import { ConfirmButton } from '@/components/ui';
 import styles from './QuizBuilder.module.css';
 
 interface OptionValue {
@@ -281,7 +276,7 @@ export function QuestionEditor({
             )}
           </div>
           {!mcq && values.correctAnswer && (
-            <p className={styles.accepts}>
+            <p className="hint">
               Accepts <span className="mono">{values.correctAnswer}</span>
               {values.tolerance && values.tolerance !== '0' && (
                 <>

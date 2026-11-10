@@ -37,11 +37,6 @@
   min-width: 0;
 }
 
-.meta {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
 .progressRow {
   display: flex;
   flex-direction: column;

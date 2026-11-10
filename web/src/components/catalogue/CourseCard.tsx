@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Badge } from '@/components/ui';
-import type { CourseCard as CourseCardData } from '@/lib/api/types';
+import type { CourseCard as CourseCardData } from '@/lib/api/schemas/catalogue';
 import { PACING_LABELS } from '@/lib/format';
 import { formatPrice } from '@/lib/money';
 import styles from './Catalogue.module.css';
@@ -26,7 +26,7 @@ export function CourseCard({ course }: { course: CourseCardData }) {
           <span className="visually-hidden">Price: </span>
           {formatPrice(course)}
         </span>
-        <span className={styles.cardMeta}>{PACING_LABELS[course.progressionMode]}</span>
+        <span className="hint">{PACING_LABELS[course.progressionMode]}</span>
         {!course.isEnrollmentOpen && <Badge tone="warning">Enrollment closed</Badge>}
       </div>
     </article>

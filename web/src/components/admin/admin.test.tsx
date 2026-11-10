@@ -7,7 +7,7 @@ import { SessionProvider } from '@/lib/session';
 import { apiMock, resetMocks, router, setPathname } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';
 import { AdminShell, isCurrent } from './AdminShell';
-import { ReasonAction } from './kit';
+import { ReasonAction } from '@/components/ui';
 import { DashboardScreen, formatWait } from './screens/DashboardScreen';
 import { reviewChecklist } from './screens/CoursesScreen';
 import { sortRun, toRunRow, totalsOwed, type RunRow } from './screens/PayoutRunScreen';

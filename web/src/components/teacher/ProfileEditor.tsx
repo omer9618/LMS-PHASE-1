@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useMutation } from '@/lib/use-mutation';
 import { useState, type FormEvent } from 'react';
-import { Alert, Badge, Button, Input, PageHeader, Textarea } from '@/components/ui';
+import { Alert, Badge, Button, Input, MutationStatus, PageHeader, Textarea } from '@/components/ui';
 import { errorMessage, fieldErrors, isApiError } from '@/lib/api/errors';
 import {
   checkPhoto,
@@ -148,7 +149,7 @@ function PublishPanel({
           : 'Only you can see your profile. Publish it to show it on your courses.'}
       </p>
       {error && <Alert tone="danger">{error}</Alert>}
-      <div className={styles.actions}>
+      <div className="cluster">
         <Button
           variant={profile.isPublished ? 'secondary' : 'primary'}
           loading={busy}
@@ -364,22 +365,16 @@ function PhotoPanel({
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | undefined>();
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const mutation = useMutation();
+  const busy = mutation.pending;
   const [inputKey, setInputKey] = useState(0);
 
   async function run(action: () => Promise<TeacherProfile>) {
-    setBusy(true);
-    setError(null);
-    try {
+    await mutation.run(async () => {
       onChange(await action());
       setFile(null);
       setInputKey((k) => k + 1);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   return (
@@ -413,8 +408,8 @@ function PhotoPanel({
           setFileError(chosen ? checkPhoto(chosen) : undefined);
         }}
       />
-      {error && <Alert tone="danger">{error}</Alert>}
-      <div className={styles.actions}>
+      <MutationStatus mutation={mutation} />
+      <div className="cluster">
         <Button
           size="sm"
           variant="secondary"

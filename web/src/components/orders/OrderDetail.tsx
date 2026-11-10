@@ -11,7 +11,8 @@ import {
   type SubmittedProof,
 } from '@/lib/api/orders';
 import { formatMoney } from '@/lib/money';
-import { formatDateTime, humaniseGuidance, STATUS_TONES } from '@/lib/order-display';
+import { humaniseGuidance, STATUS_TONES } from '@/lib/order-display';
+import { formatDateTime } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { PaymentInstructions } from './PaymentInstructions';
 import { ProofForm } from './ProofForm';

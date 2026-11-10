@@ -15,20 +15,13 @@ import {
   Table,
   Textarea,
 } from '@/components/ui';
-import {
-  createAccountFromApplication,
-  getApplication,
-  getApplicationCv,
-  linkApplication,
-  listApplications,
-  reviewApplication,
-  type ApplicationStatus,
-  type TeacherApplication,
-} from '@/lib/api/admin';
+import { adminApi, type ApplicationStatus, type TeacherApplication } from '@/lib/api/admin';
 import { formatDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, useMutation } from '../kit';
+import { MutationStatus } from '@/components/ui';
+import { useMutation } from '@/lib/use-mutation';
+import { formatDateTime } from '@/lib/format';
 
 const LIMIT = 50;
 
@@ -42,7 +35,7 @@ export function ApplicationsScreen() {
     offset: 0,
   });
   const apps = useApi(`admin-apps:${JSON.stringify(query)}`, (signal) =>
-    listApplications({ ...query, limit: LIMIT }, signal),
+    adminApi.listApplications({ ...query, limit: LIMIT }, signal),
   );
   return (
     <>
@@ -111,7 +104,7 @@ export function ApplicationsScreen() {
 /** #20, #21: one application: CV, decision, and the teacher account it leads to. */
 export function ApplicationDetailScreen({ applicationId }: { applicationId: string }) {
   const app = useApi(`admin-app:${applicationId}`, (signal) =>
-    getApplication(applicationId, signal),
+    adminApi.getApplication(applicationId, signal),
   );
   const mutation = useMutation();
   const [notes, setNotes] = useState('');
@@ -132,7 +125,8 @@ export function ApplicationDetailScreen({ applicationId }: { applicationId: stri
           (to: 'UNDER_REVIEW' | 'REJECTED' | 'HIRED', success: string) => (e?: FormEvent) => {
             e?.preventDefault();
             void act(
-              () => reviewApplication(a.id, { status: to, notes: notes.trim() || undefined }),
+              () =>
+                adminApi.reviewApplication(a.id, { status: to, notes: notes.trim() || undefined }),
               success,
             );
           };
@@ -158,7 +152,7 @@ export function ApplicationDetailScreen({ applicationId }: { applicationId: stri
                     variant="secondary"
                     onClick={() =>
                       void mutation.run(async () => {
-                        const { url } = await getApplicationCv(a.id);
+                        const { url } = await adminApi.getApplicationCv(a.id);
                         setCvUrl(url);
                       })
                     }
@@ -231,7 +225,7 @@ export function ApplicationDetailScreen({ applicationId }: { applicationId: stri
                     size="sm"
                     onClick={() =>
                       void act(
-                        () => createAccountFromApplication(a.id),
+                        () => adminApi.createAccountFromApplication(a.id),
                         `Teacher account created for ${a.applicantEmail}.`,
                       )
                     }
@@ -243,7 +237,10 @@ export function ApplicationDetailScreen({ applicationId }: { applicationId: stri
                   className={styles.filters}
                   onSubmit={(e) => {
                     e.preventDefault();
-                    void act(() => linkApplication(a.id, linkUserId.trim()), 'Account linked.');
+                    void act(
+                      () => adminApi.linkApplication(a.id, linkUserId.trim()),
+                      'Account linked.',
+                    );
                   }}
                 >
                   <Input

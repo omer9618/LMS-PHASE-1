@@ -1,4 +1,4 @@
-import type { MismatchAction } from '@/lib/api/admin-money';
+import type { MismatchAction } from '@/lib/api/admin-finance';
 
 /**
  * #64, #66 on the screen: comparing what arrived in the bank with the order total, and which

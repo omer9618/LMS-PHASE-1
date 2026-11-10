@@ -1,11 +1,10 @@
 'use client';
 
 import { Alert } from '@/components/ui';
-import { api } from '@/lib/api/client';
+import { catalogueApi } from '@/lib/api/catalogue';
 import { errorMessage } from '@/lib/api/errors';
 import { useApi } from '@/lib/use-api';
 import styles from './Course.module.css';
-import * as catalogueSchema from '@/lib/api/schemas/catalogue';
 
 /**
  * Plays a free-preview lesson (the demo, #34). GET .../playback returns a short-lived signed
@@ -19,12 +18,7 @@ export function DemoPlayer({
   lesson: { id: string; title: string };
 }) {
   const playback = useApi(`playback:${courseId}:${lesson.id}`, (signal) =>
-    api.get(
-      `/courses/${courseId}/lessons/${lesson.id}/playback`,
-      catalogueSchema.playback,
-      undefined,
-      signal,
-    ),
+    catalogueApi.demoPlayback(courseId, lesson.id, signal),
   );
 
   return (

@@ -10,11 +10,6 @@
   padding: var(--space-4) var(--page-gutter) var(--space-12);
 }
 
-.breadcrumb {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
 .header {
   display: flex;
   flex-wrap: wrap;

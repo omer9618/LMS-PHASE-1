@@ -1,3 +1,4 @@
+import { validateForm } from '@/lib/zod-form';
 import { z } from 'zod';
 import { minorUnitExponent, parseMajorToMinor } from '@/lib/money';
 
@@ -30,4 +31,23 @@ export function proofForm(currency: string) {
         return minor;
       }),
   });
+}
+
+export interface ProofFormValues {
+  transactionId: string;
+  amount: string;
+}
+
+export type ProofFormResult =
+  | { ok: true; transactionId: string; amountClaimedMinor?: string }
+  | { ok: false; errors: Partial<Record<keyof ProofFormValues, string>> };
+
+/** Mirrors the API's proof rules (#58) for instant feedback; the API stays the authority. */
+export function validateProofForm(values: ProofFormValues, currency: string): ProofFormResult {
+  const checked = validateForm(proofForm(currency), values);
+  if (!checked.ok) return { ok: false, errors: checked.errors };
+  const { transactionId, amount } = checked.data;
+  return amount
+    ? { ok: true, transactionId, amountClaimedMinor: amount }
+    : { ok: true, transactionId };
 }

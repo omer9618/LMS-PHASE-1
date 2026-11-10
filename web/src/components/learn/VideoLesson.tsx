@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert } from '@/components/ui';
 import { errorMessage, isApiError } from '@/lib/api/errors';
 import type { LearnApi } from '@/lib/api/learn';
-import type { Playback } from '@/lib/api/types';
+import type { Playback } from '@/lib/api/schemas/catalogue';
 import { parsePlayerMessage, playerCommands, shouldReport } from '@/lib/player-events';
 import styles from './Player.module.css';
 
