@@ -8,9 +8,10 @@ import styles from '@/components/forms/Form.module.css';
 import { api } from '@/lib/api/client';
 import { errorMessage, fieldErrors } from '@/lib/api/errors';
 import { safeNextPath } from '@/lib/format';
+import { registrationForm } from '@/lib/forms/auth';
+import { PASSWORD_MIN_LENGTH } from '@/lib/forms/fields';
 import { useSession } from '@/lib/session';
-
-const PASSWORD_MIN_LENGTH = 10;
+import { validateForm } from '@/lib/zod-form';
 
 interface Values {
   fullName: string;
@@ -32,33 +33,15 @@ const EMPTY: Values = {
 
 /** The checks worth doing before a round trip; the API has the final say. */
 export function validateRegistration(values: Values): Record<string, string> {
-  const errors: Record<string, string> = {};
-  if (values.fullName.trim().length < 2) errors.fullName = 'Enter your full name';
-  if (!/^\S+@\S+\.\S+$/.test(values.email.trim())) errors.email = 'Enter a valid email address';
-  if (values.password.length < PASSWORD_MIN_LENGTH) {
-    errors.password = `Use at least ${PASSWORD_MIN_LENGTH} characters`;
-  }
-  if (values.guardianName.trim() && values.guardianName.trim().length < 2) {
-    errors.guardianName = 'Enter the guardian’s full name, or leave it empty';
-  }
-  if (values.guardianEmail.trim() && !/^\S+@\S+\.\S+$/.test(values.guardianEmail.trim())) {
-    errors.guardianEmail = 'Enter a valid email address, or leave it empty';
-  }
-  return errors;
+  const result = validateForm(registrationForm, values);
+  return result.ok ? {} : result.errors;
 }
 
 /** The request body: optional guardian fields are left out when empty (the API rejects ""). */
 export function registrationBody(values: Values): Record<string, string> {
-  const body: Record<string, string> = {
-    fullName: values.fullName.trim(),
-    email: values.email.trim(),
-    password: values.password,
-  };
-  for (const key of ['guardianName', 'guardianEmail', 'guardianPhone'] as const) {
-    const value = values[key].trim();
-    if (value) body[key] = value;
-  }
-  return body;
+  const result = validateForm(registrationForm, values);
+  if (!result.ok) throw new Error('registrationBody needs valid values');
+  return result.data;
 }
 
 /** Student registration (#11). Guardian details are optional (decided 2026-10-26). */

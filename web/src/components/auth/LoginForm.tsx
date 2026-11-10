@@ -10,6 +10,8 @@ import { errorMessage, fieldErrors, isApiError } from '@/lib/api/errors';
 import { safeNextPath } from '@/lib/format';
 import { needsMfaSetup, useSession } from '@/lib/session';
 import * as authSchema from '@/lib/api/schemas/auth';
+import { loginForm, mfaCodeForm } from '@/lib/forms/auth';
+import { validateForm } from '@/lib/zod-form';
 
 type Step = { kind: 'password' } | { kind: 'mfa'; challengeToken: string };
 
@@ -42,20 +44,15 @@ export function LoginForm() {
 
   async function submitPassword(event: FormEvent) {
     event.preventDefault();
-    const missing: Record<string, string> = {};
-    if (!email.trim()) missing.email = 'Enter your email address';
-    if (!password) missing.password = 'Enter your password';
-    setErrors(missing);
+    const checked = validateForm(loginForm, { email, password });
+    setErrors(checked.ok ? {} : checked.errors);
     setFormError(null);
     setNotice(null);
-    if (Object.keys(missing).length > 0) return;
+    if (!checked.ok) return;
 
     setSubmitting(true);
     try {
-      const result = await api.post('/auth/login', authSchema.loginResult, {
-        email: email.trim(),
-        password,
-      });
+      const result = await api.post('/auth/login', authSchema.loginResult, checked.data);
       if (result.mfaRequired) {
         setStep({ kind: 'mfa', challengeToken: result.challengeToken });
         setPassword('');
@@ -74,12 +71,9 @@ export function LoginForm() {
     event.preventDefault();
     const value = code.trim();
     setFormError(null);
-    if (!useRecovery && !/^\d{6}$/.test(value)) {
-      setErrors({ code: 'Enter the 6-digit code from your authenticator app' });
-      return;
-    }
-    if (useRecovery && value.length < 10) {
-      setErrors({ code: 'Enter one of your recovery codes' });
+    const checked = validateForm(mfaCodeForm(useRecovery), { code: value });
+    if (!checked.ok) {
+      setErrors(checked.errors);
       return;
     }
     setErrors({});

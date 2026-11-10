@@ -5,12 +5,10 @@ import { useState, type FormEvent } from 'react';
 import { Alert, Badge, Button, Input, Textarea } from '@/components/ui';
 import { errorMessage, fieldErrors, isApiError } from '@/lib/api/errors';
 import {
-  checkLinkUrl,
   checkPhoto,
   MAX_F2F_LOCATIONS,
   MAX_SOCIAL_LINKS,
   profileApi,
-  type F2fLocation,
   type ProfileUpdate,
   type SocialLink,
   type TeacherProfile,
@@ -18,6 +16,8 @@ import {
 import { formatDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import styles from './Teacher.module.css';
+import { profileForm } from '@/lib/forms/profile';
+import { validateForm } from '@/lib/zod-form';
 
 interface Draft {
   bio: string;
@@ -41,30 +41,24 @@ export function draftFrom(profile: TeacherProfile): Draft {
 
 /** Client checks, keyed like the API's issue paths (`socialLinks.0.url`). */
 export function validateDraft(draft: Draft): Record<string, string> {
-  const errors: Record<string, string> = {};
-  draft.links.forEach((link, i) => {
-    if (!link.label.trim()) errors[`socialLinks.${i}.label`] = 'Give the link a label';
-    const problem = checkLinkUrl(link.url);
-    if (problem) errors[`socialLinks.${i}.url`] = problem;
-  });
-  draft.locations.forEach((loc, i) => {
-    if (loc.city.trim().length < 2) errors[`f2fLocations.${i}.city`] = 'Enter the city';
-  });
-  return errors;
+  const result = validateForm(profileForm, toFormValues(draft));
+  return result.ok ? {} : result.errors;
 }
 
 /** The PUT body: the whole editable profile, empty text cleared, empty optional fields left out. */
 export function updateBody(draft: Draft): ProfileUpdate {
+  const result = validateForm(profileForm, toFormValues(draft));
+  if (!result.ok) throw new Error('updateBody needs a valid draft');
+  return result.data;
+}
+
+/** The draft uses short names for the form's boxes; the schema uses the API's. */
+function toFormValues(draft: Draft) {
   return {
-    bio: draft.bio.trim() || null,
-    qualifications: draft.qualifications.trim() || null,
-    socialLinks: draft.links.map((l) => ({ label: l.label.trim(), url: l.url.trim() })),
-    f2fLocations: draft.locations.map((l) => {
-      const location: F2fLocation = { city: l.city.trim() };
-      if (l.area.trim()) location.area = l.area.trim();
-      if (l.notes.trim()) location.notes = l.notes.trim();
-      return location;
-    }),
+    bio: draft.bio,
+    qualifications: draft.qualifications,
+    socialLinks: draft.links,
+    f2fLocations: draft.locations,
   };
 }
 

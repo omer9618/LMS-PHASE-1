@@ -1,6 +1,8 @@
 import type { BadgeTone } from '@/components/ui';
 import type { CartQuote, OrderStatus } from './api/orders';
-import { formatMoney, minorUnitExponent, parseMajorToMinor } from './money';
+import { proofForm } from './forms/orders';
+import { formatMoney } from './money';
+import { validateForm } from './zod-form';
 
 const MINOR_AMOUNT = /\b([A-Z]{3}) (-?\d+) \(minor units\)/g;
 const ISO_INSTANT = /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g;
@@ -92,22 +94,10 @@ export type ProofFormResult =
 
 /** Mirrors the API's proof rules (#58) for instant feedback; the API stays the authority. */
 export function validateProofForm(values: ProofFormValues, currency: string): ProofFormResult {
-  const errors: Partial<Record<keyof ProofFormValues, string>> = {};
-  const transactionId = values.transactionId.trim();
-  if (transactionId.length < 2) errors.transactionId = 'Enter the transaction ID from your bank';
-  else if (transactionId.length > 120) errors.transactionId = 'At most 120 characters';
-
-  let amountClaimedMinor: string | undefined;
-  if (values.amount.trim()) {
-    const minor = parseMajorToMinor(values.amount, minorUnitExponent(currency));
-    if (minor === null || /^0+$/.test(minor)) {
-      errors.amount = 'Enter the amount you transferred, such as 15000 or 15,000.50';
-    } else {
-      amountClaimedMinor = minor;
-    }
-  }
-  if (Object.keys(errors).length > 0) return { ok: false, errors };
-  return amountClaimedMinor
-    ? { ok: true, transactionId, amountClaimedMinor }
+  const checked = validateForm(proofForm(currency), values);
+  if (!checked.ok) return { ok: false, errors: checked.errors };
+  const { transactionId, amount } = checked.data;
+  return amount
+    ? { ok: true, transactionId, amountClaimedMinor: amount }
     : { ok: true, transactionId };
 }

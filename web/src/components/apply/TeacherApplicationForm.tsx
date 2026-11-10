@@ -7,25 +7,20 @@ import { Alert, Button, Input, Textarea } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
 import { api } from '@/lib/api/client';
 import { errorMessage, fieldErrors, isApiError } from '@/lib/api/errors';
+import { applicationFormData, teacherApplicationForm } from '@/lib/forms/apply';
+import { CV_ACCEPT, CV_MAX_BYTES } from '@/lib/forms/fields';
 import { formatBytes } from '@/lib/format';
+import { validateForm } from '@/lib/zod-form';
 
-/** Mirrors the API's CV upload policy (#19): PDF or Word, at most 5 MB. */
-export const CV_MAX_BYTES = 5 * 1024 * 1024;
-export const CV_ACCEPT =
-  '.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-const CV_EXTENSIONS = ['pdf', 'doc', 'docx'];
+export { CV_ACCEPT, CV_MAX_BYTES } from '@/lib/forms/fields';
 
 /** Checks the chosen CV before uploading; the API checks the real content again. */
 export function checkCv(file: File | null): string | undefined {
-  if (!file) return 'Attach your CV';
-  const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
-  if (!CV_EXTENSIONS.includes(extension)) return 'The CV must be a PDF or Word document';
-  if (file.size > CV_MAX_BYTES) {
-    return `The CV must be at most ${formatBytes(CV_MAX_BYTES)} (this one is ${formatBytes(file.size)})`;
-  }
-  if (file.size === 0) return 'This file is empty';
-  return undefined;
+  const result = validateForm(cvOnly, { cv: file });
+  return result.ok ? undefined : result.errors.cv;
 }
+
+const cvOnly = teacherApplicationForm.pick({ cv: true });
 
 interface Values {
   applicantName: string;
@@ -61,28 +56,16 @@ export function TeacherApplicationForm() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const invalid: Record<string, string> = {};
-    if (values.applicantName.trim().length < 2) invalid.applicantName = 'Enter your full name';
-    if (!/^\S+@\S+\.\S+$/.test(values.applicantEmail.trim())) {
-      invalid.applicantEmail = 'Enter a valid email address';
-    }
-    const cvError = checkCv(cv);
-    if (cvError) invalid.cv = cvError;
-    setErrors(invalid);
+    const checked = validateForm(teacherApplicationForm, { ...values, cv });
+    setErrors(checked.ok ? {} : checked.errors);
     setFormError(null);
-    if (Object.keys(invalid).length > 0) return;
+    if (!checked.ok) return;
     if (!captchaToken) {
       setFormError('Please complete the human check.');
       return;
     }
 
-    const form = new FormData();
-    form.append('applicantName', values.applicantName.trim());
-    form.append('applicantEmail', values.applicantEmail.trim());
-    if (values.applicantPhone.trim()) form.append('applicantPhone', values.applicantPhone.trim());
-    if (values.subjects.trim()) form.append('subjects', values.subjects.trim());
-    form.append('captchaToken', captchaToken);
-    form.append('cv', cv as File);
+    const form = applicationFormData(checked.data, captchaToken);
 
     setSubmitting(true);
     try {

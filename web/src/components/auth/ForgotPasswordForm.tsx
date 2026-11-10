@@ -6,6 +6,8 @@ import { Alert, Button, Input } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
 import { api } from '@/lib/api/client';
 import { errorMessage, fieldErrors } from '@/lib/api/errors';
+import { forgotPasswordForm } from '@/lib/forms/auth';
+import { validateForm } from '@/lib/zod-form';
 
 /** #13: request a reset link. The answer never reveals whether the account exists. */
 export function ForgotPasswordForm() {
@@ -17,12 +19,13 @@ export function ForgotPasswordForm() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const value = email.trim();
     setFormError(null);
-    if (!/^\S+@\S+\.\S+$/.test(value)) {
-      setError('Enter a valid email address');
+    const checked = validateForm(forgotPasswordForm, { email });
+    if (!checked.ok) {
+      setError(checked.errors.email);
       return;
     }
+    const value = checked.data.email;
     setError(undefined);
     setSubmitting(true);
     try {

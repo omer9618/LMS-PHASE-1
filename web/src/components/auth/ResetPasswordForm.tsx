@@ -8,8 +8,9 @@ import styles from '@/components/forms/Form.module.css';
 import { api } from '@/lib/api/client';
 import { errorMessage, fieldErrors, isApiError } from '@/lib/api/errors';
 import { useSession } from '@/lib/session';
-
-const PASSWORD_MIN_LENGTH = 10;
+import { resetPasswordForm } from '@/lib/forms/auth';
+import { PASSWORD_MIN_LENGTH } from '@/lib/forms/fields';
+import { validateForm } from '@/lib/zod-form';
 
 /**
  * #13 password reset, and #15 first password for staff accounts an admin created: the welcome
@@ -33,14 +34,10 @@ export function ResetPasswordForm() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const invalid: Record<string, string> = {};
-    if (password.length < PASSWORD_MIN_LENGTH) {
-      invalid.password = `Use at least ${PASSWORD_MIN_LENGTH} characters`;
-    }
-    if (confirm !== password) invalid.confirm = 'The passwords do not match';
-    setErrors(invalid);
+    const checked = validateForm(resetPasswordForm, { password, confirm });
+    setErrors(checked.ok ? {} : checked.errors);
     setFormError(null);
-    if (Object.keys(invalid).length > 0 || !token) return;
+    if (!checked.ok || !token) return;
 
     setSubmitting(true);
     try {
