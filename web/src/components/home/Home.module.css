@@ -1,0 +1,221 @@
+/* The landing page. Sections are full-width bands; .inner keeps their content on the page grid. */
+
+.inner {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 0 var(--page-gutter);
+}
+
+.hero {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.heroInner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8) var(--space-12);
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: var(--space-10) var(--page-gutter) var(--space-12);
+}
+
+.heroText {
+  flex: 1 1 22rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.showcase {
+  flex: 1 1 22rem;
+  min-width: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--color-text);
+  box-shadow: var(--shadow-lg);
+}
+
+.pill {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.display {
+  max-width: 18ch;
+  font-size: clamp(2rem, 4.2vw, 3rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+/* The highlighter under the emphasised words: the system's one use of the yellow on text. */
+.display em {
+  font-style: italic;
+  background-image: linear-gradient(transparent 62%, var(--color-highlight) 62%);
+}
+
+.lead {
+  max-width: 34rem;
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.checks li::before {
+  content: '✓ ';
+  font-weight: var(--weight-bold);
+  color: var(--color-success);
+}
+
+.section,
+.sectionAlt,
+.teach {
+  padding: var(--space-12) 0;
+}
+
+.sectionAlt {
+  background: var(--color-surface);
+  border-block: 1px solid var(--color-border);
+}
+
+.sectionHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 40rem;
+  margin-bottom: var(--space-6);
+}
+
+.sectionTitle {
+  font-size: var(--text-2xl);
+}
+
+.sectionLead {
+  color: var(--color-text-muted);
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step,
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-md);
+}
+
+.stepNumber {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  color: var(--color-primary);
+}
+
+.reference {
+  align-self: flex-start;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-subtle);
+  color: var(--color-warning);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-4);
+}
+
+.teach {
+  background: var(--color-text);
+  color: var(--color-nav-text);
+}
+
+.teach .inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  align-items: center;
+}
+
+.teachText {
+  flex: 1 1 22rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.teachEyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-nav-ok-text);
+}
+
+.teachTitle {
+  color: var(--color-text-inverse);
+  font-size: var(--text-2xl);
+}
+
+.teachFacts {
+  flex: 1 1 18rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.teachFacts dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-text-inverse);
+}
+
+.teachFacts dd {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+}

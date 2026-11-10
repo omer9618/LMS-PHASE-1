@@ -1,6 +1,12 @@
-import { redirect } from 'next/navigation';
+import type { Metadata } from 'next';
+import { Home } from '@/components/home/Home';
 
-/** The catalogue is the front door until a landing page is designed. */
+export const metadata: Metadata = {
+  title: { absolute: 'LMS · Cambridge and Edexcel courses' },
+  description:
+    'Courses from independent teachers for Cambridge and Edexcel students. Free previews, bank-transfer payment, timed quizzes.',
+};
+
 export default function HomePage() {
-  redirect('/courses');
+  return <Home />;
 }

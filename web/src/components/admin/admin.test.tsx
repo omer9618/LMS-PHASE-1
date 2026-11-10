@@ -9,6 +9,8 @@ import { renderWithSession, STUDENT } from '@/test/render';
 import { AdminShell, isCurrent } from './AdminShell';
 import { ReasonAction } from './kit';
 import { DashboardScreen, formatWait } from './screens/DashboardScreen';
+import { reviewChecklist } from './screens/CoursesScreen';
+import { sortRun, toRunRow, totalsOwed, type RunRow } from './screens/PayoutRunScreen';
 import { DecisionPanel, queueFlags } from './screens/VerificationScreen';
 import { parseSettingInput } from './screens/SettingsScreen';
 import { dayBoundary } from './screens/AuditScreen';
@@ -324,5 +326,104 @@ describe('queueFlags', () => {
       'Txn ID used before',
       'Past turnaround',
     ]);
+  });
+});
+
+describe('payout run', () => {
+  const balance = (currency: string, balanceMinor: string) => ({
+    currency,
+    balanceMinor,
+    earningsMinor: balanceMinor,
+    refundsMinor: '0',
+    payoutsMinor: '0',
+    adjustmentsMinor: '0',
+    entryCount: 1,
+  });
+  const teacher = (id: string, name: string) => ({
+    id,
+    email: `${id}@example.com`,
+    fullName: name,
+    isEmailVerified: true,
+    status: 'ACTIVE' as const,
+    roles: ['TEACHER' as const],
+    mfaEnabled: false,
+    guardianName: null,
+    guardianEmail: null,
+    guardianPhone: null,
+    createdAt: '2026-11-01T00:00:00.000Z',
+    lastLoginAt: null,
+  });
+  const statement = (
+    id: string,
+    name: string,
+    balances: ReturnType<typeof balance>[],
+    payouts = [],
+  ) =>
+    toRunRow({
+      teacher: teacher(id, name),
+      balances,
+      sales: {
+        pending: { items: [], totalsByCurrency: [] },
+        confirmed: { items: [], totalsByCurrency: [] },
+      },
+      refunds: { count: 0, items: [] },
+      adjustments: { count: 0, items: [] },
+      payouts: { count: payouts.length, items: payouts },
+      ledger: { count: 0, items: [] },
+    });
+
+  it('marks who is due, who has a concern, and who is clear', () => {
+    expect(statement('t-1', 'Sana', [balance('PKR', '4896000')]).status).toBe('DUE');
+    expect(statement('t-2', 'Danish', [balance('PKR', '0')]).status).toBe('CLEAR');
+    expect(statement('t-3', 'Noor', []).status).toBe('CLEAR');
+    const disputed = statement(
+      't-4',
+      'Bilal',
+      [balance('PKR', '1280000')],
+      [{ status: 'DISPUTED', transferDate: '2026-11-01' } as never],
+    );
+    expect(disputed.status).toBe('DISPUTED');
+  });
+
+  it('sorts the most owed first and totals exactly per currency', () => {
+    const rows: RunRow[] = [
+      statement('a', 'A', [balance('PKR', '100')]),
+      statement('b', 'B', [balance('PKR', '9007199254740993')]),
+      statement('c', 'C', [balance('PKR', '-500'), balance('USD', '250')]),
+    ];
+    expect(sortRun(rows).map((r) => r.teacherId)).toEqual(['b', 'c', 'a']);
+    expect(totalsOwed(rows)).toEqual([
+      { currency: 'PKR', minor: '9007199254741093' },
+      { currency: 'USD', minor: '250' },
+    ]);
+  });
+});
+
+describe('course review checklist', () => {
+  const lesson = (type: string, video: 'READY' | 'PROCESSING' | null, preview: boolean) => ({
+    id: `l-${type}-${String(video)}-${String(preview)}`,
+    sectionId: 's-1',
+    title: 'L',
+    type,
+    orderIndex: 0,
+    bodyText: null,
+    isFreePreview: preview,
+    videoAsset: video ? { id: 'v-1', provider: 'BUNNY', status: video, durationSeconds: 60 } : null,
+    resources: [],
+  });
+  const outline = (lessons: ReturnType<typeof lesson>[]) =>
+    ({
+      courseId: 'c-1',
+      sections: [{ id: 's-1', courseId: 'c-1', title: 'S', orderIndex: 0, lessons }],
+    }) as never;
+
+  it('passes a course with a ready preview video', () => {
+    const items = reviewChecklist(outline([lesson('VIDEO', 'READY', true)]));
+    expect(items.every((i) => i.done)).toBe(true);
+  });
+
+  it('flags a video that is still processing', () => {
+    const items = reviewChecklist(outline([lesson('VIDEO', 'PROCESSING', true)]));
+    expect(items.find((i) => i.label === 'Every video is ready to play')?.done).toBe(false);
   });
 });

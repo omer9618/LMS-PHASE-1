@@ -66,12 +66,20 @@ A visual check of every route at 380px and 1440px, an axe accessibility pass, an
 
 ## Screen status
 
-| Screen                                 | State                                                                                      |
-| -------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Teacher: My courses, Earnings          | Rebuilt to the canvas layout (status tiles, next-step column; balance tiles, split layout) |
-| Teacher: Quiz builder                  | New: `/teacher/courses/:id/quiz/:lessonId`, forms validated with zod before sending        |
-| Student: My learning                   | Rebuilt (progress tiles)                                                                   |
-| Admin: Dashboard, Payment verification | Rebuilt (queue tiles with actions; queue table beside the review panel)                    |
-| Everything else                        | Takes the new tokens and shared components; dedicated layouts still to do                  |
+All planned screens are built.
 
-Still to do: Home landing page (the app redirects to the catalogue today), catalogue and course detail layouts, admin course review and payout run, teacher content editor layout, and moving the older forms (login, register, teacher application, course details) onto `validateForm` with zod schemas.
+| Screen                                        | State                                                                                           |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Home (`/`)                                    | New landing page: hero with mark scheme, how buying works, practice, teach with us; site footer |
+| Catalogue, course detail                      | Restyled: graph-paper course header, paper cards, mono codes and prices                         |
+| Student: My learning                          | Progress tiles                                                                                  |
+| Teacher: My courses, Earnings, Content editor | Status tiles and next step; balance tiles and split layout; sand section heads                  |
+| Teacher: Quiz builder                         | New: `/teacher/courses/:id/quiz/:lessonId`                                                      |
+| Admin: Dashboard, Payment verification        | Queue tiles with actions; queue table beside the review panel                                   |
+| Admin: Course review                          | Checklist, content and details beside the decision and pricing panel                            |
+| Admin: Payout run                             | New: `/admin/payouts`, who is owed what, linking to each teacher's statement                    |
+| Everything else                               | Takes the tokens and shared components                                                          |
+
+Forms validated with zod (`lib/forms/`): sign in, MFA code, registration, password reset, teacher application, course details, payment proof, teacher profile, quiz rules and questions. Admin reason dialogs and settings keep their own small checks.
+
+The payout run loads each teacher's statement because the API has no single "all balances" route; add one if the teacher count grows past a few dozen.

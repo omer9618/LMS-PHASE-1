@@ -11,6 +11,8 @@ import type { CourseDetailsInput } from '@/lib/api/teacher';
 import type { Pacing, TeacherCourse } from '@/lib/api/types';
 import { PACING_HINTS, PACING_LABELS } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
+import { courseDetailsForm } from '@/lib/forms/course';
+import { validateForm } from '@/lib/zod-form';
 import styles from './Teacher.module.css';
 
 export interface DetailsValues {
@@ -36,12 +38,8 @@ export function initialValues(course?: TeacherCourse): DetailsValues {
 }
 
 export function validateDetails(values: DetailsValues): Record<string, string> {
-  const errors: Record<string, string> = {};
-  if (!values.title.trim()) errors.title = 'Give the course a title';
-  if (!values.boardId) errors.boardId = 'Choose an exam board';
-  if (!values.levelId) errors.levelId = 'Choose a level';
-  if (!values.subjectId) errors.subjectId = 'Choose a subject';
-  return errors;
+  const result = validateForm(courseDetailsForm, values);
+  return result.ok ? {} : result.errors;
 }
 
 /**
