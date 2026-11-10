@@ -2,6 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
+import { z } from 'zod';
 import { Button, Input, Loadable, PageHeader, Table } from '@/components/ui';
 import { searchAuditLog, type AuditEntry, type AuditQuery } from '@/lib/api/admin';
 import { useApi } from '@/lib/use-api';
@@ -12,7 +13,7 @@ const LIMIT = 50;
 
 /** Date input (YYYY-MM-DD) → the start or end of that day in the viewer's time zone, as ISO. */
 export function dayBoundary(day: string, end: boolean): string | undefined {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return undefined;
+  if (!z.iso.date().safeParse(day).success) return undefined;
   const date = new Date(`${day}T${end ? '23:59:59.999' : '00:00:00.000'}`);
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }

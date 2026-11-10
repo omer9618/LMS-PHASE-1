@@ -571,9 +571,13 @@ describe('Earnings', () => {
     await userEvent.type(await screen.findByLabelText('Raise a concern'), 'One sale is missing.');
     await userEvent.click(screen.getByRole('button', { name: 'Send concern' }));
     await waitFor(() =>
-      expect(apiMock.post).toHaveBeenCalledWith('/teacher/payouts/p-1/concerns', {
-        reason: 'One sale is missing.',
-      }),
+      expect(apiMock.post).toHaveBeenCalledWith(
+        '/teacher/payouts/p-1/concerns',
+        expect.anything(),
+        {
+          reason: 'One sale is missing.',
+        },
+      ),
     );
   });
 });

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { Alert, Button, Checkbox, Input } from '@/components/ui';
 import { errorMessage, isApiError } from '@/lib/api/errors';
-import { percentToBps, submitChecklist, teacherApi } from '@/lib/api/teacher';
+import { submitChecklist, teacherApi } from '@/lib/api/teacher';
 import type { TeacherCourse } from '@/lib/api/types';
 import { canArchive, canSubmit, detailsEditable, detailsLockReason } from '@/lib/course-status';
 import { formatDate, PACING_LABELS } from '@/lib/format';
@@ -15,6 +15,8 @@ import { ConfirmButton } from './ConfirmButton';
 import { CourseDetailsForm } from './CourseDetailsForm';
 import { useCourseWorkspace } from './CourseWorkspace';
 import styles from './Teacher.module.css';
+import { proposalForm } from '@/lib/forms/admin';
+import { validateForm } from '@/lib/zod-form';
 
 /** What the API's `missing` codes (COURSE_INCOMPLETE, #34) mean, in the teacher's words. */
 export const MISSING_LABELS: Record<string, string> = {
@@ -161,15 +163,12 @@ function SubmitPanel({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    let bps: number | undefined;
-    if (proposal.trim()) {
-      const parsed = percentToBps(proposal);
-      if (parsed === null) {
-        setProposalError('Enter a percentage between 0 and 100, e.g. 20 or 17.5');
-        return;
-      }
-      bps = parsed;
+    const checked = validateForm(proposalForm, { proposal });
+    if (!checked.ok) {
+      setProposalError(checked.errors.proposal);
+      return;
     }
+    const bps = checked.data.proposal;
     setProposalError(undefined);
     setProblems([]);
     setSubmitting(true);

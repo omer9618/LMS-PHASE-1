@@ -6,7 +6,7 @@ export type QueryValue = string | number | boolean | null | undefined;
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   /** Checks the response's `data`; see ApiClient. */
-  schema?: z.ZodType;
+  schema: z.ZodType;
   /** Sent as JSON, or as multipart when it is a FormData (file uploads). */
   body?: unknown;
   /** Undefined, null and empty-string values are left out. */
@@ -24,51 +24,28 @@ export interface ApiClientOptions {
 export type Schema = z.ZodType;
 
 /**
- * Every verb has two forms. Pass a zod schema (from `./schemas`) as the second argument and the
- * response is checked against it: the result is typed from the schema, and a response that does
- * not match rejects with `ApiError('BAD_RESPONSE')` instead of rendering missing data. The form
- * without a schema is unchecked (`T` is trusted); it remains only for areas not yet moved to
- * schemas (docs/UI_PLAN.md, phase 1).
+ * Every verb takes the zod schema of its response (from `./schemas`) as the second argument. The
+ * result is typed from the schema, and a response that does not match rejects with
+ * `ApiError('BAD_RESPONSE')` instead of rendering missing data. There is no unchecked form: a
+ * call whose body nobody reads passes `ignored`, which says so.
  */
 export interface ApiClient {
   request<S extends Schema>(
     path: string,
     options: RequestOptions & { schema: S },
   ): Promise<z.output<S>>;
-  request<T>(path: string, options?: RequestOptions): Promise<T>;
-
   get<S extends Schema>(
     path: string,
     schema: S,
     query?: Record<string, QueryValue>,
     signal?: AbortSignal,
   ): Promise<z.output<S>>;
-  get<T>(path: string, query?: Record<string, QueryValue>, signal?: AbortSignal): Promise<T>;
-
   post<S extends Schema>(path: string, schema: S, body?: unknown): Promise<z.output<S>>;
-  post<T>(path: string, body?: unknown): Promise<T>;
-
   patch<S extends Schema>(path: string, schema: S, body: unknown): Promise<z.output<S>>;
-  patch<T>(path: string, body: unknown): Promise<T>;
-
   put<S extends Schema>(path: string, schema: S, body: unknown): Promise<z.output<S>>;
-  put<T>(path: string, body: unknown): Promise<T>;
-
   delete<S extends Schema>(path: string, schema: S): Promise<z.output<S>>;
-  delete<T>(path: string): Promise<T>;
-
   /** Multipart POST; the browser sets the boundary. */
   postForm<S extends Schema>(path: string, schema: S, form: FormData): Promise<z.output<S>>;
-  postForm<T>(path: string, form: FormData): Promise<T>;
-}
-
-/** Tells a schema argument from a body or query object. */
-export function isSchema(value: unknown): value is Schema {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { safeParse?: unknown }).safeParse === 'function'
-  );
 }
 
 export function buildUrl(
@@ -106,7 +83,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   const baseUrl = options.baseUrl ?? '/api';
   const doFetch = options.fetchImpl ?? ((input, init) => fetch(input, init));
 
-  async function request(path: string, opts: RequestOptions = {}): Promise<unknown> {
+  async function request(path: string, opts: RequestOptions): Promise<unknown> {
     const method = opts.method ?? (opts.body === undefined ? 'GET' : 'POST');
     const headers: Record<string, string> = { accept: 'application/json' };
     const isForm = typeof FormData !== 'undefined' && opts.body instanceof FormData;
@@ -144,7 +121,6 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       });
     }
     if (payload.success) {
-      if (!opts.schema) return payload.data;
       const parsed = opts.schema.safeParse(payload.data);
       if (parsed.success) return parsed.data;
       // The API and the app disagree about a shape: fail loudly, with the details for debugging.
@@ -164,44 +140,21 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     );
   }
 
-  // Each verb: (path, schema, ...rest) when the second argument is a schema, else unchecked.
-  type Args = unknown[];
-  const split = (args: Args): [Schema | undefined, Args] =>
-    isSchema(args[0]) ? [args[0], args.slice(1)] : [undefined, args];
-
+  // `request` is untyped inside; the ApiClient interface types each verb from its schema.
   const client = {
-    request: (path: string, options?: RequestOptions) => request(path, options),
-    get(path: string, ...args: Args) {
-      const [schema, [query, signal]] = split(args);
-      return request(path, {
-        method: 'GET',
-        schema,
-        query: query as Record<string, QueryValue> | undefined,
-        signal: signal as AbortSignal | undefined,
-      });
-    },
-    post(path: string, ...args: Args) {
-      const [schema, [body]] = split(args);
-      return request(path, { method: 'POST', schema, body: body ?? {} });
-    },
-    patch(path: string, ...args: Args) {
-      const [schema, [body]] = split(args);
-      return request(path, { method: 'PATCH', schema, body });
-    },
-    put(path: string, ...args: Args) {
-      const [schema, [body]] = split(args);
-      return request(path, { method: 'PUT', schema, body });
-    },
-    delete(path: string, ...args: Args) {
-      const [schema] = split(args);
-      return request(path, { method: 'DELETE', schema });
-    },
-    postForm(path: string, ...args: Args) {
-      const [schema, [form]] = split(args);
-      return request(path, { method: 'POST', schema, body: form });
-    },
+    request: (path: string, options: RequestOptions) => request(path, options),
+    get: (path: string, schema: Schema, query?: Record<string, QueryValue>, signal?: AbortSignal) =>
+      request(path, { method: 'GET', schema, query, signal }),
+    post: (path: string, schema: Schema, body?: unknown) =>
+      request(path, { method: 'POST', schema, body: body ?? {} }),
+    patch: (path: string, schema: Schema, body: unknown) =>
+      request(path, { method: 'PATCH', schema, body }),
+    put: (path: string, schema: Schema, body: unknown) =>
+      request(path, { method: 'PUT', schema, body }),
+    delete: (path: string, schema: Schema) => request(path, { method: 'DELETE', schema }),
+    postForm: (path: string, schema: Schema, form: FormData) =>
+      request(path, { method: 'POST', schema, body: form }),
   };
-  // The overloads in ApiClient describe these variadic implementations.
   return client as ApiClient;
 }
 

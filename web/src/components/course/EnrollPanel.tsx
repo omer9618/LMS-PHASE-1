@@ -11,6 +11,7 @@ import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import styles from './Course.module.css';
 import * as enrollmentSchema from '@/lib/api/schemas/enrollment';
+import { ignored } from '@/lib/api/schemas/common';
 
 type Enroll = 'idle' | 'enrolling' | 'enrolled' | { error: string };
 
@@ -30,7 +31,7 @@ export function EnrollPanel({ course }: { course: CourseDetail }) {
   async function enrollFree() {
     setEnroll('enrolling');
     try {
-      await api.post(`/courses/${course.id}/enroll`);
+      await api.post(`/courses/${course.id}/enroll`, ignored);
       setEnroll('enrolled');
     } catch (error) {
       setEnroll({ error: errorMessage(error) });

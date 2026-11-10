@@ -7,18 +7,11 @@ import { teacherApi } from '@/lib/api/teacher';
 import type { AuthoringLesson } from '@/lib/api/types';
 import { formatBytes } from '@/lib/format';
 import styles from './Outline.module.css';
-
-/** Mirrors the API's lesson resource policy (#38): PDF, at most 25 MB. */
-export const RESOURCE_MAX_BYTES = 25 * 1024 * 1024;
+import { RESOURCE_MAX_BYTES, resourceFile } from '@/lib/forms/teacher';
 
 export function checkResource(file: File | null): string | undefined {
-  if (!file) return 'Choose a PDF file';
-  if (!/\.pdf$/i.test(file.name)) return 'Only PDF files can be attached';
-  if (file.size === 0) return 'This file is empty';
-  if (file.size > RESOURCE_MAX_BYTES) {
-    return `The file must be at most ${formatBytes(RESOURCE_MAX_BYTES)} (this one is ${formatBytes(file.size)})`;
-  }
-  return undefined;
+  const result = resourceFile.safeParse(file);
+  return result.success ? undefined : result.error.issues[0]?.message;
 }
 
 /** #38: PDF files attached to a lesson (downloads are enrollment-gated, #39). */

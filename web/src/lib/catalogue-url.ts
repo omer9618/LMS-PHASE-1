@@ -1,5 +1,6 @@
 import type { QueryValue } from './api/client';
 import type { Pacing } from './api/types';
+import { z } from 'zod';
 
 /**
  * #42: the catalogue's filter state lives in the URL, so a listing can be shared, bookmarked and
@@ -32,8 +33,6 @@ export interface CatalogueFilters {
 
 export const EMPTY_FILTERS: CatalogueFilters = { freeOnly: false, sort: DEFAULT_SORT, page: 1 };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MINOR = /^\d{1,18}$/;
 /** The API's offset ceiling (10,000) divided by the page size. */
 const MAX_PAGE = Math.floor(10_000 / PAGE_SIZE) + 1;
 
@@ -41,41 +40,53 @@ interface ParamsLike {
   get(name: string): string | null;
 }
 
-function pick<T>(
-  raw: string | null,
-  valid: (v: string) => boolean,
-  map: (v: string) => T,
-): T | undefined {
-  return raw !== null && valid(raw) ? map(raw) : undefined;
-}
+/** A bad value for any filter becomes "not set", so a stale or hand-edited link still works. */
+const optional = <T extends z.ZodType>(schema: T) => schema.optional().catch(undefined);
+
+const catalogueParams = z.object({
+  q: z
+    .string()
+    .trim()
+    .min(2)
+    .transform((v) => v.slice(0, 100))
+    .optional()
+    .catch(undefined),
+  subjectId: optional(z.guid()),
+  boardId: optional(z.guid()),
+  levelId: optional(z.guid()),
+  pacing: optional(z.enum(PACINGS)),
+  free: z.string().optional(),
+  minPriceMinor: optional(z.string().regex(/^\d{1,18}$/)),
+  maxPriceMinor: optional(z.string().regex(/^\d{1,18}$/)),
+  sort: z.enum(SORTS).catch(DEFAULT_SORT),
+  page: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .transform((n) => Math.min(n, MAX_PAGE))
+    .catch(1),
+});
 
 /**
  * Reads filters from the URL. Anything the API would reject (a hand-edited or stale link) is
  * dropped rather than shown as an error, so a bad link still lands on a working listing.
  */
 export function parseCatalogueParams(params: ParamsLike): CatalogueFilters {
-  const q = params.get('q')?.trim();
-  const page = Number.parseInt(params.get('page') ?? '', 10);
+  const raw = Object.fromEntries(
+    Object.keys(catalogueParams.shape).map((key) => [key, params.get(key) ?? undefined]),
+  );
+  const parsed = catalogueParams.parse(raw);
   return {
-    q: q && q.length >= 2 ? q.slice(0, 100) : undefined,
-    subjectId: pick(params.get('subjectId'), (v) => UUID.test(v), String),
-    boardId: pick(params.get('boardId'), (v) => UUID.test(v), String),
-    levelId: pick(params.get('levelId'), (v) => UUID.test(v), String),
-    pacing: pick(
-      params.get('pacing'),
-      (v) => (PACINGS as string[]).includes(v),
-      (v) => v as Pacing,
-    ),
-    freeOnly: params.get('free') === 'true',
-    minPriceMinor: pick(params.get('minPriceMinor'), (v) => MINOR.test(v), String),
-    maxPriceMinor: pick(params.get('maxPriceMinor'), (v) => MINOR.test(v), String),
-    sort:
-      pick(
-        params.get('sort'),
-        (v) => (SORTS as readonly string[]).includes(v),
-        (v) => v as Sort,
-      ) ?? DEFAULT_SORT,
-    page: Number.isFinite(page) && page >= 1 ? Math.min(page, MAX_PAGE) : 1,
+    q: parsed.q,
+    subjectId: parsed.subjectId,
+    boardId: parsed.boardId,
+    levelId: parsed.levelId,
+    pacing: parsed.pacing,
+    freeOnly: parsed.free === 'true',
+    minPriceMinor: parsed.minPriceMinor,
+    maxPriceMinor: parsed.maxPriceMinor,
+    sort: parsed.sort,
+    page: parsed.page,
   };
 }
 

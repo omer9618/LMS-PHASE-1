@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, type FormEvent } from 'react';
+import { type FormEvent } from 'react';
 import {
   Alert,
   Button,
@@ -16,13 +16,15 @@ import {
   Textarea,
 } from '@/components/ui';
 import { getOrder, recordRefund, type AdminOrder } from '@/lib/api/admin-money';
-import { formatBps, parsePositiveMajorToMinor, todayIso } from '@/lib/admin/format';
+import { formatBps, todayIso } from '@/lib/admin/format';
 import { minorToMajorInput, minorUnitExponent } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
 import { formatDateTime, MutationStatus, useMutation } from '../kit';
 import { DecisionPanel, OrderLookup, ProofList } from './VerificationScreen';
 import { humanize } from '@/lib/format';
+import { refundForm } from '@/lib/forms/admin';
+import { useZodForm } from '@/lib/use-zod-form';
 
 /** Orders are reached from the verification queue, statements, or by ID. */
 export function OrdersScreen() {
@@ -174,29 +176,26 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
 
 /** #82: record a refund already paid back to the student. Revokes access and debits teachers. */
 function RefundForm({ order, onRefunded }: { order: AdminOrder; onRefunded: () => void }) {
-  const exponent = minorUnitExponent(order.currency);
-  const [amount, setAmount] = useState(minorToMajorInput(order.totalMinor, exponent));
-  const [transferDate, setTransferDate] = useState(todayIso());
-  const [transactionId, setTransactionId] = useState('');
-  const [reason, setReason] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const form = useZodForm(refundForm(order.currency), {
+    amount: minorToMajorInput(order.totalMinor, minorUnitExponent(order.currency)),
+    currency: order.currency,
+    transferDate: todayIso(),
+    transactionId: '',
+    reason: '',
+  });
   const mutation = useMutation();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const amountMinor = parsePositiveMajorToMinor(amount, order.currency);
-    if (!amountMinor) {
-      setError('Enter the amount refunded, above zero.');
-      return;
-    }
-    setError(null);
+    const body = form.check();
+    if (!body) return;
     const ok = await mutation.run(
       () =>
         recordRefund(order.id, {
-          amountMinor,
-          transferDate,
-          transactionId: transactionId.trim(),
-          reason: reason.trim(),
+          amountMinor: body.amountMinor,
+          transferDate: body.transferDate,
+          transactionId: body.transactionId,
+          reason: body.reason,
         }),
       'Refund recorded. Access was revoked and the teachers were debited.',
     );
@@ -209,36 +208,17 @@ function RefundForm({ order, onRefunded }: { order: AdminOrder; onRefunded: () =
         Record a refund once the money has been sent back. The student loses access to every course
         in the order.
       </p>
-      <form className={styles.form} onSubmit={submit}>
+      <form className={styles.form} onSubmit={submit} noValidate>
         <div className={styles.filters}>
           <Input
             label={`Amount refunded (${order.currency})`}
             inputMode="decimal"
-            value={amount}
-            error={error}
-            onChange={(e) => setAmount(e.target.value)}
+            {...form.bind('amount')}
           />
-          <Input
-            label="Transfer date"
-            type="date"
-            required
-            value={transferDate}
-            onChange={(e) => setTransferDate(e.target.value)}
-          />
-          <Input
-            label="Bank transaction ID"
-            required
-            value={transactionId}
-            onChange={(e) => setTransactionId(e.target.value)}
-          />
+          <Input label="Transfer date" type="date" required {...form.bind('transferDate')} />
+          <Input label="Bank transaction ID" required {...form.bind('transactionId')} />
         </div>
-        <Textarea
-          label="Reason"
-          required
-          rows={2}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-        />
+        <Textarea label="Reason" required rows={2} {...form.bind('reason')} />
         <MutationStatus mutation={mutation} />
         <div className={styles.actions}>
           <Button type="submit" size="sm" variant="danger" loading={mutation.pending}>

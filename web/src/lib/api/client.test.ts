@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import { ignored } from './schemas/common';
 import { buildUrl, createApiClient } from './client';
 import { ApiError, errorMessage, fieldErrors, isApiError } from './errors';
 
@@ -64,11 +65,6 @@ describe('createApiClient with a schema', () => {
     await client.post('/things', thing, { name: 'n' });
     expect(fetchImpl.mock.calls[1]![1]!.body).toBe(JSON.stringify({ name: 'n' }));
   });
-
-  it('still accepts calls without a schema (areas not moved yet)', async () => {
-    const { client } = clientReturning(jsonResponse(200, { success: true, data: { any: 1 } }));
-    await expect(client.post<{ any: number }>('/x', { body: 1 })).resolves.toEqual({ any: 1 });
-  });
 });
 
 describe('buildUrl', () => {
@@ -90,7 +86,9 @@ describe('createApiClient', () => {
     const { client, fetchImpl } = clientReturning(
       jsonResponse(200, { success: true, data: { id: 'u1' } }),
     );
-    await expect(client.get<{ id: string }>('/auth/me')).resolves.toEqual({ id: 'u1' });
+    await expect(client.get('/auth/me', z.object({ id: z.string() }))).resolves.toEqual({
+      id: 'u1',
+    });
     const [url, init] = fetchImpl.mock.calls[0]!;
     expect(url).toBe('/api/auth/me');
     expect(init?.method).toBe('GET');
@@ -100,12 +98,12 @@ describe('createApiClient', () => {
 
   it('resolves null data (e.g. logout)', async () => {
     const { client } = clientReturning(jsonResponse(200, { success: true, data: null }));
-    await expect(client.post('/auth/logout')).resolves.toBeNull();
+    await expect(client.post('/auth/logout', ignored)).resolves.toBeNull();
   });
 
   it('sends JSON bodies on POST', async () => {
     const { client, fetchImpl } = clientReturning(jsonResponse(200, { success: true, data: {} }));
-    await client.post('/auth/login', { email: 'a@b.c', password: 'x' });
+    await client.post('/auth/login', ignored, { email: 'a@b.c', password: 'x' });
     const [, init] = fetchImpl.mock.calls[0]!;
     expect(init?.method).toBe('POST');
     expect(init?.body).toBe(JSON.stringify({ email: 'a@b.c', password: 'x' }));
@@ -116,7 +114,7 @@ describe('createApiClient', () => {
     const { client, fetchImpl } = clientReturning(jsonResponse(200, { success: true, data: {} }));
     const form = new FormData();
     form.append('name', 'x');
-    await client.postForm('/teacher-applications', form);
+    await client.postForm('/teacher-applications', ignored, form);
     const [, init] = fetchImpl.mock.calls[0]!;
     expect(init?.method).toBe('POST');
     expect(init?.body).toBe(form);
@@ -128,9 +126,9 @@ describe('createApiClient', () => {
       jsonResponse(200, { success: true, data: {} }),
     );
     const client = createApiClient({ baseUrl: '/api', fetchImpl });
-    await client.patch('/a', { title: 'x' });
-    await client.put('/b', { ids: [] });
-    await client.delete('/c');
+    await client.patch('/a', ignored, { title: 'x' });
+    await client.put('/b', ignored, { ids: [] });
+    await client.delete('/c', ignored);
     expect(fetchImpl.mock.calls.map(([url, init]) => [url, init?.method, init?.body])).toEqual([
       ['/api/a', 'PATCH', '{"title":"x"}'],
       ['/api/b', 'PUT', '{"ids":[]}'],
@@ -153,7 +151,7 @@ describe('createApiClient', () => {
         { 'x-request-id': 'req-1' },
       ),
     );
-    const error = await caught(client.post('/auth/login', {}));
+    const error = await caught(client.post('/auth/login', ignored, {}));
     expect(error).toBeInstanceOf(ApiError);
     expect(error.name).toBe('INVALID_CREDENTIALS');
     expect(error.message).toBe('Wrong email or password');
@@ -167,19 +165,19 @@ describe('createApiClient', () => {
 
   it('reports a network failure as NETWORK_ERROR', async () => {
     const { client } = clientReturning(new TypeError('Failed to fetch'));
-    const error = await caught(client.get('/x'));
+    const error = await caught(client.get('/x', ignored));
     expect(error.name).toBe('NETWORK_ERROR');
     expect(error.status).toBe(0);
   });
 
   it('lets an abort propagate untouched', async () => {
     const { client } = clientReturning(new DOMException('aborted', 'AbortError'));
-    await expect(client.get('/x')).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(client.get('/x', ignored)).rejects.toMatchObject({ name: 'AbortError' });
   });
 
   it('reports a non-envelope answer as BAD_RESPONSE', async () => {
     const { client } = clientReturning(new Response('<html>Bad gateway</html>', { status: 502 }));
-    const error = await caught(client.get('/x'));
+    const error = await caught(client.get('/x', ignored));
     expect(error.name).toBe('BAD_RESPONSE');
     expect(error.status).toBe(502);
   });
@@ -188,7 +186,7 @@ describe('createApiClient', () => {
     const { client } = clientReturning(
       jsonResponse(409, { success: false, error: { name: 'SOMETHING_NEW', message: 'New' } }),
     );
-    const error = await caught(client.get('/x'));
+    const error = await caught(client.get('/x', ignored));
     expect(error.name).toBe('SOMETHING_NEW');
   });
 });

@@ -59,7 +59,7 @@ describe('TeacherApplicationForm', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send application' }));
     expect(await screen.findByRole('heading', { name: 'Application received' })).toBeVisible();
 
-    const [path, form] = apiMock.postForm.mock.calls[0] as [string, FormData];
+    const [path, , form] = apiMock.postForm.mock.calls[0] as [string, unknown, FormData];
     expect(path).toBe('/teacher-applications');
     expect(form.get('applicantName')).toBe('Omar Siddiqui');
     expect(form.get('applicantEmail')).toBe('omar@example.com');

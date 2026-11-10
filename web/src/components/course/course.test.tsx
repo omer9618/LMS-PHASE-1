@@ -104,7 +104,7 @@ describe('CourseDetailView', () => {
     renderCourse(courseDetail({ isFree: true, priceMinor: null }), STUDENT);
     await userEvent.click(await screen.findByRole('button', { name: 'Enroll for free' }));
     expect(await screen.findByText('You are enrolled')).toBeVisible();
-    expect(apiMock.post).toHaveBeenCalledWith(`/courses/${COURSE_ID}/enroll`);
+    expect(apiMock.post).toHaveBeenCalledWith(`/courses/${COURSE_ID}/enroll`, expect.anything());
   });
 
   it('shows a refused enrollment', async () => {

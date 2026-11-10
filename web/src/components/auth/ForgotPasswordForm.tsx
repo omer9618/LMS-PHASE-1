@@ -8,6 +8,7 @@ import { api } from '@/lib/api/client';
 import { errorMessage, fieldErrors } from '@/lib/api/errors';
 import { forgotPasswordForm } from '@/lib/forms/auth';
 import { validateForm } from '@/lib/zod-form';
+import { ignored } from '@/lib/api/schemas/common';
 
 /** #13: request a reset link. The answer never reveals whether the account exists. */
 export function ForgotPasswordForm() {
@@ -29,7 +30,7 @@ export function ForgotPasswordForm() {
     setError(undefined);
     setSubmitting(true);
     try {
-      await api.post('/auth/password-reset/request', { email: value });
+      await api.post('/auth/password-reset/request', ignored, { email: value });
       setSentTo(value);
     } catch (err) {
       setError(fieldErrors(err).email);

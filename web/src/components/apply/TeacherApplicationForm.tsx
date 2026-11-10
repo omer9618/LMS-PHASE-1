@@ -11,6 +11,7 @@ import { applicationFormData, teacherApplicationForm } from '@/lib/forms/apply';
 import { CV_ACCEPT, CV_MAX_BYTES } from '@/lib/forms/fields';
 import { formatBytes } from '@/lib/format';
 import { validateForm } from '@/lib/zod-form';
+import * as authSchema from '@/lib/api/schemas/auth';
 
 export { CV_ACCEPT, CV_MAX_BYTES } from '@/lib/forms/fields';
 
@@ -69,7 +70,7 @@ export function TeacherApplicationForm() {
 
     setSubmitting(true);
     try {
-      await api.postForm('/teacher-applications', form);
+      await api.postForm('/teacher-applications', authSchema.submittedApplication, form);
       setSubmitted(values.applicantEmail.trim());
     } catch (error) {
       setErrors(fieldErrors(error));

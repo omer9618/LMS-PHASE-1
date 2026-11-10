@@ -2,6 +2,8 @@
  * The admin API (#102–#109 and the admin screens of every other module): one function per route.
  * Every response is checked with its zod schema (./schemas/admin); the types are inferred there.
  */
+import type { z } from 'zod';
+import type { pricingForm } from '@/lib/forms/admin';
 import { api, type QueryValue } from './client';
 import * as schema from './schemas/admin';
 import type { ApplicationStatus, ContextRole, UserStatus } from './schemas/admin';
@@ -111,9 +113,7 @@ export const archiveCourse = (courseId: string, reason?: string) =>
   api.post(`/admin/courses/${courseId}/archive`, schema.adminCourse, reason ? { reason } : {});
 export const setCourseEnrollment = (courseId: string, open: boolean) =>
   api.put(`/admin/courses/${courseId}/enrollment`, schema.adminCourse, { open });
-export type PricingInput =
-  | { isFree: true }
-  | { isFree: false; priceMinor: string; currency: string; commissionRateBps: number };
+export type PricingInput = z.output<typeof pricingForm>;
 export const setCoursePricing = (courseId: string, body: PricingInput) =>
   api.put(`/admin/courses/${courseId}/pricing`, schema.adminCourse, body);
 export interface CourseDetailsInput {

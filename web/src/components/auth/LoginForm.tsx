@@ -12,6 +12,7 @@ import { needsMfaSetup, useSession } from '@/lib/session';
 import * as authSchema from '@/lib/api/schemas/auth';
 import { loginForm, mfaCodeForm } from '@/lib/forms/auth';
 import { validateForm } from '@/lib/zod-form';
+import { ignored } from '@/lib/api/schemas/common';
 
 type Step = { kind: 'password' } | { kind: 'mfa'; challengeToken: string };
 
@@ -79,7 +80,7 @@ export function LoginForm() {
     setErrors({});
     setSubmitting(true);
     try {
-      await api.post('/auth/login/mfa', {
+      await api.post('/auth/login/mfa', ignored, {
         challengeToken,
         ...(useRecovery ? { recoveryCode: value } : { code: value }),
       });

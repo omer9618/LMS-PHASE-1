@@ -58,7 +58,9 @@ describe('SiteHeader', () => {
     expect(screen.queryByText('Student')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
-    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/auth/logout'));
+    await waitFor(() =>
+      expect(apiMock.post).toHaveBeenCalledWith('/auth/logout', expect.anything()),
+    );
     expect(router.push).toHaveBeenCalledWith('/courses');
     expect(await screen.findByRole('link', { name: 'Sign in' })).toBeVisible();
   });

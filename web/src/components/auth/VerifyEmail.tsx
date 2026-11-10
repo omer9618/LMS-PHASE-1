@@ -9,6 +9,7 @@ import { api } from '@/lib/api/client';
 import { errorMessage, isApiError } from '@/lib/api/errors';
 import { useSession } from '@/lib/session';
 import { ResendVerificationButton } from './ResendVerificationButton';
+import { ignored } from '@/lib/api/schemas/common';
 
 type State =
   | { kind: 'verifying' }
@@ -28,7 +29,7 @@ export function VerifyEmail() {
     if (!token || sent.current === token) return;
     sent.current = token;
     api
-      .post('/auth/verify-email', { token })
+      .post('/auth/verify-email', ignored, { token })
       .then(async () => {
         setState({ kind: 'verified' });
         await refresh();

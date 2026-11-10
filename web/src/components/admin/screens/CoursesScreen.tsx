@@ -32,9 +32,9 @@ import {
 } from '@/lib/api/admin';
 import { submitChecklist } from '@/lib/api/teacher';
 import type { CourseStatus, Outline, Pacing } from '@/lib/api/types';
-import { formatBps, percentToBps } from '@/lib/admin/format';
+import { formatBps } from '@/lib/admin/format';
 import { formatDate, PACING_LABELS } from '@/lib/format';
-import { minorToMajorInput, minorUnitExponent, parseMajorToMinor } from '@/lib/money';
+import { minorToMajorInput, minorUnitExponent } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
 import {
@@ -46,6 +46,8 @@ import {
   type Mutation,
 } from '../kit';
 import { humanize } from '@/lib/format';
+import { pricingForm } from '@/lib/forms/admin';
+import { useZodForm } from '@/lib/use-zod-form';
 
 const LIMIT = 50;
 const STATUSES: CourseStatus[] = ['PENDING_APPROVAL', 'PUBLISHED', 'DRAFT', 'REJECTED', 'ARCHIVED'];
@@ -353,82 +355,36 @@ function PricingForm({
   mutation: Mutation;
   onSaved: () => void;
 }) {
-  const [isFree, setIsFree] = useState(course.isFree);
-  const [currency, setCurrency] = useState(course.currency ?? 'PKR');
-  const [price, setPrice] = useState(
-    course.priceMinor
+  const proposed = course.commissionRateBps ?? course.teacherProposedBps;
+  const form = useZodForm(pricingForm, {
+    isFree: course.isFree,
+    currency: course.currency ?? 'PKR',
+    price: course.priceMinor
       ? minorToMajorInput(course.priceMinor, minorUnitExponent(course.currency))
       : '',
-  );
-  const [commission, setCommission] = useState(
-    course.commissionRateBps !== null
-      ? formatBps(course.commissionRateBps).replace('%', '')
-      : course.teacherProposedBps !== null
-        ? formatBps(course.teacherProposedBps).replace('%', '')
-        : '',
-  );
-  const [errors, setErrors] = useState<Record<string, string>>({});
+    commission: proposed !== null ? formatBps(proposed).replace('%', '') : '',
+  });
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (isFree) {
-      if (await mutation.run(() => setCoursePricing(course.id, { isFree: true }), 'Pricing saved.'))
-        onSaved();
-      return;
-    }
-    const code = currency.trim().toUpperCase();
-    const priceMinor = parseMajorToMinor(price, minorUnitExponent(code));
-    const bps = percentToBps(commission);
-    const next: Record<string, string> = {};
-    if (!/^[A-Z]{3}$/.test(code)) next.currency = 'A 3-letter currency code, e.g. PKR.';
-    if (!priceMinor || /^0+$/.test(priceMinor)) next.price = 'Enter a price above zero.';
-    if (bps === null) next.commission = 'A percentage from 0 to 100.';
-    setErrors(next);
-    if (Object.keys(next).length > 0) return;
-    const ok = await mutation.run(
-      () =>
-        setCoursePricing(course.id, {
-          isFree: false,
-          priceMinor: priceMinor!,
-          currency: code,
-          commissionRateBps: bps!,
-        }),
-      'Pricing saved.',
-    );
-    if (ok) onSaved();
+    const body = form.check();
+    if (!body) return;
+    if (await mutation.run(() => setCoursePricing(course.id, body), 'Pricing saved.')) onSaved();
   }
 
   return (
     <Section title="Pricing and commission">
-      <form className={styles.form} onSubmit={submit}>
-        <Checkbox
-          label="Free course"
-          checked={isFree}
-          onChange={(e) => setIsFree(e.target.checked)}
-        />
-        {!isFree && (
+      <form className={styles.form} onSubmit={submit} noValidate>
+        <Checkbox label="Free course" {...form.bindCheck('isFree')} />
+        {!form.values.isFree && (
           <div className={styles.filters}>
-            <Input
-              label="Price"
-              inputMode="decimal"
-              value={price}
-              error={errors.price}
-              onChange={(e) => setPrice(e.target.value)}
-            />
-            <Input
-              label="Currency"
-              value={currency}
-              maxLength={3}
-              error={errors.currency}
-              onChange={(e) => setCurrency(e.target.value)}
-            />
+            <Input label="Price" inputMode="decimal" {...form.bind('price')} />
+            <Input label="Currency" maxLength={3} {...form.bind('currency')} />
             <Input
               label="Commission %"
               inputMode="decimal"
-              value={commission}
-              error={errors.commission}
               hint={`Teacher proposed ${formatBps(course.teacherProposedBps)}`}
-              onChange={(e) => setCommission(e.target.value)}
+              {...form.bind('commission')}
             />
           </div>
         )}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
+import { z } from 'zod';
 
 /**
  * The cart (#54) lives in the browser: a list of course ids in localStorage. The API validates
@@ -9,16 +10,20 @@ import { useSyncExternalStore } from 'react';
 export const CART_MAX_ITEMS = 20;
 export const CART_STORAGE_KEY = 'lms.cart.v1';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const courseId = z.guid();
+
+/** What a stored cart may hold: unknown shapes, bad ids and duplicates are dropped, then capped. */
+const storedCart = z.array(z.unknown()).transform((values) => {
+  const ids = values.filter((v): v is string => courseId.safeParse(v).success);
+  return [...new Set(ids)].slice(0, CART_MAX_ITEMS);
+});
 
 /** Reads a stored cart defensively: unknown shapes, bad ids and duplicates are dropped. */
 export function parseCart(raw: string | null): string[] {
   if (!raw) return [];
   try {
-    const value: unknown = JSON.parse(raw);
-    if (!Array.isArray(value)) return [];
-    const ids = value.filter((v): v is string => typeof v === 'string' && UUID.test(v));
-    return [...new Set(ids)].slice(0, CART_MAX_ITEMS);
+    const parsed = storedCart.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : [];
   } catch {
     return [];
   }

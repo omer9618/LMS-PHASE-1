@@ -27,6 +27,8 @@ import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
 import { MutationStatus, Pager, ReasonAction, useMutation } from '../kit';
 import { humanize } from '@/lib/format';
+import { grantForm } from '@/lib/forms/admin';
+import { useZodForm } from '@/lib/use-zod-form';
 
 const LIMIT = 50;
 
@@ -166,80 +168,53 @@ function GrantForm({
   onGranted: () => void;
   initialCourseId: string;
 }) {
-  const [studentEmail, setStudentEmail] = useState('');
-  const [courseId, setCourseId] = useState(initialCourseId);
-  const [paymentChannel, setPaymentChannel] = useState('');
-  const [reason, setReason] = useState('');
-  const [expiresAt, setExpiresAt] = useState('');
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const form = useZodForm(grantForm, {
+    studentEmail: '',
+    courseId: initialCourseId,
+    paymentChannel: '',
+    reason: '',
+    expiresAt: '',
+  });
   const mutation = useMutation();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    const body = form.check();
+    if (!body) return;
     let failure: unknown;
     const ok = await mutation.run(
       () =>
         grantEnrollment({
-          studentEmail: studentEmail.trim(),
-          courseId: courseId.trim(),
-          paymentChannel: paymentChannel.trim(),
-          reason: reason.trim(),
-          expiresAt: expiresAt ? new Date(`${expiresAt}T23:59:59`).toISOString() : undefined,
+          ...body,
+          expiresAt: body.expiresAt
+            ? new Date(`${body.expiresAt}T23:59:59`).toISOString()
+            : undefined,
         }).catch((e) => {
           failure = e;
           throw e;
         }),
-      `Access granted to ${studentEmail.trim()}.`,
+      `Access granted to ${body.studentEmail}.`,
     );
-    setErrors(ok ? {} : fieldErrors(failure));
+    form.setErrors(ok ? {} : fieldErrors(failure));
     if (ok) {
-      setStudentEmail('');
-      setReason('');
+      form.setValues({ ...form.values, studentEmail: '', reason: '' });
       onGranted();
     }
   }
 
   return (
     <Section title="Grant access">
-      <form className={styles.form} onSubmit={submit}>
-        <Input
-          label="Student email"
-          type="email"
-          required
-          value={studentEmail}
-          error={errors.studentEmail}
-          onChange={(e) => setStudentEmail(e.target.value)}
-        />
-        <Input
-          label="Course ID"
-          required
-          value={courseId}
-          error={errors.courseId}
-          onChange={(e) => setCourseId(e.target.value)}
-        />
+      <form className={styles.form} onSubmit={submit} noValidate>
+        <Input label="Student email" type="email" required {...form.bind('studentEmail')} />
+        <Input label="Course ID" required {...form.bind('courseId')} />
         <Input
           label="Payment channel"
           hint="How the student paid, e.g. cash at centre, bank transfer outside the platform."
           required
-          value={paymentChannel}
-          error={errors.paymentChannel}
-          onChange={(e) => setPaymentChannel(e.target.value)}
+          {...form.bind('paymentChannel')}
         />
-        <Textarea
-          label="Reason"
-          required
-          rows={2}
-          value={reason}
-          error={errors.reason}
-          onChange={(e) => setReason(e.target.value)}
-        />
-        <Input
-          label="Access until (optional)"
-          type="date"
-          value={expiresAt}
-          error={errors.expiresAt}
-          onChange={(e) => setExpiresAt(e.target.value)}
-        />
+        <Textarea label="Reason" required rows={2} {...form.bind('reason')} />
+        <Input label="Access until (optional)" type="date" {...form.bind('expiresAt')} />
         <MutationStatus mutation={mutation} />
         <div className={styles.actions}>
           <Button type="submit" size="sm" loading={mutation.pending}>

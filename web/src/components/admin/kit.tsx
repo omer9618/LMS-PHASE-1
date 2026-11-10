@@ -4,6 +4,8 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Alert, Button, Textarea, type ButtonVariant } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import styles from './Admin.module.css';
+import { reasonForm } from '@/lib/forms/admin';
+import { validateForm } from '@/lib/zod-form';
 
 /**
  * Admin-only building blocks: writes with feedback, reason dialogs, paging. Generic layout and
@@ -100,11 +102,12 @@ export function ReasonAction({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const trimmed = reason.trim();
-    if (!optional && trimmed.length < minLength) {
-      setError(`Write at least ${minLength} characters.`);
+    const checked = validateForm(reasonForm(minLength, optional), { reason });
+    if (!checked.ok) {
+      setError(checked.errors.reason ?? null);
       return;
     }
+    const trimmed = checked.data.reason;
     setBusy(true);
     const ok = await onConfirm(trimmed);
     setBusy(false);

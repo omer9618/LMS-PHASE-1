@@ -6,7 +6,8 @@
 import { clean } from './admin';
 import { api } from './client';
 import * as schema from './schemas/admin';
-import type { MismatchAction, RejectionReason } from './schemas/admin';
+import type { z } from 'zod';
+import type { confirmPaymentForm, payoutForm, rejectPaymentForm } from '@/lib/forms/admin';
 import { paged } from './schemas/common';
 
 export type {
@@ -33,7 +34,7 @@ export type { CurrencyBalance, PayoutStatus, SalesTotals } from './schemas/teach
 
 // ── Payment verification and orders ──
 
-export const REJECTION_REASONS: RejectionReason[] = schema.rejectionReason.options;
+export const REJECTION_REASONS = schema.rejectionReason.options;
 
 export const getVerificationQueue = (
   query: { limit?: number; offset?: number },
@@ -44,21 +45,14 @@ export const getVerificationQueue = (
 export const getVerificationMetrics = (signal?: AbortSignal) =>
   api.get('/admin/verification/metrics', schema.queueMetrics, undefined, signal);
 
-export interface ConfirmPaymentInput {
-  amountReceivedMinor: string;
-  valueDate: string;
-  mismatchAction?: MismatchAction;
-  rejectionReason?: RejectionReason;
-  notes?: string;
-}
+/** The body of a payment confirmation: what `confirmPaymentForm` produces. */
+export type ConfirmPaymentInput = z.output<ReturnType<typeof confirmPaymentForm>>;
 
 export const confirmPayment = (orderId: string, body: ConfirmPaymentInput) =>
   api.post(`/admin/verification/orders/${orderId}/confirm`, schema.paymentDecisionResult, body);
 
-export const rejectPayment = (
-  orderId: string,
-  body: { rejectionReason: RejectionReason; notes?: string },
-) => api.post(`/admin/verification/orders/${orderId}/reject`, schema.paymentDecisionResult, body);
+export const rejectPayment = (orderId: string, body: z.output<typeof rejectPaymentForm>) =>
+  api.post(`/admin/verification/orders/${orderId}/reject`, schema.paymentDecisionResult, body);
 
 export const getOrder = (orderId: string, signal?: AbortSignal) =>
   api.get(`/admin/orders/${orderId}`, schema.adminOrder, undefined, signal);
@@ -83,15 +77,7 @@ export const listTeacherPayouts = (teacherId: string, signal?: AbortSignal) =>
 export const getPayout = (payoutId: string, signal?: AbortSignal) =>
   api.get(`/admin/payouts/${payoutId}`, schema.payoutWithSales, undefined, signal);
 
-export interface RecordPayoutInput {
-  amountMinor: string;
-  currency: string;
-  method?: string;
-  transactionId: string;
-  transferDate: string;
-  periodStart?: string;
-  periodEnd?: string;
-}
+export type RecordPayoutInput = z.output<typeof payoutForm>;
 
 export const recordPayout = (teacherId: string, body: RecordPayoutInput) =>
   api.post(`/admin/teachers/${teacherId}/payouts`, schema.payoutRecorded, body);
