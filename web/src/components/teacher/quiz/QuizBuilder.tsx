@@ -3,7 +3,16 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { MathText } from '@/components/learn/MathText';
-import { Alert, Badge, Button, Loadable, PageHeader, Section, SplitLayout } from '@/components/ui';
+import {
+  Alert,
+  Badge,
+  Button,
+  Loadable,
+  PageHeader,
+  Section,
+  SplitLayout,
+  Icon,
+} from '@/components/ui';
 import { errorMessage, isApiError } from '@/lib/api/errors';
 import { quizBuilderApi, type QuizQuestion, type TeacherQuiz } from '@/lib/api/quiz-builder';
 import { type QuestionInput } from '@/lib/forms/quiz';
@@ -260,7 +269,7 @@ function QuestionList({
                 aria-label={`Move question ${index + 1} up`}
                 onClick={() => onMove(index, -1)}
               >
-                ↑
+                <Icon name="arrowUp" />
               </Button>
               <Button
                 size="sm"
@@ -269,7 +278,7 @@ function QuestionList({
                 aria-label={`Move question ${index + 1} down`}
                 onClick={() => onMove(index, 1)}
               >
-                ↓
+                <Icon name="arrowDown" />
               </Button>
             </span>
           )}

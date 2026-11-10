@@ -19,6 +19,7 @@ export {
   type SelectProps,
   type TextareaProps,
 } from './Field';
+export { Icon, type IconName, type IconProps } from './Icon';
 export { Loadable } from './Loadable';
 export { ConfirmButton, MutationStatus, ReasonAction } from './Mutation';
 export { MarkSheet, type MarkPoint, type MarkSheetProps } from './MarkSheet';

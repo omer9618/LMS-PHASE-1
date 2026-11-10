@@ -170,11 +170,11 @@ describe('CatalogueBrowser', () => {
     setSearch('free=true&page=2');
     renderCatalogue();
     expect(await screen.findByText('Page 2 of 3')).toBeVisible();
-    expect(screen.getByRole('link', { name: '← Previous' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
       'href',
       '/courses?free=true',
     );
-    expect(screen.getByRole('link', { name: 'Next →' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Next' })).toHaveAttribute(
       'href',
       '/courses?free=true&page=3',
     );

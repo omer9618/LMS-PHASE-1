@@ -1,5 +1,6 @@
 'use client';
 
+import { Icon } from '@/components/ui';
 import { useEffect, useRef, useState } from 'react';
 import { clockOffsetMs, formatCountdown, isRunningLow, remainingMs } from '@/lib/quiz-timer';
 import styles from './Quiz.module.css';
@@ -45,7 +46,7 @@ export function QuizTimer({ deadline, serverTime, timeLimitSeconds, onExpired }:
   return (
     <span className={styles.timer} data-low={low || undefined}>
       <span className="visually-hidden">Time left: </span>
-      <span aria-hidden="true">⏱ </span>
+      <Icon name="clock" />
       <time>{formatCountdown(left)}</time>
       <span className="visually-hidden" role="status" aria-live="polite">
         {left === 0 ? 'Time is up.' : low ? 'Time is running low.' : ''}

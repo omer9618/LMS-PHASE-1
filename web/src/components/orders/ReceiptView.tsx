@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Alert, Button } from '@/components/ui';
+import { Alert, Button, Icon } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
 import { formatMoney } from '@/lib/money';
@@ -20,7 +20,9 @@ export function ReceiptView({
   const receipt = useApi(`receipt:${orderId}`, () => client.receipt(orderId));
   const back = (
     <p className={styles.noPrint}>
-      <Link href={`/orders/${encodeURIComponent(orderId)}`}>← Back to the order</Link>
+      <Link href={`/orders/${encodeURIComponent(orderId)}`}>
+        <Icon name="arrowLeft" /> Back to the order
+      </Link>
     </p>
   );
 

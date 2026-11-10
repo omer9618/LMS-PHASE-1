@@ -70,7 +70,7 @@ describe('CourseDetailView', () => {
 
   it('plays a free-preview lesson in an iframe with a strict referrer policy', async () => {
     renderCourse(courseDetail());
-    await userEvent.click(await screen.findByRole('button', { name: '▶ Welcome' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Welcome' }));
     const frame = await screen.findByTitle('Preview: Welcome');
     expect(frame.tagName).toBe('IFRAME');
     expect(frame).toHaveAttribute('src', EMBED);

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Alert, Badge, ButtonLink, PageHeader, SplitLayout } from '@/components/ui';
+import { Alert, Badge, ButtonLink, PageHeader, SplitLayout, Icon } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import {
   orders as defaultOrders,
@@ -63,7 +63,11 @@ export function OrderDetail({
   return (
     <div className="stack">
       <PageHeader
-        eyebrow={<Link href="/orders">← My orders</Link>}
+        eyebrow={
+          <Link href="/orders">
+            <Icon name="arrowLeft" /> My orders
+          </Link>
+        }
         title={
           <>
             Order <code>{order.paymentReference}</code>

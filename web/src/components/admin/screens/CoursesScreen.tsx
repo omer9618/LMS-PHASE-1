@@ -17,6 +17,7 @@ import {
   StatusBadge,
   Table,
   Textarea,
+  Icon,
 } from '@/components/ui';
 import { adminApi, type AdminCourse } from '@/lib/api/admin';
 import { submitChecklist } from '@/lib/api/teacher';
@@ -167,7 +168,7 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                       <ul className={styles.checklist}>
                         {reviewChecklist(o).map((item) => (
                           <li key={item.label} data-done={item.done || undefined}>
-                            <span aria-hidden="true">{item.done ? '✓' : '!'}</span>
+                            <Icon name={item.done ? 'check' : 'alert'} />
                             <span>
                               {item.done ? '' : 'Needs a look: '}
                               {item.label}

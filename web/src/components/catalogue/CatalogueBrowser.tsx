@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useId, useState } from 'react';
-import { Alert, Button } from '@/components/ui';
+import { Alert, Button, Icon } from '@/components/ui';
 import { catalogueApi } from '@/lib/api/catalogue';
 import { errorMessage } from '@/lib/api/errors';
 import {
@@ -70,7 +70,7 @@ export function CatalogueBrowser() {
           onClick={() => setFiltersOpen((open) => !open)}
         >
           Filters{activeCount > 0 ? ` (${activeCount} active)` : ''}
-          <span aria-hidden="true">{filtersOpen ? ' ▲' : ' ▼'}</span>
+          <Icon name={filtersOpen ? 'chevronUp' : 'chevronDown'} />
         </button>
         <div id={panelId} className={styles.filterPanel} data-open={filtersOpen}>
           <CatalogueFiltersPanel
@@ -138,7 +138,7 @@ export function CatalogueBrowser() {
               <nav className={styles.pagination} aria-label="Pages">
                 {filters.page > 1 ? (
                   <Link href={pageHref(filters.page - 1)} rel="prev">
-                    ← Previous
+                    <Icon name="arrowLeft" /> Previous
                   </Link>
                 ) : (
                   <span />
@@ -148,7 +148,7 @@ export function CatalogueBrowser() {
                 </span>
                 {filters.page < pageCount ? (
                   <Link href={pageHref(filters.page + 1)} rel="next">
-                    Next →
+                    Next <Icon name="arrowRight" />
                   </Link>
                 ) : (
                   <span />
