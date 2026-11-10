@@ -12,7 +12,7 @@ import { contentEditable, detailsEditable } from '@/lib/course-status';
 import { formatBytes } from '@/lib/format';
 import { apiMock, resetMocks, router, setPathname } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';
-import { detailsBody, initialValues } from './CourseDetailsForm';
+import { detailsBody, initialValues } from '@/lib/forms/course';
 import { CourseOverview, submissionProblems } from './CourseOverview';
 import { CourseWorkspace } from './CourseWorkspace';
 import { Earnings, formatBps } from './Earnings';

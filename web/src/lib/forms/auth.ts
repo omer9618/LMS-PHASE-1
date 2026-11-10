@@ -1,3 +1,4 @@
+import { validateForm } from '@/lib/zod-form';
 import { z } from 'zod';
 import { email, fullName, newPassword, optionalEmail, optionalName, optionalText } from './fields';
 
@@ -51,3 +52,10 @@ export const resetPasswordForm = z
     path: ['confirm'],
     message: 'The passwords do not match',
   });
+
+/** The registration request body: optional guardian fields are left out when empty (the API rejects ""). */
+export function registrationBody(values: z.input<typeof registrationForm>): Record<string, string> {
+  const result = validateForm(registrationForm, values);
+  if (!result.ok) throw new Error('registrationBody needs valid values');
+  return result.data;
+}

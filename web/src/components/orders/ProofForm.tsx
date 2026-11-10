@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { Alert, Button, Input } from '@/components/ui';
 import { errorMessage, fieldErrors } from '@/lib/api/errors';
 import type { OrdersApi, StudentOrder, SubmittedProof } from '@/lib/api/orders';
-import { validateProofForm } from '@/lib/order-display';
+import { validateProofForm } from '@/lib/forms/orders';
 import styles from './Orders.module.css';
 
 /** The API's PAYMENT_PROOF policy: PDF, PNG, JPEG or WebP, up to 5 MB (checked again there). */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateForm } from '@/lib/zod-form';
-import { questionForm, quizSettingsForm } from './quiz-builder';
+import { questionForm, quizSettingsForm } from './quiz';
 
 const settings = {
   timeLimitMinutes: '20',

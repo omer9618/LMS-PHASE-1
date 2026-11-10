@@ -1,9 +1,7 @@
 import type { BadgeTone } from '@/components/ui';
 import type { CartQuote, OrderStatus } from './api/orders';
-import { proofForm } from './forms/orders';
 import { formatDateTime } from './format';
 import { formatMoney } from './money';
-import { validateForm } from './zod-form';
 
 const MINOR_AMOUNT = /\b([A-Z]{3}) (-?\d+) \(minor units\)/g;
 const ISO_INSTANT = /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g;
@@ -66,23 +64,4 @@ export function timeUntil(iso: string, nowMs: number): string {
   if (days > 0) return `in ${days} day${days === 1 ? '' : 's'}${hours ? ` ${hours} h` : ''}`;
   if (hours > 0) return `in ${hours} h${mins ? ` ${mins} min` : ''}`;
   return `in ${mins} min`;
-}
-
-export interface ProofFormValues {
-  transactionId: string;
-  amount: string;
-}
-
-export type ProofFormResult =
-  | { ok: true; transactionId: string; amountClaimedMinor?: string }
-  | { ok: false; errors: Partial<Record<keyof ProofFormValues, string>> };
-
-/** Mirrors the API's proof rules (#58) for instant feedback; the API stays the authority. */
-export function validateProofForm(values: ProofFormValues, currency: string): ProofFormResult {
-  const checked = validateForm(proofForm(currency), values);
-  if (!checked.ok) return { ok: false, errors: checked.errors };
-  const { transactionId, amount } = checked.data;
-  return amount
-    ? { ok: true, transactionId, amountClaimedMinor: amount }
-    : { ok: true, transactionId };
 }

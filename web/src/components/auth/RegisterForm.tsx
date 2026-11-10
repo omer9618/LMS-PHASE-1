@@ -31,19 +31,6 @@ const EMPTY: Values = {
   guardianPhone: '',
 };
 
-/** The checks worth doing before a round trip; the API has the final say. */
-export function validateRegistration(values: Values): Record<string, string> {
-  const result = validateForm(registrationForm, values);
-  return result.ok ? {} : result.errors;
-}
-
-/** The request body: optional guardian fields are left out when empty (the API rejects ""). */
-export function registrationBody(values: Values): Record<string, string> {
-  const result = validateForm(registrationForm, values);
-  if (!result.ok) throw new Error('registrationBody needs valid values');
-  return result.data;
-}
-
 /** Student registration (#11). Guardian details are optional (decided 2026-10-26). */
 export function RegisterForm() {
   const next = safeNextPath(useSearchParams().get('next'));
@@ -64,14 +51,14 @@ export function RegisterForm() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const invalid = validateRegistration(values);
-    setErrors(invalid);
+    const checked = validateForm(registrationForm, values);
+    setErrors(checked.ok ? {} : checked.errors);
     setFormError(null);
-    if (Object.keys(invalid).length > 0) return;
+    if (!checked.ok) return;
 
     setSubmitting(true);
     try {
-      await authApi.register(registrationBody(values));
+      await authApi.register(checked.data);
       setRegisteredEmail(values.email.trim());
       await refresh();
     } catch (error) {

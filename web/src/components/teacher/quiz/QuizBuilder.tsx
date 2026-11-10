@@ -5,12 +5,8 @@ import { useState } from 'react';
 import { MathText } from '@/components/learn/MathText';
 import { Alert, Badge, Button, Loadable, PageHeader, Section, SplitLayout } from '@/components/ui';
 import { errorMessage, isApiError } from '@/lib/api/errors';
-import {
-  quizBuilderApi,
-  type QuestionInput,
-  type QuizQuestion,
-  type TeacherQuiz,
-} from '@/lib/api/quiz-builder';
+import { quizBuilderApi, type QuizQuestion, type TeacherQuiz } from '@/lib/api/quiz-builder';
+import { type QuestionInput } from '@/lib/forms/quiz';
 import { moveItem } from '@/lib/api/teacher';
 import { contentEditable } from '@/lib/course-status';
 import { useApi } from '@/lib/use-api';
