@@ -51,6 +51,7 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
       {(o) => (
         <>
           <PageHeader
+            eyebrow="Purchases · one order"
             title={`Order ${o.paymentReference}`}
             description={
               <>

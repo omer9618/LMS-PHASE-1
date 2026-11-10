@@ -216,6 +216,7 @@ export function TeacherStatementScreen({ teacherId }: { teacherId: string }) {
       {(s) => (
         <>
           <PageHeader
+            eyebrow="Teacher · ledger statement"
             title={`Statement: ${s.teacher.fullName || s.teacher.email}`}
             description={
               <>
@@ -518,6 +519,7 @@ export function PayoutDetailScreen({ payoutId }: { payoutId: string }) {
         return (
           <>
             <PageHeader
+              eyebrow="Payouts · one transfer"
               title="Payout"
               description={
                 payout.teacher && (
