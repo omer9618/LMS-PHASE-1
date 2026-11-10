@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Alert, Button, Input } from '@/components/ui';
-import { errorMessage } from '@/lib/api/errors';
+import { useMutation } from '@/lib/use-mutation';
 import { teacherApi } from '@/lib/api/teacher';
 import type { AuthoringLesson } from '@/lib/api/schemas/teacher';
 import { formatBytes } from '@/lib/format';
@@ -28,37 +28,31 @@ export function ResourcesPanel({
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | undefined>();
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const uploading = useMutation();
+  const removing = useMutation();
+  const error = uploading.error ?? removing.error;
   // The input is remounted after an upload so it shows no stale file name.
   const [inputKey, setInputKey] = useState(0);
 
   async function upload() {
     const problem = checkResource(file);
     setFileError(problem);
-    setError(null);
+    removing.clear();
     if (problem || !file) return;
-    setBusy(true);
-    try {
+    await uploading.run(async () => {
       await teacherApi.uploadResource(courseId, lesson.id, file);
       setFile(null);
       setInputKey((k) => k + 1);
       await onChanged();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   async function remove(resourceId: string) {
-    setError(null);
-    try {
+    uploading.clear();
+    await removing.run(async () => {
       await teacherApi.deleteResource(courseId, lesson.id, resourceId);
       await onChanged();
-    } catch (err) {
-      setError(errorMessage(err));
-    }
+    });
   }
 
   return (
@@ -99,7 +93,7 @@ export function ResourcesPanel({
           <Button
             size="sm"
             variant="secondary"
-            loading={busy}
+            loading={uploading.pending}
             loadingText="Uploading…"
             onClick={() => void upload()}
           >

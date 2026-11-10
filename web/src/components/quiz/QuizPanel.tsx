@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
+import { useMutation } from '@/lib/use-mutation';
 import {
   learn,
   type AttemptSummary,
@@ -38,7 +39,8 @@ export function QuizPanel({
   const [overview, setOverview] = useState<QuizOverview | null>(null);
   const [mode, setMode] = useState<Mode>({ kind: 'overview' });
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const opening = useMutation();
+  const busy = opening.pending;
 
   const loadOverview = useCallback(async () => {
     try {
@@ -62,30 +64,18 @@ export function QuizPanel({
   }, [client, courseId, lessonId]);
 
   async function start() {
-    setBusy(true);
-    try {
+    await opening.run(async () => {
       setMode({ kind: 'attempt', attempt: await client.startAttempt(courseId, lessonId) });
-      setError(null);
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   async function openAttempt(summary: AttemptSummary) {
-    setBusy(true);
-    try {
+    await opening.run(async () => {
       setMode({
         kind: 'attempt',
         attempt: await client.getAttempt(courseId, lessonId, summary.id),
       });
-      setError(null);
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   function closed(attempt: AttemptView) {
@@ -181,7 +171,7 @@ export function QuizPanel({
         </p>
       )}
 
-      {error && <Alert tone="danger">{error}</Alert>}
+      {(opening.error ?? error) && <Alert tone="danger">{opening.error ?? error}</Alert>}
 
       {viewer === 'STAFF' ? (
         <Alert tone="info" title="Staff preview">

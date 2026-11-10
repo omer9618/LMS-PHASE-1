@@ -6,10 +6,11 @@ import { useState, type FormEvent } from 'react';
 import { Alert, Button, Input } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
 import { authApi } from '@/lib/api/auth';
-import { errorMessage, fieldErrors, isApiError } from '@/lib/api/errors';
+import { isApiError } from '@/lib/api/errors';
 import { safeNextPath } from '@/lib/format';
 import { needsMfaSetup, useSession } from '@/lib/session';
 import { loginForm, mfaCodeForm } from '@/lib/forms/auth';
+import { useMutation } from '@/lib/use-mutation';
 import { validateForm } from '@/lib/zod-form';
 
 type Step = { kind: 'password' } | { kind: 'mfa'; challengeToken: string };
@@ -30,9 +31,9 @@ export function LoginForm() {
   const [code, setCode] = useState('');
   const [useRecovery, setUseRecovery] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const signIn = useMutation();
+  const shown = { ...errors, ...signIn.fieldErrors };
 
   async function finish() {
     const me = await refresh();
@@ -45,12 +46,10 @@ export function LoginForm() {
     event.preventDefault();
     const checked = validateForm(loginForm, { email, password });
     setErrors(checked.ok ? {} : checked.errors);
-    setFormError(null);
     setNotice(null);
     if (!checked.ok) return;
 
-    setSubmitting(true);
-    try {
+    await signIn.run(async () => {
       const result = await authApi.login(checked.data);
       if (result.mfaRequired) {
         setStep({ kind: 'mfa', challengeToken: result.challengeToken });
@@ -58,43 +57,34 @@ export function LoginForm() {
       } else {
         await finish();
       }
-    } catch (error) {
-      setErrors(fieldErrors(error));
-      setFormError(errorMessage(error));
-    } finally {
-      setSubmitting(false);
-    }
+    });
   }
 
   async function submitCode(event: FormEvent, challengeToken: string) {
     event.preventDefault();
     const value = code.trim();
-    setFormError(null);
     const checked = validateForm(mfaCodeForm(useRecovery), { code: value });
-    if (!checked.ok) {
-      setErrors(checked.errors);
-      return;
-    }
-    setErrors({});
-    setSubmitting(true);
-    try {
-      await authApi.loginWithMfa({
-        challengeToken,
-        ...(useRecovery ? { recoveryCode: value } : { code: value }),
-      });
-      await finish();
-    } catch (error) {
-      if (isApiError(error, 'INVALID_TOKEN')) {
+    setErrors(checked.ok ? {} : checked.errors);
+    if (!checked.ok) return;
+
+    await signIn.run(
+      async () => {
+        await authApi.loginWithMfa({
+          challengeToken,
+          ...(useRecovery ? { recoveryCode: value } : { code: value }),
+        });
+        await finish();
+      },
+      undefined,
+      (error) => {
+        if (!isApiError(error, 'INVALID_TOKEN')) return;
         // The challenge lasts 5 minutes: start again from the password.
         setStep({ kind: 'password' });
         setCode('');
         setNotice('That sign-in attempt expired. Enter your password again.');
-      } else {
-        setFormError(errorMessage(error));
-      }
-    } finally {
-      setSubmitting(false);
-    }
+        return true;
+      },
+    );
   }
 
   if (step.kind === 'mfa') {
@@ -117,21 +107,21 @@ export function LoginForm() {
               : 'Enter the 6-digit code from your authenticator app.'}
           </p>
         </div>
-        {formError && <Alert tone="danger">{formError}</Alert>}
+        {signIn.error && <Alert tone="danger">{signIn.error}</Alert>}
         <Input
           key={useRecovery ? 'recovery' : 'totp'}
           label={useRecovery ? 'Recovery code' : 'Authentication code'}
           name="code"
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          error={errors.code ?? errors.recoveryCode}
+          error={shown.code ?? shown.recoveryCode}
           autoComplete="one-time-code"
           inputMode={useRecovery ? 'text' : 'numeric'}
           maxLength={useRecovery ? 20 : 6}
           autoFocus
           required
         />
-        <Button type="submit" fullWidth loading={submitting} loadingText="Verifying…">
+        <Button type="submit" fullWidth loading={signIn.pending} loadingText="Verifying…">
           Verify and sign in
         </Button>
         <div className={styles.footer}>
@@ -153,7 +143,7 @@ export function LoginForm() {
               setStep({ kind: 'password' });
               setCode('');
               setErrors({});
-              setFormError(null);
+              signIn.clear();
             }}
           >
             Back to sign in
@@ -175,7 +165,7 @@ export function LoginForm() {
         <h1 id="login-title">Sign in</h1>
       </div>
       {notice && <Alert tone="warning">{notice}</Alert>}
-      {formError && <Alert tone="danger">{formError}</Alert>}
+      {signIn.error && <Alert tone="danger">{signIn.error}</Alert>}
       <Input
         label="Email"
         type="email"
@@ -183,7 +173,7 @@ export function LoginForm() {
         autoComplete="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        error={errors.email}
+        error={shown.email}
         required
       />
       <Input
@@ -193,10 +183,10 @@ export function LoginForm() {
         autoComplete="current-password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        error={errors.password}
+        error={shown.password}
         required
       />
-      <Button type="submit" fullWidth loading={submitting} loadingText="Signing in…">
+      <Button type="submit" fullWidth loading={signIn.pending} loadingText="Signing in…">
         Sign in
       </Button>
       <div className={styles.footer}>

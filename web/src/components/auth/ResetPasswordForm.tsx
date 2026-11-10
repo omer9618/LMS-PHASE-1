@@ -6,10 +6,11 @@ import { useState, type FormEvent } from 'react';
 import { Alert, Button, ButtonLink, Input } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
 import { authApi } from '@/lib/api/auth';
-import { errorMessage, fieldErrors, isApiError } from '@/lib/api/errors';
+import { isApiError } from '@/lib/api/errors';
 import { useSession } from '@/lib/session';
 import { resetPasswordForm } from '@/lib/forms/auth';
 import { PASSWORD_MIN_LENGTH } from '@/lib/forms/fields';
+import { useMutation } from '@/lib/use-mutation';
 import { validateForm } from '@/lib/zod-form';
 
 /**
@@ -25,9 +26,9 @@ export function ResetPasswordForm() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [formError, setFormError] = useState<string | null>(null);
+  const reset = useMutation();
+  const shown = { ...errors, ...reset.fieldErrors };
   const [invalidLink, setInvalidLink] = useState(!token);
-  const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
   const title = welcome ? 'Set your password' : 'Choose a new password';
@@ -36,25 +37,22 @@ export function ResetPasswordForm() {
     event.preventDefault();
     const checked = validateForm(resetPasswordForm, { password, confirm });
     setErrors(checked.ok ? {} : checked.errors);
-    setFormError(null);
     if (!checked.ok || !token) return;
 
-    setSubmitting(true);
-    try {
-      await authApi.confirmPasswordReset({ token, password });
-      setDone(true);
-      // A reset signs the account out everywhere, including here.
-      await refresh();
-    } catch (error) {
-      if (isApiError(error, 'INVALID_TOKEN')) {
+    await reset.run(
+      async () => {
+        await authApi.confirmPasswordReset({ token, password });
+        setDone(true);
+        // A reset signs the account out everywhere, including here.
+        await refresh();
+      },
+      undefined,
+      (error) => {
+        if (!isApiError(error, 'INVALID_TOKEN')) return;
         setInvalidLink(true);
-      } else {
-        setErrors(fieldErrors(error));
-        setFormError(errorMessage(error));
-      }
-    } finally {
-      setSubmitting(false);
-    }
+        return true;
+      },
+    );
   }
 
   if (invalidLink) {
@@ -105,7 +103,7 @@ export function ResetPasswordForm() {
           </p>
         )}
       </div>
-      {formError && <Alert tone="danger">{formError}</Alert>}
+      {reset.error && <Alert tone="danger">{reset.error}</Alert>}
       <Input
         label="New password"
         type="password"
@@ -114,7 +112,7 @@ export function ResetPasswordForm() {
         hint={`At least ${PASSWORD_MIN_LENGTH} characters. A short phrase works well.`}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        error={errors.password}
+        error={shown.password}
         required
       />
       <Input
@@ -124,10 +122,10 @@ export function ResetPasswordForm() {
         autoComplete="new-password"
         value={confirm}
         onChange={(e) => setConfirm(e.target.value)}
-        error={errors.confirm}
+        error={shown.confirm}
         required
       />
-      <Button type="submit" fullWidth loading={submitting} loadingText="Saving…">
+      <Button type="submit" fullWidth loading={reset.pending} loadingText="Saving…">
         {welcome ? 'Set password' : 'Change password'}
       </Button>
     </form>

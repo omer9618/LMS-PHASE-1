@@ -137,20 +137,14 @@ function CreateStaffAccount({ onCreated }: { onCreated: () => void }) {
     event.preventDefault();
     const body = form.check();
     if (!body) return;
-    let failure: unknown;
     const ok = await mutation.run(
-      () =>
-        adminApi.createStaffAccount(body).catch((e) => {
-          failure = e;
-          throw e;
-        }),
+      () => adminApi.createStaffAccount(body),
       `Account created. ${body.email} has been emailed a link to set a password.`,
+      (error) => form.setErrors(fieldErrors(error)),
     );
     if (ok) {
       form.setValues({ ...form.values, email: '', fullName: '' });
       onCreated();
-    } else {
-      form.setErrors(fieldErrors(failure));
     }
   }
 

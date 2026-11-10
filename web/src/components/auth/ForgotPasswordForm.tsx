@@ -5,21 +5,19 @@ import { useState, type FormEvent } from 'react';
 import { Alert, Button, Input } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
 import { authApi } from '@/lib/api/auth';
-import { errorMessage, fieldErrors } from '@/lib/api/errors';
 import { forgotPasswordForm } from '@/lib/forms/auth';
+import { useMutation } from '@/lib/use-mutation';
 import { validateForm } from '@/lib/zod-form';
 
 /** #13: request a reset link. The answer never reveals whether the account exists. */
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | undefined>();
-  const [formError, setFormError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const request = useMutation();
   const [sentTo, setSentTo] = useState<string | null>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    setFormError(null);
     const checked = validateForm(forgotPasswordForm, { email });
     if (!checked.ok) {
       setError(checked.errors.email);
@@ -27,16 +25,8 @@ export function ForgotPasswordForm() {
     }
     const value = checked.data.email;
     setError(undefined);
-    setSubmitting(true);
-    try {
-      await authApi.requestPasswordReset(value);
-      setSentTo(value);
-    } catch (err) {
-      setError(fieldErrors(err).email);
-      setFormError(errorMessage(err));
-    } finally {
-      setSubmitting(false);
-    }
+    const ok = await request.run(() => authApi.requestPasswordReset(value));
+    if (ok) setSentTo(value);
   }
 
   if (sentTo) {
@@ -65,7 +55,7 @@ export function ForgotPasswordForm() {
           Enter your email and we will send you a link to set a new one.
         </p>
       </div>
-      {formError && <Alert tone="danger">{formError}</Alert>}
+      {request.error && <Alert tone="danger">{request.error}</Alert>}
       <Input
         label="Email"
         type="email"
@@ -73,10 +63,10 @@ export function ForgotPasswordForm() {
         autoComplete="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        error={error}
+        error={error ?? request.fieldErrors.email}
         required
       />
-      <Button type="submit" fullWidth loading={submitting} loadingText="Sending…">
+      <Button type="submit" fullWidth loading={request.pending} loadingText="Sending…">
         Send reset link
       </Button>
       <div className={styles.footer}>

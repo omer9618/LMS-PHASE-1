@@ -6,11 +6,11 @@ import { useState, type FormEvent } from 'react';
 import { Alert, ButtonLink, Button, Input } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
 import { authApi } from '@/lib/api/auth';
-import { errorMessage, fieldErrors } from '@/lib/api/errors';
 import { safeNextPath } from '@/lib/format';
 import { registrationForm } from '@/lib/forms/auth';
 import { PASSWORD_MIN_LENGTH } from '@/lib/forms/fields';
 import { useSession } from '@/lib/session';
+import { useMutation } from '@/lib/use-mutation';
 import { validateForm } from '@/lib/zod-form';
 
 interface Values {
@@ -37,8 +37,8 @@ export function RegisterForm() {
   const { refresh } = useSession();
   const [values, setValues] = useState<Values>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [formError, setFormError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const signUp = useMutation();
+  const shown = { ...errors, ...signUp.fieldErrors };
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
   const bind = (key: keyof Values) => ({
@@ -46,32 +46,20 @@ export function RegisterForm() {
     value: values[key],
     onChange: (e: { target: { value: string } }) =>
       setValues((v) => ({ ...v, [key]: e.target.value })),
-    error: errors[key],
+    error: shown[key],
   });
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     const checked = validateForm(registrationForm, values);
     setErrors(checked.ok ? {} : checked.errors);
-    setFormError(null);
     if (!checked.ok) return;
 
-    setSubmitting(true);
-    try {
+    await signUp.run(async () => {
       await authApi.register(checked.data);
       setRegisteredEmail(values.email.trim());
       await refresh();
-    } catch (error) {
-      const byField = fieldErrors(error);
-      setErrors(byField);
-      setFormError(
-        Object.keys(byField).length > 0
-          ? 'Please correct the fields marked below.'
-          : errorMessage(error),
-      );
-    } finally {
-      setSubmitting(false);
-    }
+    });
   }
 
   if (registeredEmail) {
@@ -100,7 +88,13 @@ export function RegisterForm() {
           For students. Teachers <Link href="/teach-with-us">apply here</Link> instead.
         </p>
       </div>
-      {formError && <Alert tone="danger">{formError}</Alert>}
+      {signUp.error && (
+        <Alert tone="danger">
+          {Object.keys(signUp.fieldErrors).length > 0
+            ? 'Please correct the fields marked below.'
+            : signUp.error}
+        </Alert>
+      )}
       <Input label="Full name" autoComplete="name" required {...bind('fullName')} />
       <Input label="Email" type="email" autoComplete="email" required {...bind('email')} />
       <Input
@@ -128,7 +122,7 @@ export function RegisterForm() {
           {...bind('guardianPhone')}
         />
       </fieldset>
-      <Button type="submit" fullWidth loading={submitting} loadingText="Creating account…">
+      <Button type="submit" fullWidth loading={signUp.pending} loadingText="Creating account…">
         Create account
       </Button>
       <div className={styles.footer}>
