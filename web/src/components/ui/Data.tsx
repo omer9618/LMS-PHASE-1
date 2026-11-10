@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { humanize } from '@/lib/format';
 import { formatMoney } from '@/lib/money';
+import { STATUS_TONES } from '@/lib/status';
 import { Badge, type BadgeTone } from './Badge';
 import { cx } from './cx';
 import styles from './Data.module.css';
@@ -41,36 +42,10 @@ export function Money({
   return <span className={styles.money}>{formatMoney(minor, currency)}</span>;
 }
 
-/** Tones for the statuses the API returns. A screen with its own meaning passes `tones`. */
-const DEFAULT_TONES: Record<string, BadgeTone> = {
-  ACTIVE: 'success',
-  PUBLISHED: 'success',
-  VERIFIED: 'success',
-  HIRED: 'success',
-  ACCEPTED: 'success',
-  RESOLVED: 'success',
-  PENDING_APPROVAL: 'warning',
-  PROOF_SUBMITTED: 'warning',
-  SUBMITTED: 'warning',
-  UNDER_REVIEW: 'info',
-  PENDING: 'info',
-  OPEN: 'warning',
-  DISPUTED: 'warning',
-  DRAFT: 'neutral',
-  ARCHIVED: 'neutral',
-  EXPIRED: 'neutral',
-  LAPSED: 'neutral',
-  SUSPENDED: 'danger',
-  DELETED: 'danger',
-  REJECTED: 'danger',
-  REVOKED: 'danger',
-  REFUNDED: 'danger',
-};
-
 /** An API status as a word chip ("PENDING_APPROVAL" → "Pending approval"). */
 export function StatusBadge({
   status,
-  tones = DEFAULT_TONES,
+  tones = STATUS_TONES,
   label,
 }: {
   status: string;

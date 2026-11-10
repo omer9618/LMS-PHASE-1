@@ -11,7 +11,8 @@ import {
   type SubmittedProof,
 } from '@/lib/api/orders';
 import { formatMoney } from '@/lib/money';
-import { humaniseGuidance, STATUS_TONES } from '@/lib/order-display';
+import { humaniseGuidance } from '@/lib/order-display';
+import { statusTone } from '@/lib/status';
 import { formatDateTime } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { PaymentInstructions } from './PaymentInstructions';
@@ -68,7 +69,7 @@ export function OrderDetail({
             Order <code>{order.paymentReference}</code>
           </>
         }
-        actions={<Badge tone={STATUS_TONES[order.status]}>{guidance.statusLabel}</Badge>}
+        actions={<Badge tone={statusTone(order.status)}>{guidance.statusLabel}</Badge>}
       />
 
       {justPlaced && order.status === 'PENDING' && !latest && (
