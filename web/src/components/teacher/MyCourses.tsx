@@ -20,7 +20,7 @@ import type { TeacherCourse } from '@/lib/api/schemas/teacher';
 import { COURSE_STATUS } from '@/lib/course-status';
 import { formatDate } from '@/lib/format';
 import { formatPrice } from '@/lib/money';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from './Teacher.module.css';
 
 const STATUSES = Object.keys(COURSE_STATUS) as CourseStatus[];
@@ -94,7 +94,10 @@ const count = (courses: TeacherCourse[], status: CourseStatus) =>
 export function MyCourses() {
   const [status, setStatus] = useState<CourseStatus | ''>('');
   // One request for every course: the tiles count all of them, the filter narrows the table.
-  const courses = useApi('my-courses', (signal) => teacherApi.listCourses(undefined, signal));
+  const courses = useQuery({
+    queryKey: ['my-courses'],
+    queryFn: ({ signal }) => teacherApi.listCourses(undefined, signal),
+  });
   const total = courses.status === 'success' ? courses.data.length : null;
 
   return (

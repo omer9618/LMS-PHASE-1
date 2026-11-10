@@ -18,7 +18,7 @@ import {
 import { adminApi, type AdminUser, type UserListQuery, type UserStatus } from '@/lib/api/admin';
 import { fieldErrors } from '@/lib/api/errors';
 import type { Role } from '@/lib/api/schemas/auth';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
 import { MutationStatus } from '@/components/ui';
 import { useMutation } from '@/lib/use-mutation';
@@ -32,9 +32,10 @@ const LIMIT = 50;
 export function UsersScreen() {
   const [draft, setDraft] = useState<UserListQuery>({ role: '', status: '', q: '' });
   const [query, setQuery] = useState<UserListQuery>({ offset: 0 });
-  const users = useApi(`admin-users:${JSON.stringify(query)}`, (signal) =>
-    adminApi.listUsers({ ...query, limit: LIMIT }, signal),
-  );
+  const users = useQuery({
+    queryKey: ['admin-users', query],
+    queryFn: ({ signal }) => adminApi.listUsers({ ...query, limit: LIMIT }, signal),
+  });
 
   return (
     <>
@@ -123,7 +124,7 @@ export function UsersScreen() {
           </>
         )}
       </Loadable>
-      <CreateStaffAccount onCreated={users.reload} />
+      <CreateStaffAccount onCreated={() => void users.refetch()} />
     </>
   );
 }

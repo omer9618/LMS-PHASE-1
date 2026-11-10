@@ -14,7 +14,7 @@ import {
   updateFilters,
   type CatalogueFilters,
 } from '@/lib/catalogue-url';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import { CourseCard } from './CourseCard';
 import { CatalogueFiltersPanel, SearchBox, SortSelect } from './CatalogueFilters';
 import styles from './Catalogue.module.css';
@@ -31,12 +31,23 @@ export function CatalogueBrowser() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const panelId = useId();
 
-  const listing = useApi(`listing${search}`, (signal) => catalogueApi.listing(filters, signal));
-  const subjects = useApi('subjects', (signal) => catalogueApi.subjects(signal));
-  const boards = useApi('boards', (signal) => catalogueApi.boards(signal));
-  const levels = useApi(filters.boardId ? `levels:${filters.boardId}` : null, (signal) =>
-    catalogueApi.levels(filters.boardId!, signal),
-  );
+  const listing = useQuery({
+    queryKey: ['listing', search],
+    queryFn: ({ signal }) => catalogueApi.listing(filters, signal),
+  });
+  const subjects = useQuery({
+    queryKey: ['subjects'],
+    queryFn: ({ signal }) => catalogueApi.subjects(signal),
+  });
+  const boards = useQuery({
+    queryKey: ['boards'],
+    queryFn: ({ signal }) => catalogueApi.boards(signal),
+  });
+  const levels = useQuery({
+    queryKey: ['levels', filters.boardId],
+    queryFn: ({ signal }) => catalogueApi.levels(filters.boardId!, signal),
+    enabled: Boolean(filters.boardId),
+  });
 
   function apply(change: Partial<CatalogueFilters>) {
     router.push(`/courses${toCatalogueSearch(updateFilters(filters, change))}`, {
@@ -94,7 +105,7 @@ export function CatalogueBrowser() {
             <h2 id="results-heading" className={styles.resultsHeading} aria-live="polite">
               {listing.status === 'success'
                 ? `${listing.data.total} ${listing.data.total === 1 ? 'course' : 'courses'}`
-                : listing.status === 'loading'
+                : listing.status === 'pending'
                   ? 'Loading courses…'
                   : 'Courses'}
             </h2>
@@ -112,7 +123,7 @@ export function CatalogueBrowser() {
         {listing.status === 'error' && (
           <Alert tone="danger" title="Could not load courses">
             <p>{errorMessage(listing.error)}</p>
-            <Button variant="secondary" size="sm" onClick={listing.reload}>
+            <Button variant="secondary" size="sm" onClick={() => void listing.refetch()}>
               Try again
             </Button>
           </Alert>

@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { api } from './api/client';
-import { isApiError } from './api/errors';
+import { isRequestError } from './api/errors';
 import type { Me } from './api/schemas/auth';
 import * as authSchema from './api/schemas/auth';
 import { ignored } from './api/schemas/common';
@@ -35,7 +35,8 @@ async function fetchMe(): Promise<Me | null> {
   try {
     return await api.get('/auth/me', authSchema.me);
   } catch (error) {
-    if (!isApiError(error, 'UNAUTHENTICATED')) console.warn('Could not load the session', error);
+    if (!isRequestError(error, 'UNAUTHENTICATED'))
+      console.warn('Could not load the session', error);
     return null;
   }
 }

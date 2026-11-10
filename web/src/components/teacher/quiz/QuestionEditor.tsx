@@ -250,7 +250,9 @@ export function QuestionEditor({
           <div className={styles.paper}>
             <div className={styles.paperHead}>
               <span className="mono">Q{number}</span>
-              <Badge tone="primary">[{values.marks || '?'} marks]</Badge>
+              <Badge tone="primary">
+                [{values.marks || '?'} mark{values.marks === '1' ? '' : 's'}]
+              </Badge>
             </div>
             <div className={styles.questionText}>
               {values.contentText.trim() ? (

@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { ignored } from './schemas/common';
 import { buildUrl, createApiClient } from './client';
-import { ApiError, errorMessage, fieldErrors, isApiError } from './errors';
+import {
+  RequestError,
+  errorMessage,
+  fieldErrors,
+  isRequestError,
+  RequestAbortedError,
+} from './errors';
 
 function jsonResponse(status: number, body: unknown, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
@@ -19,11 +25,11 @@ function clientReturning(response: Response | Error | DOMException) {
   return { client: createApiClient({ baseUrl: '/api', fetchImpl }), fetchImpl };
 }
 
-async function caught(promise: Promise<unknown>): Promise<ApiError> {
+async function caught(promise: Promise<unknown>): Promise<RequestError> {
   try {
     await promise;
   } catch (error) {
-    if (error instanceof ApiError) return error;
+    if (error instanceof RequestError) return error;
     throw error;
   }
   throw new Error('expected the promise to reject');
@@ -136,7 +142,7 @@ describe('createApiClient', () => {
     ]);
   });
 
-  it('turns an error envelope into a typed ApiError', async () => {
+  it('turns an error envelope into a typed RequestError', async () => {
     const { client } = clientReturning(
       jsonResponse(
         401,
@@ -152,15 +158,15 @@ describe('createApiClient', () => {
       ),
     );
     const error = await caught(client.post('/auth/login', ignored, {}));
-    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toBeInstanceOf(RequestError);
     expect(error.name).toBe('INVALID_CREDENTIALS');
     expect(error.message).toBe('Wrong email or password');
     expect(error.info).toEqual({ a: 1 });
     expect(error.status).toBe(401);
     expect(error.requestId).toBe('req-1');
-    expect(error.is('INVALID_CREDENTIALS')).toBe(true);
-    expect(isApiError(error, 'INVALID_CREDENTIALS')).toBe(true);
-    expect(isApiError(error, 'NOT_FOUND')).toBe(false);
+    expect(error.userMessage).toBe('Wrong email or password');
+    expect(isRequestError(error, 'INVALID_CREDENTIALS')).toBe(true);
+    expect(isRequestError(error, 'NOT_FOUND')).toBe(false);
   });
 
   it('reports a network failure as NETWORK_ERROR', async () => {
@@ -170,9 +176,9 @@ describe('createApiClient', () => {
     expect(error.status).toBe(0);
   });
 
-  it('lets an abort propagate untouched', async () => {
+  it('turns an abort into RequestAbortedError, never a shown error', async () => {
     const { client } = clientReturning(new DOMException('aborted', 'AbortError'));
-    await expect(client.get('/x', ignored)).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(client.get('/x', ignored)).rejects.toBeInstanceOf(RequestAbortedError);
   });
 
   it('reports a non-envelope answer as BAD_RESPONSE', async () => {
@@ -193,7 +199,8 @@ describe('createApiClient', () => {
 
 describe('fieldErrors', () => {
   it('maps Zod issues by path, first message wins', () => {
-    const error = new ApiError('VALIDATION_FAILED', 'Request validation failed', {
+    const error = new RequestError('VALIDATION_FAILED', {
+      message: 'Request validation failed',
       info: {
         location: 'body',
         issues: [
@@ -210,26 +217,31 @@ describe('fieldErrors', () => {
   });
 
   it('maps a domain rule that names one field', () => {
-    const error = new ApiError('VALIDATION_FAILED', 'Password is too repetitive', {
+    const error = new RequestError('VALIDATION_FAILED', {
+      message: 'Password is too repetitive',
       info: { field: 'password' },
     });
     expect(fieldErrors(error)).toEqual({ password: 'Password is too repetitive' });
   });
 
   it('is empty for other errors and junk info', () => {
-    expect(fieldErrors(new ApiError('NOT_FOUND', 'x'))).toEqual({});
-    expect(fieldErrors(new ApiError('VALIDATION_FAILED', 'x', { info: 'nope' }))).toEqual({});
+    expect(fieldErrors(new RequestError('NOT_FOUND', { message: 'x' }))).toEqual({});
+    expect(
+      fieldErrors(new RequestError('VALIDATION_FAILED', { message: 'x', info: 'nope' })),
+    ).toEqual({});
     expect(fieldErrors(new Error('x'))).toEqual({});
   });
 });
 
 describe('errorMessage', () => {
   it('uses the API message, with friendly text for transport problems', () => {
-    expect(errorMessage(new ApiError('CONFLICT', 'Email already registered'))).toBe(
-      'Email already registered',
+    expect(
+      errorMessage(new RequestError('CONFLICT', { message: 'Email already registered' })),
+    ).toBe('Email already registered');
+    expect(errorMessage(new RequestError('NETWORK_ERROR', { message: 'x' }))).toMatch(
+      /could not reach/i,
     );
-    expect(errorMessage(new ApiError('NETWORK_ERROR', 'x'))).toMatch(/could not reach/i);
-    expect(errorMessage(new ApiError('RATE_LIMITED', 'x'))).toMatch(/too many/i);
+    expect(errorMessage(new RequestError('RATE_LIMITED', { message: 'x' }))).toMatch(/too many/i);
     expect(errorMessage(new Error('boom'))).toMatch(/something went wrong/i);
   });
 });

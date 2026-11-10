@@ -30,7 +30,7 @@ How the Next.js app in `web/` moves from its neutral placeholder look to the Exa
 ### 1. Zod at the API boundary
 
 - `zod` is a dependency of `web/`, pinned to the API's version (4.6.7).
-- Every client verb takes a schema as its second argument: `api.get(path, schema, query?, signal?)`, `api.post(path, schema, body?)`. The result is typed from the schema, and a response that does not match rejects with `ApiError('BAD_RESPONSE')` (the zod issues are in `error.info` and logged). The form without a schema stays only for calls that ignore the response body, and for areas not moved yet.
+- Every client verb takes a schema as its second argument: `api.get(path, schema, query?, signal?)`, `api.post(path, schema, body?)`. The result is typed from the schema, and a response that does not match rejects with `RequestError('BAD_RESPONSE')` (the zod issues are in `error.info` and logged). The form without a schema stays only for calls that ignore the response body, and for areas not moved yet.
 - Schemas live in `lib/api/schemas/<area>.ts`; types are `z.infer`-ed from them and re-exported from the area modules (`orders.ts`, `learn.ts`, `admin.ts`); components that need only a type import it from `lib/api/schemas/<area>`. Shared building blocks are in `schemas/common.ts`: minor-units money, ISO dates, IDs, pages, and `openEnum` for values the API may add.
 - Objects strip unknown keys, so the API can add fields without breaking the app.
 

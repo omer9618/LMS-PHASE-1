@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button } from '@/components/ui';
 import { MathText } from '@/components/learn/MathText';
-import { errorMessage, isApiError } from '@/lib/api/errors';
+import { errorMessage, isRequestError } from '@/lib/api/errors';
 import type { AnswerInput, AttemptQuestion, AttemptView, LearnApi } from '@/lib/api/learn';
 import { isPlainDecimal } from '@/lib/quiz-answers';
 import { QuizTimer } from './QuizTimer';
@@ -80,7 +80,7 @@ export function QuizAttempt({
       setSaveState('saved');
       setError(null);
     } catch (e) {
-      if (isApiError(e, 'QUIZ_ATTEMPT_CLOSED')) {
+      if (isRequestError(e, 'QUIZ_ATTEMPT_CLOSED')) {
         await finish(null);
         return;
       }
@@ -209,11 +209,15 @@ export function QuizAttempt({
           <h3 id="confirm-heading">Submit your answers?</h3>
           {unanswered > 0 ? (
             <p>
-              {unanswered} of {questions.length} questions are not answered. Unanswered questions
-              score zero.
+              {unanswered} of {questions.length} question{questions.length === 1 ? '' : 's'}{' '}
+              {unanswered === 1 ? 'is' : 'are'} not answered. Unanswered questions score zero.
             </p>
           ) : (
-            <p>All {questions.length} questions are answered.</p>
+            <p>
+              {questions.length === 1
+                ? 'The question is answered.'
+                : `All ${questions.length} questions are answered.`}
+            </p>
           )}
           {invalidNumeric.length > 0 && (
             <p>

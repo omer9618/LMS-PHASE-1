@@ -8,7 +8,7 @@ import { errorMessage } from '@/lib/api/errors';
 import { teacherApi } from '@/lib/api/teacher';
 import type { TeacherCourse } from '@/lib/api/schemas/teacher';
 import { COURSE_STATUS } from '@/lib/course-status';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from './Teacher.module.css';
 
 interface Workspace {
@@ -27,14 +27,15 @@ export function useCourseWorkspace(): Workspace {
 
 /** Loads one of the teacher's courses and frames its pages (overview, content, students). */
 export function CourseWorkspace({ courseId, children }: { courseId: string; children: ReactNode }) {
-  const loaded = useApi(`teacher-course:${courseId}`, (signal) =>
-    teacherApi.getCourse(courseId, signal),
-  );
+  const loaded = useQuery({
+    queryKey: ['teacher-course', courseId],
+    queryFn: ({ signal }) => teacherApi.getCourse(courseId, signal),
+  });
   // Changes made on these pages, newer than what was loaded.
   const [updated, setUpdated] = useState<TeacherCourse | null>(null);
   const pathname = usePathname() ?? '';
 
-  if (loaded.status === 'loading') return <p role="status">Loading the course…</p>;
+  if (loaded.status === 'pending') return <p role="status">Loading the course…</p>;
   if (loaded.status === 'error') {
     const missing = loaded.error.name === 'NOT_FOUND';
     return (
@@ -44,7 +45,7 @@ export function CourseWorkspace({ courseId, children }: { courseId: string; chil
           {missing ? 'This course does not exist or is not yours.' : errorMessage(loaded.error)}
         </Alert>
         {!missing && (
-          <Button variant="secondary" onClick={loaded.reload}>
+          <Button variant="secondary" onClick={() => void loaded.refetch()}>
             Try again
           </Button>
         )}

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { canRaiseConcern, type EarningsDashboard } from '@/lib/api/earnings';
-import { ApiError } from '@/lib/api/errors';
+import { RequestError } from '@/lib/api/errors';
 import { moveItem, submitChecklist } from '@/lib/api/teacher';
 import { percentToBps } from '@/lib/money';
 import type { AuthoringLesson, Outline, TeacherCourse } from '@/lib/api/schemas/teacher';
@@ -169,11 +169,14 @@ describe('helpers', () => {
   });
 
   it('explains the server’s missing items', () => {
-    const error = new ApiError('COURSE_INCOMPLETE', 'Mark at least one…', {
+    const error = new RequestError('COURSE_INCOMPLETE', {
+      message: 'Mark at least one…',
       info: { missing: ['freePreviewVideoLesson'] },
     });
     expect(submissionProblems(error)[0]).toMatch(/free preview/);
-    expect(submissionProblems(new ApiError('CONFLICT', 'Stale'))).toEqual(['Stale']);
+    expect(submissionProblems(new RequestError('CONFLICT', { message: 'Stale' }))).toEqual([
+      'Stale',
+    ]);
   });
 
   it('sends only changed details, with the classification together', () => {
@@ -311,7 +314,10 @@ describe('CourseOverview', () => {
 
   it('submits for review and shows the server’s checklist errors', async () => {
     apiMock.post.mockRejectedValueOnce(
-      new ApiError('COURSE_INCOMPLETE', 'x', { info: { missing: ['freePreviewVideoLesson'] } }),
+      new RequestError('COURSE_INCOMPLETE', {
+        message: 'x',
+        info: { missing: ['freePreviewVideoLesson'] },
+      }),
     );
     inWorkspace(<CourseOverview />, course());
     const list = await screen.findByRole('list', { name: 'Before you submit' });

@@ -31,15 +31,13 @@ import {
   type RejectionReason,
   type VerificationQueueEntry,
 } from '@/lib/api/admin-finance';
-import { formatAgeHours, formatAgeMinutes, todayIso } from '@/lib/format';
+import { formatAgeHours, formatAgeMinutes, formatDateTime, humanize, todayIso } from '@/lib/format';
 import { minorToMajorInput, minorUnitExponent, parseMajorToMinor } from '@/lib/money';
 import { absMinor, checkReceived, MISMATCH_LABELS } from '@/lib/verification';
-import { useApi } from '@/lib/use-api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
 import { MutationStatus } from '@/components/ui';
 import { useMutation } from '@/lib/use-mutation';
-import { formatDateTime } from '@/lib/format';
-import { humanize } from '@/lib/format';
 import { confirmPaymentForm, rejectPaymentForm } from '@/lib/forms/admin';
 import { firstError, validateForm } from '@/lib/zod-form';
 
@@ -48,15 +46,20 @@ const LIMIT = 20;
 /** #63, #67: orders waiting for verification, oldest first, with the queue's metrics. */
 export function VerificationScreen() {
   const [offset, setOffset] = useState(0);
-  const [refresh, setRefresh] = useState(0);
+  const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const metrics = useApi(`verification-metrics:${refresh}`, (signal) =>
-    adminFinanceApi.getVerificationMetrics(signal),
-  );
-  const queue = useApi(`verification-queue:${offset}:${refresh}`, (signal) =>
-    adminFinanceApi.getVerificationQueue({ limit: LIMIT, offset }, signal),
-  );
-  const reload = () => setRefresh((n) => n + 1);
+  const metrics = useQuery({
+    queryKey: ['verification-metrics'],
+    queryFn: ({ signal }) => adminFinanceApi.getVerificationMetrics(signal),
+  });
+  const queue = useQuery({
+    queryKey: ['verification-queue', offset],
+    queryFn: ({ signal }) => adminFinanceApi.getVerificationQueue({ limit: LIMIT, offset }, signal),
+  });
+  const reload = () => {
+    void queryClient.invalidateQueries({ queryKey: ['verification-metrics'] });
+    void queryClient.invalidateQueries({ queryKey: ['verification-queue'] });
+  };
 
   return (
     <>

@@ -8,7 +8,7 @@ import { adminAccess, canSwitchContext } from '@/lib/access';
 import { adminApi, type AdminDashboard, type MeWithContext } from '@/lib/api/admin';
 import { errorMessage } from '@/lib/api/errors';
 import { useSession } from '@/lib/session';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from './AdminShell.module.css';
 
 type QueueKey = keyof AdminDashboard['queues'];
@@ -78,9 +78,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const user = session.user as MeWithContext | null;
   const access = adminAccess(session.status, user);
   const pathname = usePathname() ?? '/admin';
-  const dashboard = useApi(access === 'ok' ? `admin-nav:${pathname}` : null, (signal) =>
-    adminApi.getDashboard(signal),
-  );
+  const dashboard = useQuery({
+    queryKey: ['admin-nav', pathname],
+    queryFn: ({ signal }) => adminApi.getDashboard(signal),
+    enabled: access === 'ok',
+  });
   const counts = dashboard.status === 'success' ? dashboard.data.queues : null;
 
   return (

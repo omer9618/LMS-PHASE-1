@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '@/lib/api/errors';
+import { RequestError } from '@/lib/api/errors';
 import { apiMock, resetMocks, router, setSearch } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
@@ -53,7 +53,10 @@ describe('LoginForm', () => {
 
   it('shows wrong credentials as an alert', async () => {
     apiMock.post.mockRejectedValue(
-      new ApiError('INVALID_CREDENTIALS', 'Invalid email or password', { status: 401 }),
+      new RequestError('INVALID_CREDENTIALS', {
+        message: 'Invalid email or password',
+        status: 401,
+      }),
     );
     renderWithSession(<LoginForm />);
     await userEvent.type(screen.getByLabelText(/^Email/), 'a@b.co');
@@ -115,7 +118,7 @@ describe('LoginForm', () => {
   it('returns to the password step when the challenge expired', async () => {
     apiMock.post.mockImplementation(async (path: string) => {
       if (path === '/auth/login') return { mfaRequired: true, challengeToken: 'c', expiresAt: '' };
-      throw new ApiError('INVALID_TOKEN', 'Invalid or expired token', { status: 400 });
+      throw new RequestError('INVALID_TOKEN', { message: 'Invalid or expired token', status: 400 });
     });
     renderWithSession(<LoginForm />);
     await userEvent.type(screen.getByLabelText(/^Email/), 'admin@lms.local');
@@ -188,7 +191,8 @@ describe('RegisterForm', () => {
 
   it('puts API field errors on their fields', async () => {
     apiMock.post.mockRejectedValue(
-      new ApiError('VALIDATION_FAILED', 'Password must not contain your email address', {
+      new RequestError('VALIDATION_FAILED', {
+        message: 'Password must not contain your email address',
         status: 400,
         info: { field: 'password' },
       }),
@@ -206,7 +210,9 @@ describe('RegisterForm', () => {
   });
 
   it('shows a taken email', async () => {
-    apiMock.post.mockRejectedValue(new ApiError('CONFLICT', 'Email already registered'));
+    apiMock.post.mockRejectedValue(
+      new RequestError('CONFLICT', { message: 'Email already registered' }),
+    );
     renderWithSession(<RegisterForm />);
     await userEvent.type(screen.getByLabelText(/^Full name/), 'Ayesha Khan');
     await userEvent.type(screen.getByLabelText(/^Email/), 'ayesha@example.com');
@@ -231,7 +237,8 @@ describe('VerifyEmail', () => {
   it('explains an invalid link and offers a resend when signed in', async () => {
     setSearch('token=used');
     apiMock.post.mockImplementation(async (path: string) => {
-      if (path === '/auth/verify-email') throw new ApiError('INVALID_TOKEN', 'Invalid token');
+      if (path === '/auth/verify-email')
+        throw new RequestError('INVALID_TOKEN', { message: 'Invalid token' });
       return { sent: true };
     });
     renderWithSession(<VerifyEmail />, { ...STUDENT, isEmailVerified: false });
@@ -303,7 +310,7 @@ describe('ResetPasswordForm', () => {
 
   it('explains an expired link', async () => {
     setSearch('token=old');
-    apiMock.post.mockRejectedValue(new ApiError('INVALID_TOKEN', 'Invalid token'));
+    apiMock.post.mockRejectedValue(new RequestError('INVALID_TOKEN', { message: 'Invalid token' }));
     renderWithSession(<ResetPasswordForm />);
     await userEvent.type(screen.getByLabelText(/^New password/), 'a brand new phrase');
     await userEvent.type(screen.getByLabelText(/^Confirm new password/), 'a brand new phrase');

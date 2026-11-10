@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { Alert } from '@/components/ui';
-import { errorMessage, isApiError } from '@/lib/api/errors';
+import { errorMessage, isRequestError } from '@/lib/api/errors';
 import type { LearnApi } from '@/lib/api/learn';
-import type { Playback } from '@/lib/api/schemas/catalogue';
 import { parsePlayerMessage, playerCommands, shouldReport } from '@/lib/player-events';
 import styles from './Player.module.css';
 
@@ -35,8 +35,21 @@ export function VideoLesson({
   onCompleted,
   client,
 }: VideoLessonProps) {
-  const [playback, setPlayback] = useState<Playback | null>(null);
-  const [error, setError] = useState<{ processing: boolean; message: string } | null>(null);
+  // The embed URL is signed and short-lived: always ask for a fresh one, never reuse a cached one.
+  const loaded = useQuery({
+    queryKey: ['playback', courseId, lessonId],
+    queryFn: () => client.playback(courseId, lessonId),
+    staleTime: 0,
+    gcTime: 0,
+  });
+  const playback = loaded.data ?? null;
+  const error =
+    loaded.status === 'error'
+      ? {
+          processing: isRequestError(loaded.error, 'VIDEO_NOT_READY'),
+          message: errorMessage(loaded.error),
+        }
+      : null;
   const frame = useRef<HTMLIFrameElement>(null);
   const lastReport = useRef<number | null>(null);
   const position = useRef(0);
@@ -46,20 +59,6 @@ export function VideoLesson({
   useEffect(() => {
     onCompletedRef.current = onCompleted;
   }, [onCompleted]);
-
-  useEffect(() => {
-    // Mounted once per lesson (keyed by lesson id), so there is no previous video to clear.
-    let cancelled = false;
-    client.playback(courseId, lessonId).then(
-      (p) => !cancelled && setPlayback(p),
-      (e) =>
-        !cancelled &&
-        setError({ processing: isApiError(e, 'VIDEO_NOT_READY'), message: errorMessage(e) }),
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [client, courseId, lessonId]);
 
   useEffect(() => {
     if (!playback) return;

@@ -44,7 +44,9 @@ export function MarkSheet({
       <div className={styles.top}>
         <span className="mono">{heading}</span>
         <span className={styles.chips}>
-          <Badge tone="primary">[{marks} marks]</Badge>
+          <Badge tone="primary">
+            [{marks} mark{marks === 1 ? '' : 's'}]
+          </Badge>
           {timer && <Badge tone="warning">{timer}</Badge>}
         </span>
       </div>

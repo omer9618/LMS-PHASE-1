@@ -6,7 +6,7 @@ import { useState, type FormEvent } from 'react';
 import { Alert, Button, ButtonLink, Input } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
 import { authApi } from '@/lib/api/auth';
-import { isApiError } from '@/lib/api/errors';
+import { isRequestError } from '@/lib/api/errors';
 import { useSession } from '@/lib/session';
 import { resetPasswordForm } from '@/lib/forms/auth';
 import { PASSWORD_MIN_LENGTH } from '@/lib/forms/fields';
@@ -48,7 +48,7 @@ export function ResetPasswordForm() {
       },
       undefined,
       (error) => {
-        if (!isApiError(error, 'INVALID_TOKEN')) return;
+        if (!isRequestError(error, 'INVALID_TOKEN')) return;
         setInvalidLink(true);
         return true;
       },

@@ -19,7 +19,7 @@ import { adminFinanceApi, type AdminOrder } from '@/lib/api/admin-finance';
 import { formatBps } from '@/lib/money';
 import { todayIso } from '@/lib/format';
 import { minorToMajorInput, minorUnitExponent } from '@/lib/money';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
 import { MutationStatus } from '@/components/ui';
 import { useMutation } from '@/lib/use-mutation';
@@ -48,9 +48,10 @@ export function OrdersScreen() {
 
 /** One order: frozen line snapshots, proofs, decisions, and (once verified) the refund form. */
 export function OrderDetailScreen({ orderId }: { orderId: string }) {
-  const order = useApi(`admin-order:${orderId}`, (signal) =>
-    adminFinanceApi.getOrder(orderId, signal),
-  );
+  const order = useQuery({
+    queryKey: ['admin-order', orderId],
+    queryFn: ({ signal }) => adminFinanceApi.getOrder(orderId, signal),
+  });
   return (
     <Loadable state={order} what="the order">
       {(o) => (
@@ -167,11 +168,13 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
                 totalMinor={o.totalMinor}
                 currency={o.currency}
                 suggestedMinor={o.totalMinor}
-                onDecided={order.reload}
+                onDecided={() => void order.refetch()}
               />
             </Section>
           )}
-          {o.status === 'VERIFIED' && <RefundForm order={o} onRefunded={order.reload} />}
+          {o.status === 'VERIFIED' && (
+            <RefundForm order={o} onRefunded={() => void order.refetch()} />
+          )}
           <p className="muted">
             <Link href={`/admin/audit?entityId=${o.id}`}>Audit history for this order</Link>
           </p>

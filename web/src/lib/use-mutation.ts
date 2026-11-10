@@ -1,5 +1,6 @@
+import { useMutation as useQueryMutation } from '@tanstack/react-query';
 import { useState } from 'react';
-import { ApiError, errorMessage, fieldErrors } from '@/lib/api/errors';
+import { errorMessage, fieldErrors, RequestAbortedError, RequestError } from '@/lib/api/errors';
 
 export interface Mutation {
   pending: boolean;
@@ -7,8 +8,8 @@ export interface Mutation {
   error: string | null;
   /** The server's per-field messages for the last failed run (empty when none). */
   fieldErrors: Record<string, string>;
-  /** The API error of the last failed run, for the few places that branch on its name. */
-  failure: ApiError | null;
+  /** The RequestError of the last failed run, for the few places that branch on its code. */
+  failure: RequestError | null;
   notice: string | null;
   /** True when the action resolved; false when it threw (the error is then in `error`). */
   run(
@@ -21,46 +22,42 @@ export interface Mutation {
 }
 
 /**
- * One write at a time: `pending` while it runs, then the `error` (with `fieldErrors` and the raw
- * `failure`) or the success `notice`. Every screen that writes uses this instead of its own
- * busy/error state, so errors read the same everywhere.
+ * One write at a time, on TanStack Query's useMutation: `pending` while it runs, then the `error`
+ * (with `fieldErrors` and the raw `failure`) or the success `notice`. Screens use this for any
+ * write whose action is built at the call site; a write with a fixed shape can use TanStack's
+ * useMutation directly (see CartView).
  */
 export function useMutation(): Mutation {
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [fields, setFields] = useState<Record<string, string>>({});
-  const [failure, setFailure] = useState<ApiError | null>(null);
+  const mutation = useQueryMutation<unknown, unknown, () => Promise<unknown>>({
+    mutationFn: (action) => action(),
+  });
   const [notice, setNotice] = useState<string | null>(null);
-
-  function reset() {
-    setError(null);
-    setFields({});
-    setFailure(null);
-    setNotice(null);
-  }
+  // Kept here, set as run() settles, so it is in step with run's result. A failure the caller
+  // handled itself (or a cancelled request) is not kept: it shows nothing.
+  const [thrown, setThrown] = useState<unknown>(null);
+  const failure = thrown instanceof RequestError ? thrown : null;
 
   return {
-    pending,
-    error,
-    fieldErrors: fields,
+    pending: mutation.isPending,
+    error: thrown === null ? null : errorMessage(thrown),
+    fieldErrors: fieldErrors(failure),
     failure,
     notice,
-    clear: reset,
+    clear() {
+      mutation.reset();
+      setNotice(null);
+      setThrown(null);
+    },
     async run(action, success, onError) {
-      setPending(true);
-      reset();
+      setNotice(null);
+      setThrown(null);
       try {
-        await action();
+        await mutation.mutateAsync(action);
         if (success) setNotice(success);
         return true;
-      } catch (e) {
-        if (onError?.(e) === true) return false;
-        setError(errorMessage(e));
-        setFields(fieldErrors(e));
-        setFailure(e instanceof ApiError ? e : null);
+      } catch (error) {
+        if (!(error instanceof RequestAbortedError) && onError?.(error) !== true) setThrown(error);
         return false;
-      } finally {
-        setPending(false);
       }
     },
   };

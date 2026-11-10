@@ -3,7 +3,7 @@
 import { Loadable, PageHeader, Section, StatGrid, StatTile } from '@/components/ui';
 import { adminApi } from '@/lib/api/admin';
 import { adminFinanceApi } from '@/lib/api/admin-finance';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import { formatDateTime } from '@/lib/format';
 
 /** 3070 → "51h 10m". */
@@ -15,11 +15,15 @@ export function formatWait(minutes: number | null): string {
 
 /** #102: what needs an admin now, with links into each queue. */
 export function DashboardScreen() {
-  const dashboard = useApi('admin-dashboard', (signal) => adminApi.getDashboard(signal));
+  const dashboard = useQuery({
+    queryKey: ['admin-dashboard'],
+    queryFn: ({ signal }) => adminApi.getDashboard(signal),
+  });
   // Waiting times for the payment queue; the tiles still show without it.
-  const metrics = useApi('admin-dashboard-metrics', (signal) =>
-    adminFinanceApi.getVerificationMetrics(signal),
-  );
+  const metrics = useQuery({
+    queryKey: ['admin-dashboard-metrics'],
+    queryFn: ({ signal }) => adminFinanceApi.getVerificationMetrics(signal),
+  });
   const queue = metrics.status === 'success' ? metrics.data : null;
 
   return (

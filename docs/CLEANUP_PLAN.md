@@ -238,9 +238,12 @@ payout and verification lists, and the student's orders and dashboard.
 - [x] `useMutation` is in `lib/use-mutation.ts`; `MutationStatus`, `ReasonAction` and
       `ConfirmButton` are in `components/ui`. `ConfirmButton` is kept: it asks a yes/no question,
       `ReasonAction` collects a written reason, so they are not duplicates.
-- [~] Move the remaining hand-rolled busy/error components to `useMutation`. Only the photo panel
-  in `ProfileEditor` is done; the others map field errors or special error codes, so each one
-  needs its own small change (deliberately left: each maps field errors or special codes, so moving them adds risk for little gain).
+- [x] Move the remaining hand-rolled busy/error components to `useMutation`. It now carries
+      `fieldErrors` and the raw `failure`, so the forms that map field errors or special codes
+      moved too.
+- [x] Data loading moved to TanStack Query (`lib/query.tsx`); `lib/use-api.ts` is gone and
+      `useMutation` runs on TanStack's. Errors follow the API's model: `ErrorCode`, the `ERRORS`
+      catalog and `RequestError` in `lib/api/errors.ts`, checked against the API by a spec.
 - [x] Dates in `lib/format.ts`, money and percent in `lib/money.ts`; `lib/admin/format.ts` and
       `lib/api/types.ts` are gone.
 - [x] `.cluster` and `.hint` in `globals.css`; 14 repeated rules removed. The mono eyebrow copies
@@ -300,7 +303,7 @@ web/src/
     api/                client, schemas/, one module per backend area
     forms/              every form schema
     format.ts money.ts  one home for each kind of helper
-    use-api.ts use-mutation.ts use-zod-form.ts
+    query.tsx use-mutation.ts use-zod-form.ts
 ```
 
 ## Risk and verification

@@ -7,7 +7,7 @@ import type { CourseDetailsInput } from '@/lib/api/teacher';
 import type { Pacing } from '@/lib/api/schemas/catalogue';
 import type { TeacherCourse } from '@/lib/api/schemas/teacher';
 import { PACING_HINTS, PACING_LABELS } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import {
   courseDetailsForm,
   detailsBody,
@@ -34,11 +34,19 @@ export function CourseDetailsForm({
   const shown = { ...errors, ...save.fieldErrors };
   const [saved, setSaved] = useState(false);
 
-  const boards = useApi('boards', (signal) => catalogueApi.boards(signal));
-  const subjects = useApi('subjects', (signal) => catalogueApi.allSubjects(signal));
-  const levels = useApi(values.boardId ? `levels:${values.boardId}` : null, (signal) =>
-    catalogueApi.levels(values.boardId, signal),
-  );
+  const boards = useQuery({
+    queryKey: ['boards'],
+    queryFn: ({ signal }) => catalogueApi.boards(signal),
+  });
+  const subjects = useQuery({
+    queryKey: ['subjects'],
+    queryFn: ({ signal }) => catalogueApi.allSubjects(signal),
+  });
+  const levels = useQuery({
+    queryKey: ['levels', values.boardId],
+    queryFn: ({ signal }) => catalogueApi.levels(values.boardId, signal),
+    enabled: Boolean(values.boardId),
+  });
 
   const set = (key: keyof DetailsValues, value: string) => {
     setSaved(false);

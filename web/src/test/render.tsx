@@ -1,6 +1,6 @@
 import { render, type RenderResult } from '@testing-library/react';
 import type { ReactElement } from 'react';
-import { ApiError } from '@/lib/api/errors';
+import { RequestError } from '@/lib/api/errors';
 import type { Me } from '@/lib/api/schemas/auth';
 import { SessionProvider } from '@/lib/session';
 import { apiMock } from './mocks';
@@ -29,7 +29,10 @@ export function renderWithSession(
   apiMock.get.mockImplementation(async (path: string, query?: unknown) => {
     if (path === '/auth/me') {
       if (me) return me;
-      throw new ApiError('UNAUTHENTICATED', 'Authentication required', { status: 401 });
+      throw new RequestError('UNAUTHENTICATED', {
+        message: 'Authentication required',
+        status: 401,
+      });
     }
     return otherGets(path, query);
   });

@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 import {
   Alert,
   Button,
@@ -12,17 +11,17 @@ import {
   SplitLayout,
   Money,
 } from '@/components/ui';
-import { ApiError, errorMessage } from '@/lib/api/errors';
+import { RequestError, errorMessage } from '@/lib/api/errors';
 import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
 import { useCart } from '@/lib/cart';
 import { groupByTeacher } from '@/lib/order-display';
 import { useSession } from '@/lib/session';
-import { useApi } from '@/lib/use-api';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import styles from './Orders.module.css';
 
 /** The course an ORDER_REFUSED error is about (the API puts it in `info.courseId`). */
 function refusedCourseId(error: unknown): string | null {
-  if (!(error instanceof ApiError) || error.name !== 'ORDER_REFUSED') return null;
+  if (!(error instanceof RequestError) || error.name !== 'ORDER_REFUSED') return null;
   const info = error.info as { courseId?: unknown } | undefined;
   return typeof info?.courseId === 'string' ? info.courseId : null;
 }
@@ -35,24 +34,22 @@ export function CartView({ client = defaultOrders }: { client?: OrdersApi }) {
   const cart = useCart();
   const { status } = useSession();
   const router = useRouter();
-  const [placing, setPlacing] = useState(false);
-  const [placeError, setPlaceError] = useState<unknown>(null);
-
-  const key = status === 'signed-in' && cart.ids.length > 0 ? `quote:${cart.ids.join(',')}` : null;
-  const quote = useApi(key, () => client.quote(cart.ids));
-
-  async function checkout() {
-    setPlacing(true);
-    setPlaceError(null);
-    try {
-      const order = await client.createOrder(cart.ids);
+  const quote = useQuery({
+    queryKey: ['cart-quote', cart.ids],
+    queryFn: () => client.quote(cart.ids),
+    enabled: status === 'signed-in' && cart.ids.length > 0,
+  });
+  const place = useMutation({
+    mutationFn: () => client.createOrder(cart.ids),
+    onSuccess: (order) => {
       cart.clear();
       router.push(`/orders/${encodeURIComponent(order.id)}?placed=1`);
-    } catch (error) {
-      setPlaceError(error);
-      setPlacing(false);
-    }
-  }
+    },
+  });
+  // Stays busy after success too: the page is about to change.
+  const placing = place.isPending || place.isSuccess;
+  const placeError = place.error;
+  const checkout = () => place.mutate();
 
   if (cart.ids.length === 0) {
     return (
@@ -86,7 +83,7 @@ export function CartView({ client = defaultOrders }: { client?: OrdersApi }) {
     <div className="stack">
       <PageHeader eyebrow="Checkout" title="Your cart" />
 
-      {quote.status === 'loading' && (
+      {quote.status === 'pending' && quote.fetchStatus !== 'idle' && (
         <p className="muted" role="status">
           Pricing your cart…
         </p>
@@ -166,12 +163,13 @@ export function CartView({ client = defaultOrders }: { client?: OrdersApi }) {
                 are fixed when you place the order.
               </p>
 
-              {placeError !== null && (
+              {placeError && (
                 <Alert tone="danger" title="The order could not be placed">
                   <p>{errorMessage(placeError)}</p>
-                  {placeError instanceof ApiError && placeError.name === 'EMAIL_NOT_VERIFIED' && (
-                    <p>Check your inbox for the verification link, then try again.</p>
-                  )}
+                  {placeError instanceof RequestError &&
+                    placeError.name === 'EMAIL_NOT_VERIFIED' && (
+                      <p>Check your inbox for the verification link, then try again.</p>
+                    )}
                 </Alert>
               )}
 

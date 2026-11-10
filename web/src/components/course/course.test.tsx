@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '@/lib/api/errors';
+import { RequestError } from '@/lib/api/errors';
 import type { CourseDetail } from '@/lib/api/schemas/catalogue';
 import { COURSE_ID, courseDetail } from '@/test/fixtures';
 import { apiMock, resetMocks } from '@/test/mocks';
@@ -52,6 +52,17 @@ describe('CourseDetailView', () => {
     expect(screen.getByText('Ten years teaching physics.')).toBeVisible();
     expect(screen.getByText('MSc Physics')).toBeVisible();
     expect(screen.getByText(/Step by step/)).toBeVisible();
+  });
+
+  it('tells the teacher of the course they teach it instead of offering to buy it', async () => {
+    const course = courseDetail();
+    renderCourse(course, { ...STUDENT, id: course.teacher.id, roles: ['TEACHER'] });
+    expect(await screen.findByText('You teach this course')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Manage course' })).toHaveAttribute(
+      'href',
+      `/teacher/courses/${COURSE_ID}`,
+    );
+    expect(screen.queryByRole('button', { name: /buy now/i })).toBeNull();
   });
 
   it('links the teacher to their public profile only when it is published (#101)', async () => {
@@ -109,7 +120,7 @@ describe('CourseDetailView', () => {
 
   it('shows a refused enrollment', async () => {
     apiMock.post.mockRejectedValue(
-      new ApiError('ENROLLMENT_REFUSED', 'Enrollment is closed for this course'),
+      new RequestError('ENROLLMENT_REFUSED', { message: 'Enrollment is closed for this course' }),
     );
     renderCourse(courseDetail({ isFree: true, priceMinor: null }), STUDENT);
     await userEvent.click(await screen.findByRole('button', { name: 'Enroll for free' }));
@@ -135,7 +146,7 @@ describe('CourseDetailView', () => {
   });
 
   it('says when a course is not available', async () => {
-    renderCourse(new ApiError('NOT_FOUND', 'Resource not found', { status: 404 }));
+    renderCourse(new RequestError('NOT_FOUND', { message: 'Resource not found', status: 404 }));
     expect(await screen.findByRole('heading', { name: 'Course not found' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Browse all courses' })).toHaveAttribute(
       'href',

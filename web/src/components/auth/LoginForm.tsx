@@ -6,7 +6,7 @@ import { useState, type FormEvent } from 'react';
 import { Alert, Button, Input } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
 import { authApi } from '@/lib/api/auth';
-import { isApiError } from '@/lib/api/errors';
+import { isRequestError } from '@/lib/api/errors';
 import { safeNextPath } from '@/lib/format';
 import { needsMfaSetup, useSession } from '@/lib/session';
 import { loginForm, mfaCodeForm } from '@/lib/forms/auth';
@@ -77,7 +77,7 @@ export function LoginForm() {
       },
       undefined,
       (error) => {
-        if (!isApiError(error, 'INVALID_TOKEN')) return;
+        if (!isRequestError(error, 'INVALID_TOKEN')) return;
         // The challenge lasts 5 minutes: start again from the password.
         setStep({ kind: 'password' });
         setCode('');

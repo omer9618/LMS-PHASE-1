@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { z } from 'zod';
 import { Button, Input, Loadable, PageHeader, Pager, Table } from '@/components/ui';
 import { adminApi, type AuditEntry, type AuditQuery } from '@/lib/api/admin';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
 import { formatDateTime } from '@/lib/format';
 
@@ -37,9 +37,10 @@ export function AuditScreen() {
     entityId: initial.entityId,
     offset: 0,
   });
-  const entries = useApi(`admin-audit:${JSON.stringify(query)}`, (signal) =>
-    adminApi.searchAuditLog({ ...query, limit: LIMIT }, signal),
-  );
+  const entries = useQuery({
+    queryKey: ['admin-audit', query],
+    queryFn: ({ signal }) => adminApi.searchAuditLog({ ...query, limit: LIMIT }, signal),
+  });
   const field = (key: keyof typeof draft, label: string, extra: object = {}) => (
     <Input
       label={label}

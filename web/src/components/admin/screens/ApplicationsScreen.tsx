@@ -17,7 +17,7 @@ import {
 } from '@/components/ui';
 import { adminApi, type ApplicationStatus, type TeacherApplication } from '@/lib/api/admin';
 import { formatDate } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
 import { MutationStatus } from '@/components/ui';
 import { useMutation } from '@/lib/use-mutation';
@@ -34,9 +34,10 @@ export function ApplicationsScreen() {
     q: '',
     offset: 0,
   });
-  const apps = useApi(`admin-apps:${JSON.stringify(query)}`, (signal) =>
-    adminApi.listApplications({ ...query, limit: LIMIT }, signal),
-  );
+  const apps = useQuery({
+    queryKey: ['admin-apps', query],
+    queryFn: ({ signal }) => adminApi.listApplications({ ...query, limit: LIMIT }, signal),
+  });
   return (
     <>
       <PageHeader
@@ -103,9 +104,10 @@ export function ApplicationsScreen() {
 
 /** #20, #21: one application: CV, decision, and the teacher account it leads to. */
 export function ApplicationDetailScreen({ applicationId }: { applicationId: string }) {
-  const app = useApi(`admin-app:${applicationId}`, (signal) =>
-    adminApi.getApplication(applicationId, signal),
-  );
+  const app = useQuery({
+    queryKey: ['admin-app', applicationId],
+    queryFn: ({ signal }) => adminApi.getApplication(applicationId, signal),
+  });
   const mutation = useMutation();
   const [notes, setNotes] = useState('');
   const [linkUserId, setLinkUserId] = useState('');
@@ -113,7 +115,7 @@ export function ApplicationDetailScreen({ applicationId }: { applicationId: stri
 
   const act = async (action: () => Promise<unknown>, success: string) => {
     const ok = await mutation.run(action, success);
-    if (ok) app.reload();
+    if (ok) void app.refetch();
     return ok;
   };
 
