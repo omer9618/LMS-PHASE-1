@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { OrderDetail } from '@/components/orders/OrderDetail';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { requireId } from '@/lib/route-params';
 
 export const metadata: Metadata = { title: 'Order' };
 
@@ -14,7 +12,7 @@ export default async function OrderPage({
   searchParams: Promise<{ placed?: string }>;
 }) {
   const [{ orderId }, { placed }] = await Promise.all([params, searchParams]);
-  if (!UUID.test(orderId)) notFound();
+  requireId(orderId);
   return (
     <div className="page">
       <OrderDetail orderId={orderId} justPlaced={placed === '1'} />

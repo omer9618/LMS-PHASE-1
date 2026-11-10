@@ -17,6 +17,7 @@ export function SettingsScreen() {
   return (
     <>
       <PageHeader
+        eyebrow="Platform"
         title="Platform settings"
         description="Changes apply at once and are recorded in the audit log."
       />

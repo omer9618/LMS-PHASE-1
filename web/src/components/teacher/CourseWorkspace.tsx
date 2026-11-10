@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import { Alert, Badge, Button } from '@/components/ui';
+import { Alert, Badge, Button, PageHeader } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { teacherApi } from '@/lib/api/teacher';
 import type { TeacherCourse } from '@/lib/api/types';
@@ -67,13 +67,15 @@ export function CourseWorkspace({ courseId, children }: { courseId: string; chil
   return (
     <WorkspaceContext.Provider value={{ course, setCourse: setUpdated }}>
       <div className="stack">
-        <nav aria-label="Breadcrumb" className={styles.breadcrumb}>
-          <Link href="/teacher/courses">My courses</Link> / {course.title}
-        </nav>
-        <div className={styles.titleRow}>
-          <h1>{course.title}</h1>
-          <Badge tone={status.tone}>{status.label}</Badge>
-        </div>
+        <PageHeader
+          eyebrow={
+            <nav aria-label="Breadcrumb">
+              <Link href="/teacher/courses">My courses</Link> / {course.title}
+            </nav>
+          }
+          title={course.title}
+          actions={<Badge tone={status.tone}>{status.label}</Badge>}
+        />
         <nav aria-label="Course sections">
           <ul className={styles.tabs}>
             {tabs.map((tab) => (

@@ -107,6 +107,7 @@ export function TeacherApplicationForm() {
   return (
     <form className={styles.form} noValidate onSubmit={submit} aria-labelledby="apply-title">
       <div className={styles.header}>
+        <p className="eyebrow">For teachers</p>
         <h1 id="apply-title">Teach with us</h1>
         <p className={styles.intro}>
           Tell us about yourself and attach your CV. An administrator reviews every application and

@@ -71,9 +71,6 @@ export const recordAdjustment = (
 
 // ── Payouts and concerns ──
 
-export const listTeacherPayouts = (teacherId: string, signal?: AbortSignal) =>
-  api.get(`/admin/teachers/${teacherId}/payouts`, schema.adminPayouts, undefined, signal);
-
 export const getPayout = (payoutId: string, signal?: AbortSignal) =>
   api.get(`/admin/payouts/${payoutId}`, schema.payoutWithSales, undefined, signal);
 

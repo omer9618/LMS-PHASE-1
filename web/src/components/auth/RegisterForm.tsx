@@ -108,6 +108,7 @@ export function RegisterForm() {
   return (
     <form className={styles.form} noValidate onSubmit={submit} aria-labelledby="register-title">
       <div className={styles.header}>
+        <p className="eyebrow">Students · free account</p>
         <h1 id="register-title">Create your account</h1>
         <p className={styles.intro}>
           For students. Teachers <Link href="/teach-with-us">apply here</Link> instead.

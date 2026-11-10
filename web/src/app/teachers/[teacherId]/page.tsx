@@ -6,8 +6,7 @@ import { isApiError } from '@/lib/api/errors';
 import type { PublicTeacherProfile } from '@/lib/api/profile';
 import { serverApi } from '@/lib/api/server';
 import { publicTeacherProfile } from '@/lib/api/schemas/teacher';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { requireId } from '@/lib/route-params';
 
 type Params = { params: Promise<{ teacherId: string }> };
 
@@ -16,7 +15,7 @@ type Params = { params: Promise<{ teacherId: string }> };
  * suspended teachers' profiles answer 404 from the API, and so does this page.
  */
 const loadProfile = cache(async (teacherId: string): Promise<PublicTeacherProfile> => {
-  if (!UUID.test(teacherId)) notFound();
+  requireId(teacherId);
   try {
     return await serverApi.get(`/teachers/${teacherId}`, publicTeacherProfile, { limit: 60 });
   } catch (error) {

@@ -31,6 +31,7 @@ export function OrdersScreen() {
   return (
     <>
       <PageHeader
+        eyebrow="Purchases"
         title="Orders"
         description="Open an order by its ID. Orders waiting for a decision are in Payment verification."
       />

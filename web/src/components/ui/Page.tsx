@@ -15,7 +15,7 @@ export function PageHeader({ title, eyebrow, description, actions }: PageHeaderP
   return (
     <div className={styles.pageHeader}>
       <div className={styles.heading}>
-        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+        {eyebrow && <div className="eyebrow">{eyebrow}</div>}
         <h1 className={styles.title}>{title}</h1>
         {description && <p className={styles.description}>{description}</p>}
       </div>

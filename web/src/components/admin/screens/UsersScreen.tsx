@@ -9,6 +9,7 @@ import {
   Input,
   Loadable,
   PageHeader,
+  Pager,
   Section,
   Select,
   StatusBadge,
@@ -25,7 +26,7 @@ import { fieldErrors } from '@/lib/api/errors';
 import type { Role } from '@/lib/api/types';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, Pager, useMutation } from '../kit';
+import { formatDateTime, MutationStatus, useMutation } from '../kit';
 import { staffForm } from '@/lib/forms/admin';
 import { useZodForm } from '@/lib/use-zod-form';
 
@@ -41,7 +42,11 @@ export function UsersScreen() {
 
   return (
     <>
-      <PageHeader title="Users and teachers" description="Students, teachers and admins." />
+      <PageHeader
+        eyebrow="Accounts"
+        title="Users and teachers"
+        description="Students, teachers and admins."
+      />
       <form
         className={styles.filters}
         onSubmit={(e) => {

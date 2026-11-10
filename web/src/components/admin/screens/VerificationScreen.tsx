@@ -6,12 +6,15 @@ import { useState, type FormEvent } from 'react';
 import {
   Alert,
   Badge,
+  type BadgeTone,
   Button,
+  type Column,
   Facts,
   Input,
   Loadable,
   Money,
   PageHeader,
+  Pager,
   Section,
   Select,
   SplitLayout,
@@ -19,8 +22,6 @@ import {
   StatTile,
   Table,
   Textarea,
-  type BadgeTone,
-  type Column,
 } from '@/components/ui';
 import {
   confirmPayment,
@@ -38,7 +39,7 @@ import { absMinor, checkReceived, MISMATCH_LABELS } from '@/lib/admin/verificati
 import { formatMoney, minorToMajorInput, minorUnitExponent, parseMajorToMinor } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, Pager, useMutation } from '../kit';
+import { formatDateTime, MutationStatus, useMutation } from '../kit';
 import { humanize } from '@/lib/format';
 import { confirmPaymentForm, rejectPaymentForm } from '@/lib/forms/admin';
 import { firstError, validateForm } from '@/lib/zod-form';

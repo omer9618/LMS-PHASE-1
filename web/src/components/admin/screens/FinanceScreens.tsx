@@ -10,6 +10,8 @@ import {
   Money,
   PageHeader,
   Section,
+  StatGrid,
+  StatTile,
   StatusBadge,
   Table,
   Textarea,
@@ -31,7 +33,7 @@ import {
 } from '@/lib/api/admin-money';
 import { formatAgeHours, formatBps, parseSignedMajorToMinor, todayIso } from '@/lib/admin/format';
 import { formatDate } from '@/lib/format';
-import { minorToMajorInput, minorUnitExponent } from '@/lib/money';
+import { formatMoney, minorToMajorInput, minorUnitExponent } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
 import { formatDateTime, MutationStatus, useMutation } from '../kit';
@@ -63,6 +65,7 @@ export function FinanceSummaryScreen() {
   return (
     <>
       <PageHeader
+        eyebrow="Ledger · all amounts in each currency"
         title="Financial summary"
         description="Sales, commission, refunds, adjustments and payouts by period (UTC dates, inclusive)."
       />
@@ -90,13 +93,27 @@ export function FinanceSummaryScreen() {
             {data.currencies.length === 0 && <p>No money has moved in this period.</p>}
             {data.currencies.map((c) => (
               <Section key={c.currency} title={c.currency}>
-                <Facts
-                  items={[
-                    ['Confirmed sales', c.confirmedSalesCount],
-                    ['Refunds', c.refundsCount],
-                    ['Payouts', c.payoutsCount],
-                  ]}
-                />
+                <StatGrid label={`${c.currency} headline figures`}>
+                  <StatTile
+                    label="Confirmed sales"
+                    value={formatMoney(c.confirmedSalesGrossMinor, c.currency)}
+                    note={`${c.confirmedSalesCount} sales`}
+                  />
+                  <StatTile
+                    label="Commission kept"
+                    value={formatMoney(c.commissionRetainedMinor, c.currency)}
+                  />
+                  <StatTile
+                    tone="primary"
+                    label="Owed to teachers"
+                    value={formatMoney(c.outstandingLiabilityMinor, c.currency)}
+                  />
+                  <StatTile
+                    label="Paid out"
+                    value={formatMoney(c.payoutsMinor, c.currency)}
+                    note={`${c.payoutsCount} payouts · ${c.refundsCount} refunds`}
+                  />
+                </StatGrid>
                 <Table<[keyof CurrencyFinancialSummary, string]>
                   caption={`${c.currency} totals`}
                   hideCaption
@@ -127,7 +144,11 @@ export function ConcernsScreen() {
   const concerns = useApi('concerns', (signal) => listOpenConcerns(signal));
   return (
     <>
-      <PageHeader title="Payout concerns" description="Open concerns, oldest first." />
+      <PageHeader
+        eyebrow="Payouts · oldest first"
+        title="Payout concerns"
+        description="Open concerns raised by teachers about a payout."
+      />
       <Loadable state={concerns} what="concerns">
         {(data) => (
           <>

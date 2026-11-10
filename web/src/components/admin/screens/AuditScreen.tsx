@@ -3,11 +3,11 @@
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { z } from 'zod';
-import { Button, Input, Loadable, PageHeader, Table } from '@/components/ui';
+import { Button, Input, Loadable, PageHeader, Pager, Table } from '@/components/ui';
 import { searchAuditLog, type AuditEntry, type AuditQuery } from '@/lib/api/admin';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, Pager } from '../kit';
+import { formatDateTime } from '../kit';
 
 const LIMIT = 50;
 
@@ -51,7 +51,11 @@ export function AuditScreen() {
 
   return (
     <>
-      <PageHeader title="Audit log" description="Newest first. Every admin decision is recorded." />
+      <PageHeader
+        eyebrow="Platform · newest first"
+        title="Audit log"
+        description="Every admin decision is recorded here and cannot be changed."
+      />
       <form
         className={styles.filters}
         onSubmit={(e) => {

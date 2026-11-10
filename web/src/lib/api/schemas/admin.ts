@@ -342,8 +342,6 @@ export const adminPayout = z.object({
 });
 export type AdminPayout = z.infer<typeof adminPayout>;
 
-export const adminPayouts = z.array(adminPayout);
-
 export const coveredSale = z.object({
   orderItemId: id,
   orderId: id,

@@ -60,6 +60,7 @@ export function ForgotPasswordForm() {
   return (
     <form className={styles.form} noValidate onSubmit={submit} aria-labelledby="forgot-title">
       <div className={styles.header}>
+        <p className="eyebrow">Account recovery</p>
         <h1 id="forgot-title">Reset your password</h1>
         <p className={styles.intro}>
           Enter your email and we will send you a link to set a new one.

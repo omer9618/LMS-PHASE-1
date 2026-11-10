@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Alert, Badge, ButtonLink } from '@/components/ui';
+import { Alert, Badge, ButtonLink, PageHeader, SplitLayout } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import {
   orders as defaultOrders,
@@ -60,15 +60,15 @@ export function OrderDetail({
 
   return (
     <div className="stack">
-      <p>
-        <Link href="/orders">← My orders</Link>
-      </p>
-      <div className={styles.titleRow}>
-        <h1>
-          Order <code>{order.paymentReference}</code>
-        </h1>
-        <Badge tone={STATUS_TONES[order.status]}>{guidance.statusLabel}</Badge>
-      </div>
+      <PageHeader
+        eyebrow={<Link href="/orders">← My orders</Link>}
+        title={
+          <>
+            Order <code>{order.paymentReference}</code>
+          </>
+        }
+        actions={<Badge tone={STATUS_TONES[order.status]}>{guidance.statusLabel}</Badge>}
+      />
 
       {justPlaced && order.status === 'PENDING' && !latest && (
         <Alert tone="success" title="Order placed">
@@ -105,82 +105,91 @@ export function OrderDetail({
         </Alert>
       )}
 
-      <section aria-labelledby="next-heading" className={styles.card}>
-        <h2 id="next-heading">What happens next</h2>
-        <p>{humaniseGuidance(guidance.whatHappensNext)}</p>
-        {order.status === 'VERIFIED' && (
-          <p className={styles.actions}>
-            <ButtonLink href={`/orders/${encodeURIComponent(order.id)}/receipt`}>
-              View receipt
-            </ButtonLink>
-            <ButtonLink href="/dashboard" variant="secondary">
-              Go to my learning
-            </ButtonLink>
-          </p>
-        )}
-      </section>
+      <SplitLayout
+        main={
+          <>
+            <section aria-labelledby="next-heading" className={styles.card}>
+              <h2 id="next-heading">What happens next</h2>
+              <p>{humaniseGuidance(guidance.whatHappensNext)}</p>
+              {order.status === 'VERIFIED' && (
+                <p className={styles.actions}>
+                  <ButtonLink href={`/orders/${encodeURIComponent(order.id)}/receipt`}>
+                    View receipt
+                  </ButtonLink>
+                  <ButtonLink href="/dashboard" variant="secondary">
+                    Go to my learning
+                  </ButtonLink>
+                </p>
+              )}
+            </section>
 
-      {(order.status === 'PENDING' || order.status === 'REJECTED') && (
-        <PaymentInstructions instructions={order.paymentInstructions} />
-      )}
+            <section aria-labelledby="items-heading" className={styles.card}>
+              <h2 id="items-heading">Courses</h2>
+              <ul className={styles.lines}>
+                {order.items.map((item) => (
+                  <li key={item.courseId}>
+                    <span>
+                      {order.status === 'VERIFIED' ? (
+                        <Link href={`/learn/${encodeURIComponent(item.courseId)}`}>
+                          {item.courseTitle}
+                        </Link>
+                      ) : (
+                        item.courseTitle
+                      )}
+                      {item.teacherName && <span className="muted"> · {item.teacherName}</span>}
+                    </span>
+                    <strong>{formatMoney(item.priceMinor, order.currency)}</strong>
+                  </li>
+                ))}
+              </ul>
+              <div className={styles.totalRow}>
+                <span>Total</span>
+                <strong>{formatMoney(order.totalMinor, order.currency)}</strong>
+              </div>
+              <p className="muted">Placed {formatDateTime(order.createdAt)}</p>
+            </section>
 
-      {guidance.canSubmitProof && (
-        <ProofForm order={order} client={client} onSubmitted={setLatest} />
-      )}
+            {order.proofs.length > 0 && (
+              <section aria-labelledby="proofs-heading" className={styles.card}>
+                <h2 id="proofs-heading">Payment details you sent</h2>
+                <ul className={styles.lines}>
+                  {order.proofs.map((proof) => (
+                    <li key={proof.id}>
+                      <span>
+                        <code>{proof.transactionId}</code>
+                        {proof.amountClaimedMinor && (
+                          <> · {formatMoney(proof.amountClaimedMinor, order.currency)}</>
+                        )}
+                        {proof.hasFile && proof.fileUrl && (
+                          <>
+                            {' '}
+                            ·{' '}
+                            <a href={proof.fileUrl} target="_blank" rel="noreferrer">
+                              attachment
+                            </a>
+                          </>
+                        )}
+                      </span>
+                      <span className="muted">{formatDateTime(proof.submittedAt)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>
+        }
+        aside={
+          <>
+            {(order.status === 'PENDING' || order.status === 'REJECTED') && (
+              <PaymentInstructions instructions={order.paymentInstructions} />
+            )}
 
-      <section aria-labelledby="items-heading" className={styles.card}>
-        <h2 id="items-heading">Courses</h2>
-        <ul className={styles.lines}>
-          {order.items.map((item) => (
-            <li key={item.courseId}>
-              <span>
-                {order.status === 'VERIFIED' ? (
-                  <Link href={`/learn/${encodeURIComponent(item.courseId)}`}>
-                    {item.courseTitle}
-                  </Link>
-                ) : (
-                  item.courseTitle
-                )}
-                {item.teacherName && <span className="muted"> · {item.teacherName}</span>}
-              </span>
-              <strong>{formatMoney(item.priceMinor, order.currency)}</strong>
-            </li>
-          ))}
-        </ul>
-        <div className={styles.totalRow}>
-          <span>Total</span>
-          <strong>{formatMoney(order.totalMinor, order.currency)}</strong>
-        </div>
-        <p className="muted">Placed {formatDateTime(order.createdAt)}</p>
-      </section>
-
-      {order.proofs.length > 0 && (
-        <section aria-labelledby="proofs-heading" className={styles.card}>
-          <h2 id="proofs-heading">Payment details you sent</h2>
-          <ul className={styles.lines}>
-            {order.proofs.map((proof) => (
-              <li key={proof.id}>
-                <span>
-                  <code>{proof.transactionId}</code>
-                  {proof.amountClaimedMinor && (
-                    <> · {formatMoney(proof.amountClaimedMinor, order.currency)}</>
-                  )}
-                  {proof.hasFile && proof.fileUrl && (
-                    <>
-                      {' '}
-                      ·{' '}
-                      <a href={proof.fileUrl} target="_blank" rel="noreferrer">
-                        attachment
-                      </a>
-                    </>
-                  )}
-                </span>
-                <span className="muted">{formatDateTime(proof.submittedAt)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+            {guidance.canSubmitProof && (
+              <ProofForm order={order} client={client} onSubmitted={setLatest} />
+            )}
+          </>
+        }
+      />
     </div>
   );
 }

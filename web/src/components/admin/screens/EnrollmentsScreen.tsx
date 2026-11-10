@@ -8,6 +8,7 @@ import {
   Input,
   Loadable,
   PageHeader,
+  Pager,
   Section,
   Select,
   StatusBadge,
@@ -25,7 +26,7 @@ import type { EnrollmentStatus } from '@/lib/api/types';
 import { formatDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { MutationStatus, Pager, ReasonAction, useMutation } from '../kit';
+import { MutationStatus, ReasonAction, useMutation } from '../kit';
 import { humanize } from '@/lib/format';
 import { grantForm } from '@/lib/forms/admin';
 import { useZodForm } from '@/lib/use-zod-form';
@@ -49,7 +50,11 @@ export function EnrollmentsScreen() {
 
   return (
     <>
-      <PageHeader title="Enrollments" />
+      <PageHeader
+        eyebrow="Access to courses"
+        title="Enrollments"
+        description="Who can open which course, and how they got access."
+      />
       <MutationStatus mutation={mutation} />
       <form
         className={styles.filters}

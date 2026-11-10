@@ -12,6 +12,7 @@ import {
   PageHeader,
   Section,
   Select,
+  SimplePager,
   SplitLayout,
   StatusBadge,
   Table,
@@ -37,14 +38,7 @@ import { formatDate, PACING_LABELS } from '@/lib/format';
 import { minorToMajorInput, minorUnitExponent } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import {
-  formatDateTime,
-  MutationStatus,
-  ReasonAction,
-  SimplePager,
-  useMutation,
-  type Mutation,
-} from '../kit';
+import { formatDateTime, MutationStatus, ReasonAction, useMutation, type Mutation } from '../kit';
 import { humanize } from '@/lib/format';
 import { pricingForm } from '@/lib/forms/admin';
 import { useZodForm } from '@/lib/use-zod-form';

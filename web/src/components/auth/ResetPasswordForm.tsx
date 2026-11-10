@@ -97,6 +97,7 @@ export function ResetPasswordForm() {
   return (
     <form className={styles.form} noValidate onSubmit={submit} aria-labelledby="reset-title">
       <div className={styles.header}>
+        <p className="eyebrow">Account recovery</p>
         <h1 id="reset-title">{title}</h1>
         {welcome && (
           <p className={styles.intro}>

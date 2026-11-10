@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { Alert, Badge, Button, Input, Textarea } from '@/components/ui';
+import { Alert, Badge, Button, Input, PageHeader, Textarea } from '@/components/ui';
 import { errorMessage, fieldErrors, isApiError } from '@/lib/api/errors';
 import {
   checkPhoto,
@@ -81,7 +81,11 @@ export function ProfileEditor() {
   const profile = changed ?? loaded.data;
   return (
     <div className="stack">
-      <h1>Public profile</h1>
+      <PageHeader
+        eyebrow="Your public page"
+        title="Public profile"
+        description="Students see this on your teacher page once you publish it."
+      />
       <PublishPanel profile={profile} onChange={setChanged} />
       <div className={styles.layout}>
         <ProfileForm profile={profile} onSaved={setChanged} />
