@@ -14,6 +14,9 @@ export const isoDateTime = z.iso.datetime({ offset: true });
 /** A calendar date ("2026-11-06"). */
 export const isoDate = z.iso.date();
 
+/** A date-only or full timestamp, for fields the API stores as dates (periods, transfer dates). */
+export const dateOrDateTime = z.union([isoDateTime, isoDate]);
+
 /** Money as a string of minor units ("150000" is PKR 1,500.00). Never a float. */
 export const minorUnits = z.string().regex(/^-?\d+$/, 'Expected minor units as a whole number');
 

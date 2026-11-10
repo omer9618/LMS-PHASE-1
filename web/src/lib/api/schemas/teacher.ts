@@ -1,6 +1,14 @@
 import { z } from 'zod';
 import { catalogueListing, lessonType, pacing } from './catalogue';
-import { currencyCode, id, isoDate, isoDateTime, minorUnits, namedRef, openEnum } from './common';
+import {
+  currencyCode,
+  dateOrDateTime,
+  id,
+  isoDateTime,
+  minorUnits,
+  namedRef,
+  openEnum,
+} from './common';
 import { courseStatus, enrollmentSource, enrollmentStatus } from './enrollment';
 
 /** Teacher authoring (#24–#38), roster (#50), earnings (#78–#89) and profiles (#98–#101). */
@@ -189,9 +197,6 @@ export type LedgerEntry = z.infer<typeof ledgerEntry>;
 
 export const payoutStatus = z.enum(['PENDING', 'ACCEPTED', 'DISPUTED', 'RESOLVED']);
 export type PayoutStatus = z.infer<typeof payoutStatus>;
-
-/** A date-only or full timestamp: the API stores payout periods as dates. */
-const dateOrDateTime = z.union([isoDateTime, isoDate]);
 
 export const payoutSummary = z.object({
   id,

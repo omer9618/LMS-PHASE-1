@@ -93,12 +93,14 @@ describe('AdminShell (#102, #109)', () => {
 
   it('a dual-role account in the Teacher context must switch explicitly (#109)', async () => {
     let me: MeWithContext = { ...DUAL, activeContext: 'TEACHER' };
-    apiMock.post.mockImplementation(async (path: string, body: { role: string }) => {
-      expect(path).toBe('/auth/context');
-      expect(body).toEqual({ role: 'ADMIN' });
-      me = { ...DUAL, activeContext: 'ADMIN' };
-      return me;
-    });
+    apiMock.post.mockImplementation(
+      async (path: string, _schema: unknown, body: { role: string }) => {
+        expect(path).toBe('/auth/context');
+        expect(body).toEqual({ role: 'ADMIN' });
+        me = { ...DUAL, activeContext: 'ADMIN' };
+        return me;
+      },
+    );
     apiMock.get.mockImplementation(async (path: string) => (path === '/auth/me' ? me : gets(path)));
     render(
       <SessionProvider>
@@ -119,7 +121,9 @@ describe('AdminShell (#102, #109)', () => {
     renderWithSession(<AdminShell>content</AdminShell>, DUAL, gets);
     await userEvent.click(await screen.findByRole('button', { name: 'Switch to Teacher' }));
     await waitFor(() => expect(router.push).toHaveBeenCalledWith('/teacher/courses'));
-    expect(apiMock.post).toHaveBeenCalledWith('/auth/context', { role: 'TEACHER' });
+    expect(apiMock.post).toHaveBeenCalledWith('/auth/context', expect.anything(), {
+      role: 'TEACHER',
+    });
   });
 
   it('marks nested routes as current', () => {
@@ -165,7 +169,7 @@ describe('DecisionPanel (#64–#66)', () => {
     const onDecided = renderPanel();
     await userEvent.click(screen.getByRole('button', { name: 'Record decision' }));
     await waitFor(() => expect(onDecided).toHaveBeenCalled());
-    const [path, body] = apiMock.post.mock.calls[0]!;
+    const [path, , body] = apiMock.post.mock.calls[0]!;
     expect(path).toBe('/admin/verification/orders/o-1/confirm');
     expect(body).toMatchObject({ amountReceivedMinor: '150000' });
     expect(body.mismatchAction).toBeUndefined();
@@ -185,7 +189,7 @@ describe('DecisionPanel (#64–#66)', () => {
     await userEvent.selectOptions(screen.getByLabelText('What to do'), 'REQUEST_TOP_UP');
     await userEvent.click(screen.getByRole('button', { name: 'Record decision' }));
     await waitFor(() => expect(apiMock.post).toHaveBeenCalled());
-    expect(apiMock.post.mock.calls[0]![1]).toMatchObject({
+    expect(apiMock.post.mock.calls[0]![2]).toMatchObject({
       amountReceivedMinor: '100000',
       mismatchAction: 'REQUEST_TOP_UP',
     });
@@ -216,10 +220,14 @@ describe('DecisionPanel (#64–#66)', () => {
     await userEvent.type(screen.getByLabelText(/Notes/), 'Wrong bank');
     await userEvent.click(screen.getByRole('button', { name: 'Reject payment' }));
     expect(await screen.findByText('This order is not waiting for verification')).toBeVisible();
-    expect(apiMock.post).toHaveBeenCalledWith('/admin/verification/orders/o-1/reject', {
-      rejectionReason: 'OTHER',
-      notes: 'Wrong bank',
-    });
+    expect(apiMock.post).toHaveBeenCalledWith(
+      '/admin/verification/orders/o-1/reject',
+      expect.anything(),
+      {
+        rejectionReason: 'OTHER',
+        notes: 'Wrong bank',
+      },
+    );
   });
 });
 

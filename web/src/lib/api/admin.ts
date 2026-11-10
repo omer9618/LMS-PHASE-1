@@ -1,95 +1,42 @@
 /**
- * The admin API (#102–#109 and the admin screens of every other module): response shapes and one
- * typed function per route. Shapes mirror the API's controllers; dates are ISO strings and money
- * is a string of minor units, as everywhere else.
+ * The admin API (#102–#109 and the admin screens of every other module): one function per route.
+ * Every response is checked with its zod schema (./schemas/admin); the types are inferred there.
  */
 import { api, type QueryValue } from './client';
-import type {
-  CourseStatus,
-  EnrollmentSource,
-  EnrollmentStatus,
-  Me,
-  NamedRef,
-  Outline,
-  Paged,
-  Role,
-  TeacherCourse,
-} from './types';
+import * as schema from './schemas/admin';
+import type { ApplicationStatus, ContextRole, UserStatus } from './schemas/admin';
+import { paged } from './schemas/common';
+import { outline, teacherProfile } from './schemas/teacher';
+import type { CourseStatus, EnrollmentStatus, NamedRef, Role } from './types';
+
+export type {
+  AdminCourse,
+  AdminDashboard,
+  AdminEnrollment,
+  AdminUser,
+  AdminUserOverview,
+  ApplicationStatus,
+  AuditEntry,
+  ContextRole,
+  MeWithContext,
+  PlatformSetting,
+  TeacherApplication,
+  UserStatus,
+} from './schemas/admin';
+export type { F2fLocation, SocialLink, TeacherProfile } from './schemas/teacher';
 
 // ── Session and role context (#109) ──
 
-export type ContextRole = 'ADMIN' | 'TEACHER';
-
-/** GET /auth/me, with the role context fields (#109). */
-export interface MeWithContext extends Me {
-  activeContext?: ContextRole | null;
-  availableContexts?: ContextRole[];
-}
-
 export function switchContext(role: ContextRole) {
-  return api.post<MeWithContext>('/auth/context', { role });
+  return api.post('/auth/context', schema.meWithContext, { role });
 }
 
 // ── Dashboard (#102) ──
 
-export interface AdminDashboard {
-  generatedAt: string;
-  queues: {
-    coursesPendingApproval: number;
-    teacherApplicationsOpen: number;
-    paymentVerificationsPending: number | null;
-    payoutConcerns: number | null;
-  };
-  needsAttention: number;
-  today: { since: string; enrollmentsGranted: number };
-}
-
 export const getDashboard = (signal?: AbortSignal) =>
-  api.get<AdminDashboard>('/admin/dashboard', undefined, signal);
+  api.get('/admin/dashboard', schema.adminDashboard, undefined, signal);
 
 // ── Users (#15, #103) ──
-
-export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'DELETED';
-
-export interface AdminUser {
-  id: string;
-  email: string;
-  fullName: string | null;
-  isEmailVerified: boolean;
-  status: UserStatus;
-  roles: Role[];
-  mfaEnabled: boolean;
-  guardianName: string | null;
-  guardianEmail: string | null;
-  guardianPhone: string | null;
-  createdAt: string;
-  lastLoginAt: string | null;
-}
-
-export interface AdminEnrollment {
-  id: string;
-  status: EnrollmentStatus;
-  source: EnrollmentSource;
-  paymentChannel: string | null;
-  grantedAt: string;
-  expiresAt: string | null;
-  revokedAt: string | null;
-  completionPercent?: number;
-  student: { id: string; fullName: string | null; email: string };
-  course: { id: string; title: string; teacherId: string };
-  grantedBy: { id: string; fullName: string | null } | null;
-}
-
-export interface AdminCourse extends TeacherCourse {
-  teacher: { id: string; email: string; fullName: string | null };
-  pricedAt?: string | null;
-}
-
-export interface AdminUserOverview {
-  user: AdminUser;
-  enrollments: Paged<AdminEnrollment>;
-  coursesTaught: { items: AdminCourse[]; total: number } | null;
-}
 
 export interface UserListQuery {
   role?: Role | '';
@@ -100,91 +47,75 @@ export interface UserListQuery {
 }
 
 export const listUsers = (query: UserListQuery, signal?: AbortSignal) =>
-  api.get<Paged<AdminUser>>('/admin/users', clean(query), signal);
+  api.get('/admin/users', paged(schema.adminUser), clean(query), signal);
 export const getUserOverview = (userId: string, signal?: AbortSignal) =>
-  api.get<AdminUserOverview>(`/admin/users/${userId}/overview`, undefined, signal);
+  api.get(`/admin/users/${userId}/overview`, schema.adminUserOverview, undefined, signal);
 export const createStaffAccount = (body: {
   email: string;
   fullName: string;
   roles: Array<'ADMIN' | 'TEACHER'>;
-}) => api.post<AdminUser>('/admin/users', body);
+}) => api.post('/admin/users', schema.adminUser, body);
 export const suspendUser = (userId: string, reason: string) =>
-  api.post<AdminUser>(`/admin/users/${userId}/suspend`, { reason });
+  api.post(`/admin/users/${userId}/suspend`, schema.adminUser, { reason });
 export const reactivateUser = (userId: string, reason: string) =>
-  api.post<AdminUser>(`/admin/users/${userId}/reactivate`, { reason });
+  api.post(`/admin/users/${userId}/reactivate`, schema.adminUser, { reason });
 export const sendPasswordReset = (userId: string) =>
-  api.post<{ sent: boolean }>(`/admin/users/${userId}/password-reset`);
+  api.post(`/admin/users/${userId}/password-reset`, schema.sent);
 export const grantRole = (userId: string, role: Role) =>
-  api.post<AdminUser>(`/admin/users/${userId}/roles`, { role });
+  api.post(`/admin/users/${userId}/roles`, schema.adminUser, { role });
 export const revokeRole = (userId: string, role: Role) =>
-  api.delete<AdminUser>(`/admin/users/${userId}/roles/${role}`);
+  api.delete(`/admin/users/${userId}/roles/${role}`, schema.adminUser);
 export const deactivateTeacher = (teacherId: string, reason: string) =>
-  api.post<AdminUser>(`/admin/teachers/${teacherId}/deactivate`, { reason });
+  api.post(`/admin/teachers/${teacherId}/deactivate`, schema.adminUser, { reason });
 
 // ── Teacher applications (#20, #21) ──
-
-export type ApplicationStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'REJECTED' | 'HIRED';
-
-export interface TeacherApplication {
-  id: string;
-  applicantName: string;
-  applicantEmail: string;
-  applicantPhone: string | null;
-  subjects: string | null;
-  status: ApplicationStatus;
-  reviewedAt: string | null;
-  reviewNotes: string | null;
-  purgeAfter: string | null;
-  createdAt: string;
-  reviewedBy: { id: string; email: string; fullName: string | null } | null;
-  user: { id: string; email: string; fullName: string | null; status: UserStatus } | null;
-}
 
 export const listApplications = (
   query: { status?: ApplicationStatus | ''; q?: string; limit?: number; offset?: number },
   signal?: AbortSignal,
-) => api.get<Paged<TeacherApplication>>('/admin/teacher-applications', clean(query), signal);
+) => api.get('/admin/teacher-applications', paged(schema.teacherApplication), clean(query), signal);
 export const getApplication = (id: string, signal?: AbortSignal) =>
-  api.get<TeacherApplication>(`/admin/teacher-applications/${id}`, undefined, signal);
+  api.get(`/admin/teacher-applications/${id}`, schema.teacherApplication, undefined, signal);
 export const getApplicationCv = (id: string) =>
-  api.get<{ url: string; expiresInSeconds: number }>(`/admin/teacher-applications/${id}/cv`);
+  api.get(`/admin/teacher-applications/${id}/cv`, schema.signedDownload);
 export const reviewApplication = (
   id: string,
   body: { status: 'UNDER_REVIEW' | 'REJECTED' | 'HIRED'; notes?: string },
-) => api.post<TeacherApplication>(`/admin/teacher-applications/${id}/review`, body);
+) => api.post(`/admin/teacher-applications/${id}/review`, schema.teacherApplication, body);
 export const createAccountFromApplication = (id: string, fullName?: string) =>
-  api.post<TeacherApplication>(
+  api.post(
     `/admin/teacher-applications/${id}/account`,
+    schema.teacherApplication,
     fullName ? { fullName } : {},
   );
 export const linkApplication = (id: string, userId: string) =>
-  api.post<TeacherApplication>(`/admin/teacher-applications/${id}/link`, { userId });
+  api.post(`/admin/teacher-applications/${id}/link`, schema.teacherApplication, { userId });
 
 // ── Courses (#28–#33) ──
 
 export const listCoursesForReview = (
   query: { status?: CourseStatus; limit?: number; offset?: number },
   signal?: AbortSignal,
-) => api.get<AdminCourse[]>('/admin/courses', clean(query), signal);
+) => api.get('/admin/courses', schema.adminCourses, clean(query), signal);
 export const getCourse = (courseId: string, signal?: AbortSignal) =>
-  api.get<AdminCourse>(`/admin/courses/${courseId}`, undefined, signal);
+  api.get(`/admin/courses/${courseId}`, schema.adminCourse, undefined, signal);
 export const getCourseOutline = (courseId: string, signal?: AbortSignal) =>
-  api.get<Outline>(`/admin/courses/${courseId}/outline`, undefined, signal);
+  api.get(`/admin/courses/${courseId}/outline`, outline, undefined, signal);
 export const approveCourse = (courseId: string) =>
-  api.post<AdminCourse>(`/admin/courses/${courseId}/approve`);
+  api.post(`/admin/courses/${courseId}/approve`, schema.adminCourse);
 export const rejectCourse = (courseId: string, reason: string) =>
-  api.post<AdminCourse>(`/admin/courses/${courseId}/reject`, { reason });
+  api.post(`/admin/courses/${courseId}/reject`, schema.adminCourse, { reason });
 export const unpublishCourse = (courseId: string, reason: string) =>
-  api.post<AdminCourse>(`/admin/courses/${courseId}/unpublish`, { reason });
+  api.post(`/admin/courses/${courseId}/unpublish`, schema.adminCourse, { reason });
 export const archiveCourse = (courseId: string, reason?: string) =>
-  api.post<AdminCourse>(`/admin/courses/${courseId}/archive`, reason ? { reason } : {});
+  api.post(`/admin/courses/${courseId}/archive`, schema.adminCourse, reason ? { reason } : {});
 export const setCourseEnrollment = (courseId: string, open: boolean) =>
-  api.put<AdminCourse>(`/admin/courses/${courseId}/enrollment`, { open });
+  api.put(`/admin/courses/${courseId}/enrollment`, schema.adminCourse, { open });
 export type PricingInput =
   | { isFree: true }
   | { isFree: false; priceMinor: string; currency: string; commissionRateBps: number };
 export const setCoursePricing = (courseId: string, body: PricingInput) =>
-  api.put<AdminCourse>(`/admin/courses/${courseId}/pricing`, body);
+  api.put(`/admin/courses/${courseId}/pricing`, schema.adminCourse, body);
 export interface CourseDetailsInput {
   title?: string;
   description?: string | null;
@@ -192,7 +123,7 @@ export interface CourseDetailsInput {
   progressionMode?: 'FREE' | 'SEQUENTIAL';
 }
 export const updateCourse = (courseId: string, body: CourseDetailsInput) =>
-  api.patch<AdminCourse>(`/admin/courses/${courseId}`, body);
+  api.patch(`/admin/courses/${courseId}`, schema.adminCourse, body);
 
 // ── Enrollments (#49) ──
 
@@ -205,45 +136,23 @@ export const listEnrollments = (
     offset?: number;
   },
   signal?: AbortSignal,
-) => api.get<Paged<AdminEnrollment>>('/admin/enrollments', clean(query), signal);
+) => api.get('/admin/enrollments', paged(schema.adminEnrollment), clean(query), signal);
 export const grantEnrollment = (body: {
   studentEmail: string;
   courseId: string;
   paymentChannel: string;
   reason: string;
   expiresAt?: string;
-}) => api.post<AdminEnrollment>('/admin/enrollments', body);
+}) => api.post('/admin/enrollments', schema.adminEnrollment, body);
 export const revokeEnrollment = (enrollmentId: string, reason: string) =>
-  api.post<AdminEnrollment>(`/admin/enrollments/${enrollmentId}/revoke`, { reason });
+  api.post(`/admin/enrollments/${enrollmentId}/revoke`, schema.adminEnrollment, { reason });
 
 // ── Platform settings (#8) and audit log (#108) ──
 
-export interface PlatformSetting {
-  key: string;
-  value: number | string | boolean;
-  defaultValue: number | string | boolean;
-  description: string;
-  isDefault: boolean;
-  updatedAt: string | null;
-  updatedBy: { id: string; email: string } | null;
-}
-
 export const listSettings = (signal?: AbortSignal) =>
-  api.get<PlatformSetting[]>('/admin/settings', undefined, signal);
+  api.get('/admin/settings', schema.platformSettings, undefined, signal);
 export const updateSetting = (key: string, value: number | string | boolean) =>
-  api.put<PlatformSetting>(`/admin/settings/${key}`, { value });
-
-export interface AuditEntry {
-  id: string;
-  actorUserId: string | null;
-  action: string;
-  entityType: string;
-  entityId: string | null;
-  details: unknown;
-  ipAddress: string | null;
-  createdAt: string;
-  actor: { id: string; email: string } | null;
-}
+  api.put(`/admin/settings/${key}`, schema.platformSetting, { value });
 
 export interface AuditQuery {
   actorEmail?: string;
@@ -257,45 +166,25 @@ export interface AuditQuery {
 }
 
 export const searchAuditLog = (query: AuditQuery, signal?: AbortSignal) =>
-  api.get<Paged<AuditEntry>>('/admin/audit-log', clean(query), signal);
+  api.get('/admin/audit-log', paged(schema.auditEntry), clean(query), signal);
 
 // ── Teacher profiles (#100) ──
 
-export interface SocialLink {
-  label: string;
-  url: string;
-}
-export interface F2fLocation {
-  city: string;
-  area?: string;
-  notes?: string;
-}
-export interface TeacherProfile {
-  teacherId: string;
-  fullName: string | null;
-  bio: string | null;
-  qualifications: string | null;
-  socialLinks: SocialLink[];
-  f2fLocations: F2fLocation[];
-  photoUrl: string | null;
-  isPublished: boolean;
-  moderation: { unpublishedAt: string; reason: string | null } | null;
-}
 export interface ProfileFieldsInput {
   bio?: string | null;
   qualifications?: string | null;
-  socialLinks?: SocialLink[];
-  f2fLocations?: F2fLocation[];
+  socialLinks?: Array<{ label: string; url: string }>;
+  f2fLocations?: Array<{ city: string; area?: string; notes?: string }>;
 }
 
 export const getTeacherProfile = (teacherId: string, signal?: AbortSignal) =>
-  api.get<TeacherProfile>(`/admin/teachers/${teacherId}/profile`, undefined, signal);
+  api.get(`/admin/teachers/${teacherId}/profile`, teacherProfile, undefined, signal);
 export const updateTeacherProfile = (teacherId: string, body: ProfileFieldsInput) =>
-  api.put<TeacherProfile>(`/admin/teachers/${teacherId}/profile`, body);
+  api.put(`/admin/teachers/${teacherId}/profile`, teacherProfile, body);
 export const unpublishTeacherProfile = (teacherId: string, reason: string) =>
-  api.post<TeacherProfile>(`/admin/teachers/${teacherId}/profile/unpublish`, { reason });
+  api.post(`/admin/teachers/${teacherId}/profile/unpublish`, teacherProfile, { reason });
 export const removeTeacherPhoto = (teacherId: string, reason: string) =>
-  api.post<TeacherProfile>(`/admin/teachers/${teacherId}/profile/photo/remove`, { reason });
+  api.post(`/admin/teachers/${teacherId}/profile/photo/remove`, teacherProfile, { reason });
 
 // ── Helpers ──
 

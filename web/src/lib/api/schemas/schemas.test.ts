@@ -170,3 +170,21 @@ describe('enrollment', () => {
     expect(rows[0]?.access).toBe('ACTIVE');
   });
 });
+
+describe('session', () => {
+  it('keeps the role context of a dual-role account (#109)', () => {
+    const parsed = auth.me.parse({
+      id: 'u-9',
+      email: 'dual@example.com',
+      fullName: null,
+      isEmailVerified: true,
+      roles: ['ADMIN', 'TEACHER'],
+      mfaEnabled: true,
+      mfaVerified: true,
+      activeContext: 'TEACHER',
+      availableContexts: ['ADMIN', 'TEACHER'],
+    });
+    expect(parsed.activeContext).toBe('TEACHER');
+    expect(parsed.availableContexts).toEqual(['ADMIN', 'TEACHER']);
+  });
+});
