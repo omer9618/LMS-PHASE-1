@@ -1,6 +1,6 @@
 # Database schema
 
-Generated from `prisma/schema.prisma` by `node scripts/schema-doc.mjs`; do not edit by hand. Regenerate after every migration. Rules behind the schema (money in minor units, the append-only ledger, additions to Schema v2.0) are in [PRISMA_SETUP.md](PRISMA_SETUP.md).
+Generated from `prisma/schema.prisma` by `node scripts/schema-doc.mjs`; do not edit by hand. Regenerate after every migration. Rules behind the schema (money in minor units, the append-only ledger, additions to Schema v2.0) are in [DATABASE_RULES.md](DATABASE_RULES.md).
 
 **32 tables, 22 enums.** Names below are the PostgreSQL names. Every primary key is a UUID, every timestamp is `timestamptz` (UTC), and money columns end in `_minor` (integer minor units).
 
@@ -53,7 +53,7 @@ Constraints and indexes:
 
 ### sessions
 
-Server-side login sessions (#12). Not part of Schema v2.0: added so logout and password reset (#13) can revoke access immediately. See docs/PRISMA_SETUP.md. The cookie holds a random token; only its SHA-256 hash is stored here.
+Server-side login sessions (#12). Not part of Schema v2.0: added so logout and password reset (#13) can revoke access immediately. See docs/DATABASE_RULES.md. The cookie holds a random token; only its SHA-256 hash is stored here.
 
 | Column            | Type           | Null | Notes                                                            |
 | ----------------- | -------------- | ---- | ---------------------------------------------------------------- |

@@ -145,7 +145,7 @@ out.push('');
 out.push(
   'Generated from `prisma/schema.prisma` by `node scripts/schema-doc.mjs`; do not edit by hand. ' +
     'Regenerate after every migration. Rules behind the schema (money in minor units, the ' +
-    'append-only ledger, additions to Schema v2.0) are in [PRISMA_SETUP.md](PRISMA_SETUP.md).',
+    'append-only ledger, additions to Schema v2.0) are in [DATABASE_RULES.md](DATABASE_RULES.md).',
 );
 out.push('');
 out.push(
