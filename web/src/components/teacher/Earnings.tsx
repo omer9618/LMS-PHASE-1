@@ -29,6 +29,7 @@ import {
   type SalesTotals,
 } from '@/lib/api/earnings';
 import { errorMessage } from '@/lib/api/errors';
+import { useMutation } from '@/lib/use-mutation';
 import { formatDate } from '@/lib/format';
 import { formatMoney } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
@@ -361,25 +362,21 @@ function PayoutDetails({ payout, onChanged }: { payout: PayoutSummary; onChanged
 
 function ConcernForm({ payoutId, onRaised }: { payoutId: string; onRaised: () => void }) {
   const [reason, setReason] = useState('');
-  const [error, setError] = useState<string | undefined>();
-  const [submitting, setSubmitting] = useState(false);
+  const [localError, setLocalError] = useState<string | undefined>();
+  const raise = useMutation();
+  const error = localError ?? raise.error ?? undefined;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!reason.trim()) {
-      setError('Describe what looks wrong');
+      setLocalError('Describe what looks wrong');
       return;
     }
-    setError(undefined);
-    setSubmitting(true);
-    try {
+    setLocalError(undefined);
+    await raise.run(async () => {
       await earningsApi.raiseConcern(payoutId, reason.trim());
       onRaised();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setSubmitting(false);
-    }
+    });
   }
 
   return (
@@ -393,7 +390,7 @@ function ConcernForm({ payoutId, onRaised }: { payoutId: string; onRaised: () =>
         error={error}
       />
       <div>
-        <Button type="submit" size="sm" loading={submitting} loadingText="Sending…">
+        <Button type="submit" size="sm" loading={raise.pending} loadingText="Sending…">
           Send concern
         </Button>
       </div>

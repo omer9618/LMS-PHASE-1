@@ -8,6 +8,7 @@ import { Alert, Button, ButtonLink, Checkbox, Input } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
 import { authApi } from '@/lib/api/auth';
 import { errorMessage } from '@/lib/api/errors';
+import { useMutation } from '@/lib/use-mutation';
 import { safeNextPath } from '@/lib/format';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
@@ -33,8 +34,7 @@ export function MfaSetup() {
   const mfaStatus = useApi(user ? `mfa:${user.id}` : null, (signal) => authApi.mfaStatus(signal));
   const [setup, setSetup] = useState<Setup | null>(null);
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
-  const [starting, setStarting] = useState(false);
-  const [startError, setStartError] = useState<string | null>(null);
+  const starting = useMutation();
 
   if (sessionStatus === 'loading') return <p role="status">Loading…</p>;
   if (!user) {
@@ -80,17 +80,7 @@ export function MfaSetup() {
     );
   }
 
-  async function start() {
-    setStarting(true);
-    setStartError(null);
-    try {
-      setSetup(await authApi.mfaSetup());
-    } catch (error) {
-      setStartError(errorMessage(error));
-    } finally {
-      setStarting(false);
-    }
-  }
+  const start = () => starting.run(async () => setSetup(await authApi.mfaSetup()));
 
   return (
     <div className={styles.form}>
@@ -104,8 +94,13 @@ export function MfaSetup() {
       </div>
       {!setup ? (
         <>
-          {startError && <Alert tone="danger">{startError}</Alert>}
-          <Button onClick={() => void start()} loading={starting} loadingText="Starting…" fullWidth>
+          {starting.error && <Alert tone="danger">{starting.error}</Alert>}
+          <Button
+            onClick={() => void start()}
+            loading={starting.pending}
+            loadingText="Starting…"
+            fullWidth
+          >
             Start set-up
           </Button>
         </>
@@ -175,25 +170,19 @@ function CodeForm({
   onCode: (code: string) => Promise<void>;
 }) {
   const [code, setCode] = useState('');
-  const [error, setError] = useState<string | undefined>();
-  const [submitting, setSubmitting] = useState(false);
+  const [localError, setLocalError] = useState<string | undefined>();
+  const verify = useMutation();
+  const error = localError ?? verify.error ?? undefined;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     const checked = validateForm(mfaCodeForm(false), { code });
     if (!checked.ok) {
-      setError(checked.errors.code);
+      setLocalError(checked.errors.code);
       return;
     }
-    setError(undefined);
-    setSubmitting(true);
-    try {
-      await onCode(code.trim());
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setSubmitting(false);
-    }
+    setLocalError(undefined);
+    await verify.run(() => onCode(code.trim()));
   }
 
   return (
@@ -210,7 +199,7 @@ function CodeForm({
         maxLength={6}
         required
       />
-      <Button type="submit" loading={submitting} loadingText="Checking…" fullWidth>
+      <Button type="submit" loading={verify.pending} loadingText="Checking…" fullWidth>
         {submitLabel}
       </Button>
     </form>
