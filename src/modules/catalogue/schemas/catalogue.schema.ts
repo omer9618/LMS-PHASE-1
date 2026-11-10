@@ -1,5 +1,6 @@
 import { ProgressionMode } from '@prisma/client';
 import { z } from 'zod';
+import { paging, uuidParams } from '../../../common/schemas';
 
 const minorUnits = z
   .string()
@@ -15,7 +16,7 @@ export type CatalogueSort = (typeof CATALOGUE_SORTS)[number];
  * #40–#44. Every filter is a query parameter, so the web app can mirror filter state in its URL
  * (#42) and any listing can be shared or bookmarked.
  */
-export const catalogueQuerySchema = z.object({
+export const catalogueQuerySchema = z.strictObject({
   q: z.string().trim().min(2).max(100).optional(),
   subjectId: z.uuid().optional(),
   boardId: z.uuid().optional(),
@@ -25,10 +26,9 @@ export const catalogueQuerySchema = z.object({
   minPriceMinor: minorUnits.optional(),
   maxPriceMinor: minorUnits.optional(),
   sort: z.enum(CATALOGUE_SORTS).default('newest'),
-  limit: z.coerce.number().int().min(1).max(60).default(24),
-  offset: z.coerce.number().int().min(0).max(10_000).default(0),
+  ...paging({ max: 60, default: 24, maxOffset: 10_000 }),
 });
 export type CatalogueQuery = z.infer<typeof catalogueQuerySchema>;
 
-export const catalogueCourseParamsSchema = z.object({ courseId: z.uuid() });
+export const catalogueCourseParamsSchema = uuidParams('courseId');
 export type CatalogueCourseParams = z.infer<typeof catalogueCourseParamsSchema>;

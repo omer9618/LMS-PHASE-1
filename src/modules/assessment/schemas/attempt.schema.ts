@@ -1,11 +1,8 @@
 import { z } from 'zod';
 import { QUIZ_LIMITS } from '../domain/quiz.rules';
+import { uuidParams } from '../../../common/schemas';
 
-export const attemptParamsSchema = z.object({
-  courseId: z.uuid(),
-  lessonId: z.uuid(),
-  attemptId: z.uuid(),
-});
+export const attemptParamsSchema = uuidParams('courseId', 'lessonId', 'attemptId');
 export type AttemptParams = z.infer<typeof attemptParamsSchema>;
 
 /**

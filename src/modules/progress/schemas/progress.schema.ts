@@ -1,12 +1,13 @@
 import { z } from 'zod';
+import { paging, uuidParams } from '../../../common/schemas';
 
-export const courseParamsSchema = z.object({ courseId: z.uuid() });
+export const courseParamsSchema = uuidParams('courseId');
 export type CourseParams = z.infer<typeof courseParamsSchema>;
 
-export const lessonParamsSchema = z.object({ courseId: z.uuid(), lessonId: z.uuid() });
+export const lessonParamsSchema = uuidParams('courseId', 'lessonId');
 export type LessonParams = z.infer<typeof lessonParamsSchema>;
 
-export const studentProgressParamsSchema = z.object({ courseId: z.uuid(), studentId: z.uuid() });
+export const studentProgressParamsSchema = uuidParams('courseId', 'studentId');
 export type StudentProgressParams = z.infer<typeof studentProgressParamsSchema>;
 
 /** #91: the player's current position. Bounded at 24 h; clamped to the video duration. */
@@ -16,7 +17,6 @@ export const watchPositionSchema = z.strictObject({
 export type WatchPositionInput = z.infer<typeof watchPositionSchema>;
 
 export const rosterQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
+  ...paging({ max: 100, default: 50 }),
 });
 export type RosterQuery = z.infer<typeof rosterQuerySchema>;

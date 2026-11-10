@@ -1,5 +1,6 @@
 import { ApplicationStatus } from '@prisma/client';
 import { z } from 'zod';
+import { paging, uuidParams } from '../../../common/schemas';
 
 /** Multipart text fields of the public application form (#18). The CV is the `cv` file part. */
 export const submitApplicationSchema = z.strictObject({
@@ -15,14 +16,13 @@ export const submitApplicationSchema = z.strictObject({
 });
 export type SubmitApplicationInput = z.infer<typeof submitApplicationSchema>;
 
-export const applicationIdParamsSchema = z.object({ applicationId: z.uuid() });
+export const applicationIdParamsSchema = uuidParams('applicationId');
 export type ApplicationIdParams = z.infer<typeof applicationIdParamsSchema>;
 
-export const listApplicationsQuerySchema = z.object({
+export const listApplicationsQuerySchema = z.strictObject({
   status: z.enum(ApplicationStatus).optional(),
   q: z.string().trim().min(1).max(120).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
+  ...paging({ max: 100, default: 50 }),
 });
 export type ListApplicationsQuery = z.infer<typeof listApplicationsQuerySchema>;
 
@@ -41,10 +41,10 @@ export const createTeacherFromApplicationSchema = z.strictObject({
 });
 export type CreateTeacherFromApplicationInput = z.infer<typeof createTeacherFromApplicationSchema>;
 
-export const linkApplicationSchema = z.strictObject({ userId: z.uuid() });
+export const linkApplicationSchema = uuidParams('userId');
 export type LinkApplicationInput = z.infer<typeof linkApplicationSchema>;
 
-export const teacherIdParamsSchema = z.object({ teacherId: z.uuid() });
+export const teacherIdParamsSchema = uuidParams('teacherId');
 export type TeacherIdParams = z.infer<typeof teacherIdParamsSchema>;
 
 export const deactivateTeacherSchema = z.strictObject({

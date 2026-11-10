@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { paging } from '../../../common/schemas';
 
-export const auditLogQuerySchema = z.object({
+export const auditLogQuerySchema = z.strictObject({
   actorUserId: z.uuid().optional(),
   actorEmail: z.string().trim().min(1).max(254).optional(),
   action: z
@@ -14,8 +15,7 @@ export const auditLogQuerySchema = z.object({
   entityId: z.uuid().optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
-  limit: z.coerce.number().int().min(1).max(200).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
+  ...paging({ max: 200, default: 50 }),
 });
 
 export type AuditLogQuery = z.infer<typeof auditLogQuerySchema>;

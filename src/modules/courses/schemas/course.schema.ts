@@ -1,6 +1,7 @@
 import { AudienceType, CourseStatus, ProgressionMode } from '@prisma/client';
 import { z } from 'zod';
 import { MAX_COMMISSION_BPS } from '../domain/course.rules';
+import { paging, uuidParams } from '../../../common/schemas';
 
 /** Money arrives as a string of minor units ("150000") and becomes a bigint. Never a float. */
 const moneyMinor = z
@@ -11,11 +12,10 @@ const moneyMinor = z
 const commissionBps = z.int().min(0).max(MAX_COMMISSION_BPS);
 
 const pagination = {
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
+  ...paging({ max: 100, default: 50 }),
 };
 
-export const courseIdParamsSchema = z.object({ courseId: z.uuid() });
+export const courseIdParamsSchema = uuidParams('courseId');
 export type CourseIdParams = z.infer<typeof courseIdParamsSchema>;
 
 /** #24, #33. syllabusArea is free text: no syllabus hierarchy until #126 is answered. */
@@ -94,14 +94,14 @@ export const setPricingSchema = z.discriminatedUnion('isFree', [
 ]);
 export type SetPricingInput = z.infer<typeof setPricingSchema>;
 
-export const listMyCoursesQuerySchema = z.object({
+export const listMyCoursesQuerySchema = z.strictObject({
   status: z.enum(CourseStatus).optional(),
   ...pagination,
 });
 export type ListMyCoursesQuery = z.infer<typeof listMyCoursesQuerySchema>;
 
 /** #28 review queue: defaults to courses awaiting approval, oldest first. */
-export const listCoursesForReviewQuerySchema = z.object({
+export const listCoursesForReviewQuerySchema = z.strictObject({
   status: z.enum(CourseStatus).default(CourseStatus.PENDING_APPROVAL),
   ...pagination,
 });

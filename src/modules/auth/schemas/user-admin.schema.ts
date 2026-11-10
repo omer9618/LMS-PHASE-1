@@ -1,19 +1,19 @@
 import { Role, UserStatus } from '@prisma/client';
 import { z } from 'zod';
+import { paging, uuidParams } from '../../../common/schemas';
 
-export const userIdParamsSchema = z.object({ userId: z.uuid() });
+export const userIdParamsSchema = uuidParams('userId');
 export type UserIdParams = z.infer<typeof userIdParamsSchema>;
 
 export const userRoleParamsSchema = z.object({ userId: z.uuid(), role: z.enum(Role) });
 export type UserRoleParams = z.infer<typeof userRoleParamsSchema>;
 
-export const listUsersQuerySchema = z.object({
+export const listUsersQuerySchema = z.strictObject({
   role: z.enum(Role).optional(),
   status: z.enum(UserStatus).optional(),
   /** Matches name or email. */
   q: z.string().trim().min(1).max(120).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
+  ...paging({ max: 100, default: 50 }),
 });
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 

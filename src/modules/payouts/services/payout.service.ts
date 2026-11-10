@@ -3,6 +3,7 @@ import { DisputeStatus, PayoutStatus } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { adminScope, teacherScope, TeacherScope } from '../../../common/auth/scope';
+import { formatAmount } from '../../../common/money';
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
 import type { TransactionClient } from '../../../prisma/prisma.types';
@@ -28,7 +29,6 @@ import {
   assertCanResolvePayoutConcern,
   buildPayoutCoverageEmailLines,
   buildPayoutRecordingPlan,
-  formatPayoutMoney,
   isPayoutDueToAutoAccept,
   CoveredSaleItem,
   OpenConcernsSummary,
@@ -221,7 +221,7 @@ export class PayoutService {
     const period =
       input.periodStart && input.periodEnd ? `${input.periodStart} to ${input.periodEnd}` : null;
     const sent = await this.emailService.send(result.payout.teacher.email, 'PAYOUT_RECORDED', {
-      amount: formatPayoutMoney(result.payout.amountMinor, result.currency),
+      amount: formatAmount(result.payout.amountMinor, result.currency),
       transactionId: result.payout.transactionId ?? input.transactionId,
       transferDate: input.transferDate,
       period,

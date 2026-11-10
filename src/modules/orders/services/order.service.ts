@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { OrderStatus, Prisma, UserStatus } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthUser } from '../../../common/auth/auth-user';
+import { formatAmount } from '../../../common/money';
 import { adminScope, TeacherScope } from '../../../common/auth/scope';
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
@@ -37,7 +38,6 @@ import {
   computeOrderExpiry,
   describeStudentOrderNextStep,
   DuplicateTransactionIdWarning,
-  formatAmount,
   formatPaymentReference,
   isOrderDueToLapse,
   LAPSABLE_ORDER_STATUSES,

@@ -10,7 +10,7 @@ const phone = z
   .trim()
   .regex(/^\+?[0-9 ()-]{7,20}$/, 'Must be a phone number');
 
-export const loginSchema = z.object({ email, password });
+export const loginSchema = z.strictObject({ email, password });
 export type LoginInput = z.infer<typeof loginSchema>;
 
 /** #11. Guardian details are optional (decided 2026-10-26). */

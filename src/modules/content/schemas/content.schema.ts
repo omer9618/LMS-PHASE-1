@@ -1,13 +1,10 @@
 import { z } from 'zod';
+import { uuidParams } from '../../../common/schemas';
 
-export const lessonContentParamsSchema = z.object({ courseId: z.uuid(), lessonId: z.uuid() });
+export const lessonContentParamsSchema = uuidParams('courseId', 'lessonId');
 export type LessonContentParams = z.infer<typeof lessonContentParamsSchema>;
 
-export const resourceParamsSchema = z.object({
-  courseId: z.uuid(),
-  lessonId: z.uuid(),
-  resourceId: z.uuid(),
-});
+export const resourceParamsSchema = uuidParams('courseId', 'lessonId', 'resourceId');
 export type ResourceParams = z.infer<typeof resourceParamsSchema>;
 
 export const startVideoUploadSchema = z
