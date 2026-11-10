@@ -14,7 +14,13 @@ import {
   PageHeader,
   Section,
   Select,
+  SplitLayout,
+  StatGrid,
+  StatTile,
+  Table,
   Textarea,
+  type BadgeTone,
+  type Column,
 } from '@/components/ui';
 import {
   confirmPayment,
@@ -41,6 +47,7 @@ const LIMIT = 20;
 export function VerificationScreen() {
   const [offset, setOffset] = useState(0);
   const [refresh, setRefresh] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const metrics = useApi(`verification-metrics:${refresh}`, (signal) =>
     getVerificationMetrics(signal),
   );
@@ -52,44 +59,207 @@ export function VerificationScreen() {
   return (
     <>
       <PageHeader
+        eyebrow="Orders · proof submitted · oldest first"
         title="Payment verification"
-        description="Check each transfer against the bank before granting access."
+        description="Match each transfer in the bank statement by transaction ID and amount before confirming. Never confirm from the screenshot alone."
         actions={<OrderLookup />}
       />
       <Loadable state={metrics} what="queue metrics">
         {(m) => (
-          <ul className={styles.tiles} aria-label="Queue metrics">
-            <li className={styles.tile}>
-              <span className={styles.tileValue}>{m.queueSize}</span>
-              <span className={styles.tileLabel}>Waiting</span>
-            </li>
-            <li className={styles.tile}>
-              <span className={styles.tileValue}>{formatAgeMinutes(m.oldestWaitingMinutes)}</span>
-              <span className={styles.tileLabel}>
-                Oldest waiting{m.oldestOverTurnaround ? ' (past turnaround)' : ''}
-              </span>
-            </li>
-            <li className={styles.tile}>
-              <span className={styles.tileValue}>{m.overTurnaroundCount}</span>
-              <span className={styles.tileLabel}>
-                Past the {formatAgeHours(m.turnaroundHours)} turnaround
-              </span>
-            </li>
-          </ul>
+          <StatGrid label="Queue metrics">
+            <StatTile label="In queue" value={m.queueSize} />
+            <StatTile
+              label="Oldest waiting"
+              value={formatAgeMinutes(m.oldestWaitingMinutes)}
+              tone={m.oldestOverTurnaround ? 'danger' : 'neutral'}
+            />
+            <StatTile
+              label={`Past ${formatAgeHours(m.turnaroundHours)} turnaround`}
+              value={m.overTurnaroundCount}
+              tone={m.overTurnaroundCount > 0 ? 'danger' : 'neutral'}
+            />
+          </StatGrid>
         )}
       </Loadable>
       <Loadable state={queue} what="the queue">
-        {(page) => (
-          <>
-            {page.items.length === 0 && <p>Nothing is waiting for verification.</p>}
-            {page.items.map((entry) => (
-              <QueueEntry key={entry.orderId} entry={entry} onDecided={reload} />
-            ))}
-            <Pager total={page.total} limit={LIMIT} offset={offset} onChange={setOffset} />
-          </>
-        )}
+        {(page) => {
+          if (page.items.length === 0) return <p>Nothing is waiting for verification.</p>;
+          const selected = page.items.find((e) => e.orderId === selectedId) ?? page.items[0]!;
+          return (
+            <SplitLayout
+              main={
+                <>
+                  <Section flush aria-label="Queue">
+                    <Table
+                      caption="Orders waiting for verification, oldest first"
+                      hideCaption
+                      columns={queueColumns(selected.orderId, setSelectedId)}
+                      rows={page.items}
+                      rowKey={(e) => e.orderId}
+                    />
+                  </Section>
+                  <Pager total={page.total} limit={LIMIT} offset={offset} onChange={setOffset} />
+                </>
+              }
+              aside={<ReviewPanel key={selected.orderId} entry={selected} onDecided={reload} />}
+            />
+          );
+        }}
       </Loadable>
     </>
+  );
+}
+
+/** The flags a queue row can carry, as words, most serious first. */
+export function queueFlags(
+  entry: VerificationQueueEntry,
+): Array<{ label: string; tone: BadgeTone }> {
+  const flags: Array<{ label: string; tone: BadgeTone }> = [];
+  if (entry.claimed.mismatch) {
+    const short = entry.claimed.differenceMinor?.startsWith('-') ?? false;
+    flags.push({ label: short ? 'Amount short' : 'Amount differs', tone: 'danger' });
+  }
+  if (entry.duplicateTransactionIdWarnings.length > 0) {
+    flags.push({ label: 'Txn ID used before', tone: 'warning' });
+  }
+  if (entry.overTurnaround) flags.push({ label: 'Past turnaround', tone: 'danger' });
+  return flags;
+}
+
+function queueColumns(
+  selectedId: string,
+  onSelect: (orderId: string) => void,
+): Array<Column<VerificationQueueEntry>> {
+  return [
+    {
+      key: 'ref',
+      header: 'Reference',
+      rowHeader: true,
+      cell: (e) => (
+        <button
+          type="button"
+          className={styles.rowButton}
+          aria-pressed={e.orderId === selectedId}
+          onClick={() => onSelect(e.orderId)}
+        >
+          {e.paymentReference}
+        </button>
+      ),
+    },
+    {
+      key: 'student',
+      header: 'Student',
+      cell: (e) => (
+        <span className={styles.stacked}>
+          <b>{e.student.fullName || e.student.email}</b>
+          <span className="muted">
+            {e.items.length === 1 ? e.items[0]!.courseTitle : `${e.items.length} courses`}
+          </span>
+        </span>
+      ),
+    },
+    {
+      key: 'total',
+      header: 'Total',
+      numeric: true,
+      cell: (e) => formatMoney(e.totalMinor, e.currency),
+    },
+    {
+      key: 'claimed',
+      header: 'Claimed',
+      numeric: true,
+      cell: (e) =>
+        e.claimed.claimedMinor ? (
+          <span className={e.claimed.mismatch ? styles.bad : undefined}>
+            {formatMoney(e.claimed.claimedMinor, e.currency)}
+          </span>
+        ) : (
+          '—'
+        ),
+    },
+    {
+      key: 'waiting',
+      header: 'Waiting',
+      cell: (e) => (
+        <span className={e.overTurnaround ? styles.bad : 'mono'}>
+          {formatAgeMinutes(e.waitingMinutes)}
+        </span>
+      ),
+    },
+    {
+      key: 'flags',
+      header: 'Flags',
+      cell: (e) => (
+        <span className={styles.flags}>
+          {queueFlags(e).map((f) => (
+            <Badge key={f.label} tone={f.tone}>
+              {f.label}
+            </Badge>
+          ))}
+        </span>
+      ),
+    },
+  ];
+}
+
+/** The selected order: what the student sent, warnings, and the decision form. */
+function ReviewPanel({
+  entry,
+  onDecided,
+}: {
+  entry: VerificationQueueEntry;
+  onDecided: () => void;
+}) {
+  return (
+    <Section raised title={`Review ${entry.paymentReference}`}>
+      <Facts
+        columns="one"
+        items={[
+          [
+            'Student',
+            <Link key="s" href={`/admin/users/${entry.student.id}`}>
+              {entry.student.fullName || entry.student.email}
+            </Link>,
+          ],
+          [
+            'Courses',
+            entry.items.map((i) => `${i.courseTitle} (${i.teacherName ?? 'teacher'})`).join('; '),
+          ],
+          ['Order total', <Money key="t" minor={entry.totalMinor} currency={entry.currency} />],
+          [
+            'Student claims',
+            entry.claimed.claimedMinor ? (
+              <Money minor={entry.claimed.claimedMinor} currency={entry.currency} />
+            ) : (
+              'No amount given'
+            ),
+          ],
+          ['Waiting', formatAgeMinutes(entry.waitingMinutes)],
+        ]}
+      />
+      {entry.duplicateTransactionIdWarnings.map((w) => (
+        <Alert key={w.transactionId} tone="warning" title="Transaction ID used on another order">
+          <p>{w.message}</p>
+          <p>
+            Also on:{' '}
+            {w.conflictingOrderIds.map((id, i) => (
+              <span key={id}>
+                {i > 0 && ', '}
+                <Link href={`/admin/orders/${id}`}>{w.conflictingPaymentReferences[i] ?? id}</Link>
+              </span>
+            ))}
+          </p>
+        </Alert>
+      ))}
+      <ProofList proofs={entry.proofs} currency={entry.currency} />
+      <DecisionPanel
+        orderId={entry.orderId}
+        totalMinor={entry.totalMinor}
+        currency={entry.currency}
+        suggestedMinor={entry.claimed.claimedMinor ?? entry.totalMinor}
+        onDecided={onDecided}
+      />
+    </Section>
   );
 }
 
@@ -134,73 +304,6 @@ export function ProofList({ proofs, currency }: { proofs: PaymentProof[]; curren
         </li>
       ))}
     </ul>
-  );
-}
-
-function QueueEntry({
-  entry,
-  onDecided,
-}: {
-  entry: VerificationQueueEntry;
-  onDecided: () => void;
-}) {
-  return (
-    <Section
-      title={
-        <>
-          <Link href={`/admin/orders/${entry.orderId}`}>{entry.paymentReference}</Link>{' '}
-          {entry.overTurnaround && <Badge tone="danger">Past turnaround</Badge>}
-          {entry.claimed.mismatch && <Badge tone="warning">Claimed amount differs</Badge>}
-        </>
-      }
-    >
-      <Facts
-        items={[
-          [
-            'Student',
-            <Link key="s" href={`/admin/users/${entry.student.id}`}>
-              {entry.student.fullName || entry.student.email}
-            </Link>,
-          ],
-          ['Order total', <Money key="t" minor={entry.totalMinor} currency={entry.currency} />],
-          [
-            'Student claims',
-            entry.claimed.claimedMinor ? (
-              <Money minor={entry.claimed.claimedMinor} currency={entry.currency} />
-            ) : (
-              'No amount given'
-            ),
-          ],
-          ['Waiting', formatAgeMinutes(entry.waitingMinutes)],
-          [
-            'Courses',
-            entry.items.map((i) => `${i.courseTitle} (${i.teacherName ?? 'teacher'})`).join('; '),
-          ],
-        ]}
-      />
-      {entry.duplicateTransactionIdWarnings.map((w) => (
-        <Alert key={w.transactionId} tone="warning" title="Transaction ID used on another order">
-          <p>{w.message}</p>
-          <p>
-            Also on:{' '}
-            {w.conflictingOrderIds.map((id, i) => (
-              <span key={id}>
-                {i > 0 && ', '}
-                <Link href={`/admin/orders/${id}`}>{w.conflictingPaymentReferences[i] ?? id}</Link>
-              </span>
-            ))}
-          </p>
-        </Alert>
-      ))}
-      <ProofList proofs={entry.proofs} currency={entry.currency} />
-      <DecisionPanel
-        orderId={entry.orderId}
-        totalMinor={entry.totalMinor}
-        currency={entry.currency}
-        suggestedMinor={entry.claimed.claimedMinor ?? entry.totalMinor}
-        onDecided={onDecided}
-      />
-    </Section>
   );
 }
 

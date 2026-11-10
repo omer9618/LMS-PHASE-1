@@ -5,6 +5,12 @@ import {
   Alert,
   Badge,
   Button,
+  Loadable,
+  PageHeader,
+  Section,
+  SplitLayout,
+  StatGrid,
+  StatTile,
   Table,
   Textarea,
   type BadgeTone,
@@ -95,141 +101,129 @@ const ledgerColumns: Array<Column<LedgerEntry>> = [
 export function Earnings() {
   const dashboard = useApi('earnings', (signal) => earningsApi.dashboard(signal));
 
-  if (dashboard.status === 'loading') return <p role="status">Loading your earnings…</p>;
-  if (dashboard.status === 'error') {
-    return (
-      <Alert tone="danger" title="Could not load your earnings">
-        <p>{errorMessage(dashboard.error)}</p>
-        <Button size="sm" variant="secondary" onClick={dashboard.reload}>
-          Try again
-        </Button>
-      </Alert>
-    );
-  }
-
-  const data = dashboard.data;
-  const onlyCurrency = data.balances.length === 1 ? (data.balances[0]?.currency ?? null) : null;
-
   return (
     <div className="stack">
-      <h1>Earnings</h1>
-
-      <section aria-labelledby="balance-heading" className="stack">
-        <h2 id="balance-heading">Balance</h2>
-        {data.balances.length === 0 ? (
-          <p className="muted">
-            No earnings yet. Your share of each sale appears here once its payment is verified.
-          </p>
-        ) : (
-          <div className={styles.grid}>
-            {data.balances.map((b) => (
-              <div key={b.currency} className={styles.panel}>
-                <p className="muted">Owed to you</p>
-                <p className={styles.bigNumber}>{formatMoney(b.balanceMinor, b.currency)}</p>
-                <dl className={styles.facts}>
-                  <div>
-                    <dt>Earned</dt>
-                    <dd>{formatMoney(b.earningsMinor, b.currency)}</dd>
-                  </div>
-                  <div>
-                    <dt>Paid out</dt>
-                    <dd>{formatMoney(b.payoutsMinor, b.currency)}</dd>
-                  </div>
-                  <div>
-                    <dt>Refunds</dt>
-                    <dd>{formatMoney(b.refundsMinor, b.currency)}</dd>
-                  </div>
-                  <div>
-                    <dt>Adjustments</dt>
-                    <dd>{formatMoney(b.adjustmentsMinor, b.currency)}</dd>
-                  </div>
-                </dl>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <SalesSection
-        id="pending"
-        title="Pending sales"
-        intro="Orders whose payment is not verified yet. They count once an admin confirms the payment."
-        items={data.pendingSales.items}
-        totals={data.pendingSales.totalsByCurrency}
+      <PageHeader
+        eyebrow="Ledger · after commission"
+        title="Earnings"
+        description="A sale counts once an admin confirms the student’s bank transfer. After each payout you have a few days to raise a concern; after that it is accepted automatically."
       />
-      <SalesSection
-        id="confirmed"
-        title="Confirmed sales"
-        intro="Verified payments. Your share is added to your balance."
-        items={data.confirmedSales.items}
-        totals={data.confirmedSales.totalsByCurrency}
-      />
+      <Loadable state={dashboard} what="your earnings">
+        {(data) => {
+          const onlyCurrency =
+            data.balances.length === 1 ? (data.balances[0]?.currency ?? null) : null;
+          const pendingNet = (currency: string) =>
+            data.pendingSales.totalsByCurrency.find((t) => t.currency === currency)
+              ?.netTeacherMinor ?? '0';
+          return (
+            <>
+              {data.balances.length === 0 ? (
+                <p className="muted">
+                  No earnings yet. Your share of each sale appears here once its payment is
+                  verified.
+                </p>
+              ) : (
+                data.balances.map((b) => (
+                  <StatGrid key={b.currency} label={`Balance in ${b.currency}`}>
+                    <StatTile
+                      tone="primary"
+                      label="Owed to you"
+                      value={formatMoney(b.balanceMinor, b.currency)}
+                    />
+                    <StatTile label="Earned" value={formatMoney(b.earningsMinor, b.currency)} />
+                    <StatTile
+                      tone={pendingNet(b.currency) === '0' ? 'neutral' : 'warning'}
+                      label="Pending verification"
+                      value={formatMoney(pendingNet(b.currency), b.currency)}
+                    />
+                    <StatTile
+                      label="Paid out"
+                      value={formatMoney(b.payoutsMinor, b.currency)}
+                      note={`Refunds ${formatMoney(b.refundsMinor, b.currency)} · adjustments ${formatMoney(b.adjustmentsMinor, b.currency)}`}
+                    />
+                  </StatGrid>
+                ))
+              )}
 
-      <section aria-labelledby="payouts-heading" className="stack">
-        <h2 id="payouts-heading">Payouts</h2>
-        <p className="muted">
-          After each payout you have a few days to raise a concern if something looks wrong; after
-          that it is accepted automatically.
-        </p>
-        {data.payouts.length === 0 ? (
-          <p className="muted">No payouts yet.</p>
-        ) : (
-          <ul className={styles.payouts}>
-            {data.payouts.map((p) => (
-              <li key={p.id}>
-                <PayoutCard
-                  payout={p}
-                  currency={payoutCurrency(p.id, data.ledgerEntries, onlyCurrency)}
-                  onChanged={dashboard.reload}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section aria-labelledby="statement-heading" className="stack">
-        <h2 id="statement-heading">Statement</h2>
-        <Table
-          caption="Every entry in your account, newest last"
-          columns={ledgerColumns}
-          rows={data.ledgerEntries}
-          rowKey={(e) => e.id}
-          empty="No entries yet."
-        />
-      </section>
+              <SplitLayout
+                main={
+                  <>
+                    <Section flush title="Statement">
+                      <Table
+                        caption="Every entry in your account, newest last"
+                        hideCaption
+                        columns={ledgerColumns}
+                        rows={data.ledgerEntries}
+                        rowKey={(e) => e.id}
+                        empty="No entries yet."
+                      />
+                    </Section>
+                    <SalesSection
+                      title="Pending sales"
+                      intro="Orders whose payment is not verified yet."
+                      items={data.pendingSales.items}
+                      totals={data.pendingSales.totalsByCurrency}
+                    />
+                    <SalesSection
+                      title="Confirmed sales"
+                      intro="Verified payments. Your share is in your balance."
+                      items={data.confirmedSales.items}
+                      totals={data.confirmedSales.totalsByCurrency}
+                    />
+                  </>
+                }
+                aside={
+                  <section aria-labelledby="payouts-heading" className="stack">
+                    <h2 id="payouts-heading">Payouts</h2>
+                    {data.payouts.length === 0 ? (
+                      <p className="muted">No payouts yet.</p>
+                    ) : (
+                      <ul className={styles.payouts}>
+                        {data.payouts.map((p) => (
+                          <li key={p.id}>
+                            <PayoutCard
+                              payout={p}
+                              currency={payoutCurrency(p.id, data.ledgerEntries, onlyCurrency)}
+                              onChanged={dashboard.reload}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                }
+              />
+            </>
+          );
+        }}
+      </Loadable>
     </div>
   );
 }
 
 function SalesSection({
-  id,
   title,
   intro,
   items,
   totals,
 }: {
-  id: string;
   title: string;
   intro: string;
   items: SaleItem[];
   totals: SalesTotals[];
 }) {
   return (
-    <section aria-labelledby={`${id}-heading`} className="stack">
-      <h2 id={`${id}-heading`}>{title}</h2>
-      <p className="muted">{intro}</p>
-      {totals.length > 0 && (
-        <ul className={styles.totals}>
-          {totals.map((t) => (
-            <li key={t.currency}>
-              {t.itemCount} {t.itemCount === 1 ? 'sale' : 'sales'}: your share{' '}
-              <strong>{formatMoney(t.netTeacherMinor, t.currency)}</strong> of{' '}
-              {formatMoney(t.grossMinor, t.currency)}
-            </li>
-          ))}
-        </ul>
-      )}
+    <Section flush title={title} aria-label={title}>
+      <div className={styles.salesIntro}>
+        <p className="muted">{intro}</p>
+        {totals.map((t) => (
+          <p key={t.currency}>
+            {t.itemCount} {t.itemCount === 1 ? 'sale' : 'sales'}: your share{' '}
+            <strong className="mono">{formatMoney(t.netTeacherMinor, t.currency)}</strong> of{' '}
+            <span className="mono">{formatMoney(t.grossMinor, t.currency)}</span>
+          </p>
+        ))}
+      </div>
       <Table
         caption={`${title}, by order`}
         hideCaption
@@ -238,7 +232,7 @@ function SalesSection({
         rowKey={(s) => s.id}
         empty="None."
       />
-    </section>
+    </Section>
   );
 }
 

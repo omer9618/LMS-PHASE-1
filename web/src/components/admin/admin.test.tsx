@@ -8,7 +8,8 @@ import { apiMock, resetMocks, router, setPathname } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';
 import { AdminShell, isCurrent } from './AdminShell';
 import { ReasonAction } from './kit';
-import { DecisionPanel } from './screens/VerificationScreen';
+import { DashboardScreen, formatWait } from './screens/DashboardScreen';
+import { DecisionPanel, queueFlags } from './screens/VerificationScreen';
 import { parseSettingInput } from './screens/SettingsScreen';
 import { dayBoundary } from './screens/AuditScreen';
 
@@ -245,5 +246,83 @@ describe('screen helpers', () => {
       new Date('2026-11-08T00:00:00.000').toISOString(),
     );
     expect(dayBoundary('2026-11-08', true)).toBe(new Date('2026-11-08T23:59:59.999').toISOString());
+  });
+});
+
+describe('DashboardScreen', () => {
+  it('shows each queue with its action and the payment waiting time', async () => {
+    renderWithSession(<DashboardScreen />, ADMIN, (path) => {
+      if (path === '/admin/dashboard') return DASHBOARD;
+      if (path === '/admin/verification/metrics') {
+        return {
+          queueSize: 7,
+          turnaroundHours: 48,
+          oldestWaitingSince: '2026-11-07T06:00:00.000Z',
+          oldestWaitingMinutes: 3070,
+          oldestOverTurnaround: true,
+          overTurnaroundCount: 1,
+        };
+      }
+      return undefined;
+    });
+    expect(await screen.findByText('Oldest 51h 10m · 1 past 48h')).toBeVisible();
+    expect(screen.getByRole('link', { name: /Open queue/ })).toHaveAttribute(
+      'href',
+      '/admin/verification',
+    );
+    expect(screen.getByRole('link', { name: /Review: Courses to approve/ })).toHaveAttribute(
+      'href',
+      '/admin/courses',
+    );
+  });
+});
+
+describe('formatWait', () => {
+  it('writes minutes as hours and minutes', () => {
+    expect(formatWait(3070)).toBe('51h 10m');
+    expect(formatWait(5)).toBe('0h 05m');
+    expect(formatWait(null)).toBe('—');
+  });
+});
+
+describe('queueFlags', () => {
+  const base = {
+    orderId: 'o-1',
+    paymentReference: 'LMS-Q4HN-2BZE',
+    student: { id: 's-1', email: 's@example.com', fullName: null },
+    totalMinor: '320000',
+    currency: 'PKR',
+    items: [],
+    proofs: [],
+    waitingSince: null,
+    waitingMinutes: 10,
+    overTurnaround: false,
+    claimed: { claimedMinor: '320000', differenceMinor: '0', mismatch: false },
+    duplicateTransactionIdWarnings: [],
+  };
+
+  it('is empty for a clean order', () => {
+    expect(queueFlags(base)).toEqual([]);
+  });
+
+  it('says short when the student claims less, and lists every problem', () => {
+    const flags = queueFlags({
+      ...base,
+      overTurnaround: true,
+      claimed: { claimedMinor: '300000', differenceMinor: '-20000', mismatch: true },
+      duplicateTransactionIdWarnings: [
+        {
+          transactionId: 'IB-1',
+          conflictingOrderIds: ['o-2'],
+          conflictingPaymentReferences: ['LMS-B6TP-0WCE'],
+          message: 'Used before',
+        },
+      ],
+    });
+    expect(flags.map((f) => f.label)).toEqual([
+      'Amount short',
+      'Txn ID used before',
+      'Past turnaround',
+    ]);
   });
 });

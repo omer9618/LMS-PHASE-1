@@ -113,3 +113,39 @@ ul.actions {
   padding: 0;
   list-style: none;
 }
+
+/* Verification queue rows. */
+.rowButton {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.rowButton[aria-pressed='true'] {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.stacked {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bad {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-bold);
+  color: var(--color-danger);
+}
+
+.flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
