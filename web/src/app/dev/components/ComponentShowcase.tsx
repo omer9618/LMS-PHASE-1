@@ -18,7 +18,6 @@ import {
   Table,
   type Column,
 } from '@/components/ui';
-import { formatMoney } from '@/lib/money';
 import styles from './showcase.module.css';
 
 interface SampleRow {
@@ -57,7 +56,12 @@ const COLUMNS: Array<Column<SampleRow>> = [
     header: 'Status',
     cell: (r) => <Badge tone={STATUS_TONE[r.status]}>{r.status.toLowerCase()}</Badge>,
   },
-  { key: 'paid', header: 'Paid', cell: (r) => formatMoney(r.paidMinor, 'PKR'), numeric: true },
+  {
+    key: 'paid',
+    header: 'Paid',
+    cell: (r) => <Money minor={r.paidMinor} currency={'PKR'} />,
+    numeric: true,
+  },
 ];
 
 export function ComponentShowcase({ density }: { density: 'comfortable' | 'compact' }) {

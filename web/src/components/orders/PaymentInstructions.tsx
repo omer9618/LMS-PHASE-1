@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui';
+import { Button, Money } from '@/components/ui';
 import type { PaymentInstructions as Instructions } from '@/lib/api/orders';
-import { formatMoney } from '@/lib/money';
 import { timeUntil } from '@/lib/order-display';
 import { formatDateTime } from '@/lib/format';
 import styles from './Orders.module.css';
@@ -23,7 +22,7 @@ export function PaymentInstructions({ instructions }: { instructions: Instructio
         <div>
           <dt>Amount to transfer</dt>
           <dd className={styles.bigValue}>
-            {formatMoney(instructions.amountMinor, instructions.currency)}
+            <Money minor={instructions.amountMinor} currency={instructions.currency} />
           </dd>
         </div>
         <div>

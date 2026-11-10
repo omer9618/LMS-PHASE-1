@@ -1,10 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Alert, Badge, ButtonLink } from '@/components/ui';
+import { Alert, Badge, ButtonLink, Money } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
-import { formatMoney } from '@/lib/money';
 import { statusTone } from '@/lib/status';
 import { formatDateTime } from '@/lib/format';
 import { useSession } from '@/lib/session';
@@ -53,7 +52,9 @@ export function OrdersList({ client = defaultOrders }: { client?: OrdersApi }) {
           </div>
           <p>{order.items.map((i) => i.courseTitle).join(', ')}</p>
           <p className={styles.orderMeta}>
-            <strong>{formatMoney(order.totalMinor, order.currency)}</strong>
+            <strong>
+              <Money minor={order.totalMinor} currency={order.currency} />
+            </strong>
             <span className="muted">{formatDateTime(order.createdAt)}</span>
           </p>
           {order.guidance.canSubmitProof && order.status !== 'PROOF_SUBMITTED' && (

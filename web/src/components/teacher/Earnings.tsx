@@ -15,6 +15,7 @@ import {
   Textarea,
   type BadgeTone,
   type Column,
+  Money,
 } from '@/components/ui';
 import {
   canRaiseConcern,
@@ -68,7 +69,7 @@ const saleColumns: Array<Column<SaleItem>> = [
     key: 'gross',
     header: 'Price',
     numeric: true,
-    cell: (s) => formatMoney(s.priceMinor, s.currency),
+    cell: (s) => <Money minor={s.priceMinor} currency={s.currency} />,
   },
   {
     key: 'commission',
@@ -81,7 +82,7 @@ const saleColumns: Array<Column<SaleItem>> = [
     key: 'net',
     header: 'Your share',
     numeric: true,
-    cell: (s) => formatMoney(s.netTeacherMinor, s.currency),
+    cell: (s) => <Money minor={s.netTeacherMinor} currency={s.currency} />,
   },
 ];
 
@@ -93,7 +94,7 @@ const ledgerColumns: Array<Column<LedgerEntry>> = [
     key: 'amount',
     header: 'Amount',
     numeric: true,
-    cell: (e) => formatMoney(e.amountMinor, e.currency),
+    cell: (e) => <Money minor={e.amountMinor} currency={e.currency} />,
   },
 ];
 
@@ -219,8 +220,13 @@ function SalesSection({
         {totals.map((t) => (
           <p key={t.currency}>
             {t.itemCount} {t.itemCount === 1 ? 'sale' : 'sales'}: your share{' '}
-            <strong className="mono">{formatMoney(t.netTeacherMinor, t.currency)}</strong> of{' '}
-            <span className="mono">{formatMoney(t.grossMinor, t.currency)}</span>
+            <strong className="mono">
+              <Money minor={t.netTeacherMinor} currency={t.currency} />
+            </strong>{' '}
+            of{' '}
+            <span className="mono">
+              <Money minor={t.grossMinor} currency={t.currency} />
+            </span>
           </p>
         ))}
       </div>
@@ -252,7 +258,7 @@ function PayoutCard({
     <article className={styles.panel} aria-labelledby={`${panelId}-title`}>
       <div className={styles.titleRow}>
         <h3 id={`${panelId}-title`} className={styles.panelTitle}>
-          {formatMoney(payout.amountMinor, currency)}{' '}
+          <Money minor={payout.amountMinor} currency={currency} />{' '}
           <span className="muted">on {formatDate(payout.transferDate ?? payout.recordedAt)}</span>
         </h3>
         <Badge tone={status.tone}>{status.label}</Badge>
@@ -323,7 +329,7 @@ function PayoutDetails({ payout, onChanged }: { payout: PayoutSummary; onChanged
             key: 'net',
             header: 'Your share',
             numeric: true,
-            cell: (s) => formatMoney(s.netTeacherMinor, s.currency),
+            cell: (s) => <Money minor={s.netTeacherMinor} currency={s.currency} />,
           },
         ]}
         rows={coveredSales}

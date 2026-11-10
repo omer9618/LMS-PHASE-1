@@ -184,7 +184,7 @@ describe('DecisionPanel (#64–#66)', () => {
     const amount = screen.getByLabelText(/Amount received/);
     await userEvent.clear(amount);
     await userEvent.type(amount, '1000');
-    expect(screen.getByText(/Short by PKR 500.00 against a total of PKR 1,500.00/)).toBeVisible();
+    expect(document.body).toHaveTextContent(/Short by PKR 500.00 against a total of PKR 1,500.00/);
     await userEvent.click(screen.getByRole('button', { name: 'Record decision' }));
     expect(await screen.findByText(/choose what to do/)).toBeVisible();
     expect(apiMock.post).not.toHaveBeenCalled();

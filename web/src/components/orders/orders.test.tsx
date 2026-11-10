@@ -111,7 +111,7 @@ describe('cart and checkout (#54, #55)', () => {
     renderWithSession(<CartView />, STUDENT);
 
     const byAhmed = await screen.findByRole('region', { name: 'Courses by Ms Ahmed' });
-    expect(within(byAhmed).getByText('Subtotal: PKR 15,000.50')).toBeVisible();
+    expect(byAhmed).toHaveTextContent('Subtotal: PKR 15,000.50');
     expect(screen.getByText('PKR 25,000.00')).toBeVisible();
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove Optics' }));
