@@ -36,5 +36,6 @@ export function formatAmount(minor: bigint, currency: string): string {
   const abs = (negative ? -minor : minor).toString().padStart(digits + 1, '0');
   const major = abs.slice(0, abs.length - digits).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   const fraction = digits > 0 ? `.${abs.slice(abs.length - digits)}` : '';
-  return `${negative ? '-' : ''}${currency} ${major}${fraction}`;
+  // Same shape as the web's formatMoney: the sign sits on the number, "PKR -1,500.00".
+  return `${currency} ${negative ? '-' : ''}${major}${fraction}`;
 }
