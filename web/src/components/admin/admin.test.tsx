@@ -8,7 +8,8 @@ import { apiMock, resetMocks, router, setPathname } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';
 import { AdminShell, isCurrent } from './AdminShell';
 import { ReasonAction } from './kit';
-import { DecisionPanel } from './screens/VerificationScreen';
+import { DashboardScreen, formatWait } from './screens/DashboardScreen';
+import { DecisionPanel, queueFlags } from './screens/VerificationScreen';
 import { parseSettingInput } from './screens/SettingsScreen';
 import { dayBoundary } from './screens/AuditScreen';
 
@@ -93,12 +94,14 @@ describe('AdminShell (#102, #109)', () => {
 
   it('a dual-role account in the Teacher context must switch explicitly (#109)', async () => {
     let me: MeWithContext = { ...DUAL, activeContext: 'TEACHER' };
-    apiMock.post.mockImplementation(async (path: string, body: { role: string }) => {
-      expect(path).toBe('/auth/context');
-      expect(body).toEqual({ role: 'ADMIN' });
-      me = { ...DUAL, activeContext: 'ADMIN' };
-      return me;
-    });
+    apiMock.post.mockImplementation(
+      async (path: string, _schema: unknown, body: { role: string }) => {
+        expect(path).toBe('/auth/context');
+        expect(body).toEqual({ role: 'ADMIN' });
+        me = { ...DUAL, activeContext: 'ADMIN' };
+        return me;
+      },
+    );
     apiMock.get.mockImplementation(async (path: string) => (path === '/auth/me' ? me : gets(path)));
     render(
       <SessionProvider>
@@ -119,7 +122,9 @@ describe('AdminShell (#102, #109)', () => {
     renderWithSession(<AdminShell>content</AdminShell>, DUAL, gets);
     await userEvent.click(await screen.findByRole('button', { name: 'Switch to Teacher' }));
     await waitFor(() => expect(router.push).toHaveBeenCalledWith('/teacher/courses'));
-    expect(apiMock.post).toHaveBeenCalledWith('/auth/context', { role: 'TEACHER' });
+    expect(apiMock.post).toHaveBeenCalledWith('/auth/context', expect.anything(), {
+      role: 'TEACHER',
+    });
   });
 
   it('marks nested routes as current', () => {
@@ -165,7 +170,7 @@ describe('DecisionPanel (#64–#66)', () => {
     const onDecided = renderPanel();
     await userEvent.click(screen.getByRole('button', { name: 'Record decision' }));
     await waitFor(() => expect(onDecided).toHaveBeenCalled());
-    const [path, body] = apiMock.post.mock.calls[0]!;
+    const [path, , body] = apiMock.post.mock.calls[0]!;
     expect(path).toBe('/admin/verification/orders/o-1/confirm');
     expect(body).toMatchObject({ amountReceivedMinor: '150000' });
     expect(body.mismatchAction).toBeUndefined();
@@ -185,7 +190,7 @@ describe('DecisionPanel (#64–#66)', () => {
     await userEvent.selectOptions(screen.getByLabelText('What to do'), 'REQUEST_TOP_UP');
     await userEvent.click(screen.getByRole('button', { name: 'Record decision' }));
     await waitFor(() => expect(apiMock.post).toHaveBeenCalled());
-    expect(apiMock.post.mock.calls[0]![1]).toMatchObject({
+    expect(apiMock.post.mock.calls[0]![2]).toMatchObject({
       amountReceivedMinor: '100000',
       mismatchAction: 'REQUEST_TOP_UP',
     });
@@ -216,10 +221,14 @@ describe('DecisionPanel (#64–#66)', () => {
     await userEvent.type(screen.getByLabelText(/Notes/), 'Wrong bank');
     await userEvent.click(screen.getByRole('button', { name: 'Reject payment' }));
     expect(await screen.findByText('This order is not waiting for verification')).toBeVisible();
-    expect(apiMock.post).toHaveBeenCalledWith('/admin/verification/orders/o-1/reject', {
-      rejectionReason: 'OTHER',
-      notes: 'Wrong bank',
-    });
+    expect(apiMock.post).toHaveBeenCalledWith(
+      '/admin/verification/orders/o-1/reject',
+      expect.anything(),
+      {
+        rejectionReason: 'OTHER',
+        notes: 'Wrong bank',
+      },
+    );
   });
 });
 
@@ -237,5 +246,83 @@ describe('screen helpers', () => {
       new Date('2026-11-08T00:00:00.000').toISOString(),
     );
     expect(dayBoundary('2026-11-08', true)).toBe(new Date('2026-11-08T23:59:59.999').toISOString());
+  });
+});
+
+describe('DashboardScreen', () => {
+  it('shows each queue with its action and the payment waiting time', async () => {
+    renderWithSession(<DashboardScreen />, ADMIN, (path) => {
+      if (path === '/admin/dashboard') return DASHBOARD;
+      if (path === '/admin/verification/metrics') {
+        return {
+          queueSize: 7,
+          turnaroundHours: 48,
+          oldestWaitingSince: '2026-11-07T06:00:00.000Z',
+          oldestWaitingMinutes: 3070,
+          oldestOverTurnaround: true,
+          overTurnaroundCount: 1,
+        };
+      }
+      return undefined;
+    });
+    expect(await screen.findByText('Oldest 51h 10m · 1 past 48h')).toBeVisible();
+    expect(screen.getByRole('link', { name: /Open queue/ })).toHaveAttribute(
+      'href',
+      '/admin/verification',
+    );
+    expect(screen.getByRole('link', { name: /Review: Courses to approve/ })).toHaveAttribute(
+      'href',
+      '/admin/courses',
+    );
+  });
+});
+
+describe('formatWait', () => {
+  it('writes minutes as hours and minutes', () => {
+    expect(formatWait(3070)).toBe('51h 10m');
+    expect(formatWait(5)).toBe('0h 05m');
+    expect(formatWait(null)).toBe('—');
+  });
+});
+
+describe('queueFlags', () => {
+  const base = {
+    orderId: 'o-1',
+    paymentReference: 'LMS-Q4HN-2BZE',
+    student: { id: 's-1', email: 's@example.com', fullName: null },
+    totalMinor: '320000',
+    currency: 'PKR',
+    items: [],
+    proofs: [],
+    waitingSince: null,
+    waitingMinutes: 10,
+    overTurnaround: false,
+    claimed: { claimedMinor: '320000', differenceMinor: '0', mismatch: false },
+    duplicateTransactionIdWarnings: [],
+  };
+
+  it('is empty for a clean order', () => {
+    expect(queueFlags(base)).toEqual([]);
+  });
+
+  it('says short when the student claims less, and lists every problem', () => {
+    const flags = queueFlags({
+      ...base,
+      overTurnaround: true,
+      claimed: { claimedMinor: '300000', differenceMinor: '-20000', mismatch: true },
+      duplicateTransactionIdWarnings: [
+        {
+          transactionId: 'IB-1',
+          conflictingOrderIds: ['o-2'],
+          conflictingPaymentReferences: ['LMS-B6TP-0WCE'],
+          message: 'Used before',
+        },
+      ],
+    });
+    expect(flags.map((f) => f.label)).toEqual([
+      'Amount short',
+      'Txn ID used before',
+      'Past turnaround',
+    ]);
   });
 });

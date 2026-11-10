@@ -256,7 +256,7 @@ describe('NewCourse', () => {
     await userEvent.selectOptions(screen.getByLabelText(/^Subject/), SUBJECT);
     await userEvent.click(screen.getByRole('button', { name: 'Create course' }));
     await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/teacher/courses/${ID}/content`));
-    expect(apiMock.post).toHaveBeenCalledWith('/teacher/courses', {
+    expect(apiMock.post).toHaveBeenCalledWith('/teacher/courses', expect.anything(), {
       boardId: BOARD,
       levelId: LEVEL,
       subjectId: SUBJECT,
@@ -282,7 +282,7 @@ describe('CourseOverview', () => {
     await userEvent.type(title, 'Physics, revised');
     await userEvent.click(screen.getByRole('button', { name: 'Save details' }));
     expect(await screen.findByText('Details saved.')).toBeVisible();
-    expect(apiMock.patch).toHaveBeenCalledWith(`/teacher/courses/${ID}`, {
+    expect(apiMock.patch).toHaveBeenCalledWith(`/teacher/courses/${ID}`, expect.anything(), {
       title: 'Physics, revised',
     });
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Physics, revised');
@@ -317,7 +317,7 @@ describe('CourseOverview', () => {
     await userEvent.type(screen.getByLabelText(/^Proposed commission/), '17.5');
     await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
     expect(await screen.findByText(/cannot be submitted yet/)).toBeVisible();
-    expect(apiMock.post).toHaveBeenCalledWith(`/teacher/courses/${ID}/submit`, {
+    expect(apiMock.post).toHaveBeenCalledWith(`/teacher/courses/${ID}/submit`, expect.anything(), {
       teacherProposedBps: 1750,
     });
 
@@ -332,13 +332,18 @@ describe('OutlineEditor', () => {
     apiMock.put.mockResolvedValue(outline());
     inWorkspace(<OutlineEditor />, course());
     await userEvent.click(await screen.findByRole('button', { name: 'Move section “Forces” up' }));
-    expect(apiMock.put).toHaveBeenCalledWith(`/teacher/courses/${ID}/sections/order`, {
-      sectionIds: ['s-2', 's-1'],
-    });
+    expect(apiMock.put).toHaveBeenCalledWith(
+      `/teacher/courses/${ID}/sections/order`,
+      expect.anything(),
+      {
+        sectionIds: ['s-2', 's-1'],
+      },
+    );
     expect(screen.getByRole('button', { name: 'Move section “Kinematics” up' })).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: 'Move lesson “Welcome” down' }));
     expect(apiMock.put).toHaveBeenLastCalledWith(
       `/teacher/courses/${ID}/sections/s-1/lessons/order`,
+      expect.anything(),
       { lessonIds: ['l-2', 'l-1'] },
     );
     expect(screen.getByRole('status')).toHaveTextContent('Moved “Welcome” down');
@@ -349,18 +354,26 @@ describe('OutlineEditor', () => {
     inWorkspace(<OutlineEditor />, course());
     await userEvent.type(await screen.findByLabelText('New section'), 'Energy');
     await userEvent.click(screen.getByRole('button', { name: 'Add section' }));
-    expect(apiMock.post).toHaveBeenCalledWith(`/teacher/courses/${ID}/sections`, {
-      title: 'Energy',
-    });
+    expect(apiMock.post).toHaveBeenCalledWith(
+      `/teacher/courses/${ID}/sections`,
+      expect.anything(),
+      {
+        title: 'Energy',
+      },
+    );
 
     const forces = screen.getByRole('region', { name: /Forces/ });
     await userEvent.type(within(forces).getByLabelText('New lesson'), 'Newton’s laws');
     await userEvent.selectOptions(within(forces).getByLabelText('Type'), 'TEXT');
     await userEvent.click(within(forces).getByRole('button', { name: 'Add lesson' }));
-    expect(apiMock.post).toHaveBeenLastCalledWith(`/teacher/courses/${ID}/sections/s-2/lessons`, {
-      title: 'Newton’s laws',
-      type: 'TEXT',
-    });
+    expect(apiMock.post).toHaveBeenLastCalledWith(
+      `/teacher/courses/${ID}/sections/s-2/lessons`,
+      expect.anything(),
+      {
+        title: 'Newton’s laws',
+        type: 'TEXT',
+      },
+    );
   });
 
   it('toggles a free preview', async () => {
@@ -368,9 +381,13 @@ describe('OutlineEditor', () => {
     inWorkspace(<OutlineEditor />, course());
     await userEvent.click(await screen.findByRole('button', { name: 'Edit Welcome' }));
     await userEvent.click(screen.getAllByLabelText('Free preview')[0]!);
-    expect(apiMock.patch).toHaveBeenCalledWith(`/teacher/courses/${ID}/lessons/l-1`, {
-      isFreePreview: true,
-    });
+    expect(apiMock.patch).toHaveBeenCalledWith(
+      `/teacher/courses/${ID}/lessons/l-1`,
+      expect.anything(),
+      {
+        isFreePreview: true,
+      },
+    );
   });
 
   it('uploads a video straight to the host over TUS', async () => {
@@ -396,9 +413,13 @@ describe('OutlineEditor', () => {
     await userEvent.upload(screen.getByLabelText('Upload a video'), clip);
     await userEvent.click(screen.getByRole('button', { name: 'Upload' }));
     expect(await screen.findByText(/video host is processing it/)).toBeVisible();
-    expect(apiMock.post).toHaveBeenCalledWith(`/teacher/courses/${ID}/lessons/l-1/video`, {
-      title: 'Welcome',
-    });
+    expect(apiMock.post).toHaveBeenCalledWith(
+      `/teacher/courses/${ID}/lessons/l-1/video`,
+      expect.anything(),
+      {
+        title: 'Welcome',
+      },
+    );
     expect(tusUpload.mock.calls[0]![0]).toBe(clip);
     expect(tusUpload.mock.calls[0]![1].endpoint).toBe('https://video.example/tusupload');
   });
@@ -410,7 +431,7 @@ describe('OutlineEditor', () => {
     await userEvent.upload(screen.getByLabelText(/^Attach a PDF/), new File(['%PDF'], 'notes.pdf'));
     await userEvent.click(screen.getByRole('button', { name: 'Attach' }));
     await waitFor(() => expect(apiMock.postForm).toHaveBeenCalled());
-    const [path, form] = apiMock.postForm.mock.calls[0] as [string, FormData];
+    const [path, , form] = apiMock.postForm.mock.calls[0] as [string, unknown, FormData];
     expect(path).toBe(`/teacher/courses/${ID}/lessons/l-2/resources`);
     expect((form.get('file') as File).name).toBe('notes.pdf');
   });
@@ -539,7 +560,7 @@ describe('Earnings', () => {
       }
       return undefined;
     });
-    expect(await screen.findByText('PKR 4,000.00', { selector: 'p' })).toBeVisible();
+    expect((await screen.findAllByText('PKR 4,000.00', { selector: 'dd' }))[0]).toBeVisible();
     const pending = screen.getByRole('region', { name: 'Pending sales' });
     expect(within(pending).getByText('PKR 1,000.00 (20%)')).toBeVisible();
     expect(screen.getByRole('table', { name: /Every entry/ })).toHaveTextContent('PKR -8,000.00');

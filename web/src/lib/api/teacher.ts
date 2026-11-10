@@ -1,15 +1,7 @@
 import { api } from './client';
-import type {
-  CourseStatus,
-  LessonResource,
-  LessonType,
-  Outline,
-  Paged,
-  Pacing,
-  RosterEntry,
-  TeacherCourse,
-  UploadTicket,
-} from './types';
+import { paged } from './schemas/common';
+import * as schema from './schemas/teacher';
+import type { CourseStatus, LessonType, Outline, Pacing } from './types';
 
 /** Course details a teacher sets (#24, #33). Board, level and subject change together. */
 export interface CourseDetailsInput {
@@ -27,67 +19,76 @@ const course = (id: string) => `/teacher/courses/${id}`;
 /** The teacher authoring endpoints (#24–#33, #36, #38, #50). Every outline change returns the outline. */
 export const teacherApi = {
   listCourses: (status?: CourseStatus, signal?: AbortSignal) =>
-    api.get<TeacherCourse[]>('/teacher/courses', { status, limit: 100 }, signal),
+    api.get('/teacher/courses', schema.teacherCourses, { status, limit: 100 }, signal),
   getCourse: (id: string, signal?: AbortSignal) =>
-    api.get<TeacherCourse>(course(id), undefined, signal),
-  createCourse: (input: CourseDetailsInput) => api.post<TeacherCourse>('/teacher/courses', input),
+    api.get(course(id), schema.teacherCourse, undefined, signal),
+  createCourse: (input: CourseDetailsInput) =>
+    api.post('/teacher/courses', schema.teacherCourse, input),
   updateCourse: (id: string, input: CourseDetailsInput) =>
-    api.patch<TeacherCourse>(course(id), input),
+    api.patch(course(id), schema.teacherCourse, input),
   submitCourse: (id: string, teacherProposedBps?: number) =>
-    api.post<TeacherCourse>(
+    api.post(
       `${course(id)}/submit`,
+      schema.teacherCourse,
       teacherProposedBps === undefined ? {} : { teacherProposedBps },
     ),
-  archiveCourse: (id: string) => api.post<TeacherCourse>(`${course(id)}/archive`),
-  deleteCourse: (id: string) => api.delete<{ deleted: true }>(course(id)),
+  archiveCourse: (id: string) => api.post(`${course(id)}/archive`, schema.teacherCourse),
+  deleteCourse: (id: string) => api.delete(course(id), schema.deleted),
   setEnrollmentOpen: (id: string, open: boolean) =>
-    api.put<TeacherCourse>(`${course(id)}/enrollment`, { open }),
+    api.put(`${course(id)}/enrollment`, schema.teacherCourse, { open }),
 
   getOutline: (id: string, signal?: AbortSignal) =>
-    api.get<Outline>(`${course(id)}/outline`, undefined, signal),
-  addSection: (id: string, title: string) => api.post<Outline>(`${course(id)}/sections`, { title }),
+    api.get(`${course(id)}/outline`, schema.outline, undefined, signal),
+  addSection: (id: string, title: string) =>
+    api.post(`${course(id)}/sections`, schema.outline, { title }),
   renameSection: (id: string, sectionId: string, title: string) =>
-    api.patch<Outline>(`${course(id)}/sections/${sectionId}`, { title }),
+    api.patch(`${course(id)}/sections/${sectionId}`, schema.outline, { title }),
   deleteSection: (id: string, sectionId: string) =>
-    api.delete<Outline>(`${course(id)}/sections/${sectionId}`),
+    api.delete(`${course(id)}/sections/${sectionId}`, schema.outline),
   orderSections: (id: string, sectionIds: string[]) =>
-    api.put<Outline>(`${course(id)}/sections/order`, { sectionIds }),
+    api.put(`${course(id)}/sections/order`, schema.outline, { sectionIds }),
   addLesson: (
     id: string,
     sectionId: string,
     input: { title: string; type: LessonType; isFreePreview?: boolean; bodyText?: string },
-  ) => api.post<Outline>(`${course(id)}/sections/${sectionId}/lessons`, input),
+  ) => api.post(`${course(id)}/sections/${sectionId}/lessons`, schema.outline, input),
   updateLesson: (
     id: string,
     lessonId: string,
     input: { title?: string; bodyText?: string; isFreePreview?: boolean },
-  ) => api.patch<Outline>(`${course(id)}/lessons/${lessonId}`, input),
+  ) => api.patch(`${course(id)}/lessons/${lessonId}`, schema.outline, input),
   deleteLesson: (id: string, lessonId: string) =>
-    api.delete<Outline>(`${course(id)}/lessons/${lessonId}`),
+    api.delete(`${course(id)}/lessons/${lessonId}`, schema.outline),
   orderLessons: (id: string, sectionId: string, lessonIds: string[]) =>
-    api.put<Outline>(`${course(id)}/sections/${sectionId}/lessons/order`, { lessonIds }),
+    api.put(`${course(id)}/sections/${sectionId}/lessons/order`, schema.outline, { lessonIds }),
   moveLesson: (id: string, lessonId: string, sectionId: string, position: number) =>
-    api.post<Outline>(`${course(id)}/lessons/${lessonId}/move`, { sectionId, position }),
+    api.post(`${course(id)}/lessons/${lessonId}/move`, schema.outline, { sectionId, position }),
 
   startVideoUpload: (id: string, lessonId: string, title?: string) =>
-    api.post<UploadTicket>(`${course(id)}/lessons/${lessonId}/video`, title ? { title } : {}),
-  refreshVideo: (id: string, lessonId: string) =>
-    api.post<{ id: string; status: string; durationSeconds: number | null }>(
-      `${course(id)}/lessons/${lessonId}/video/refresh`,
+    api.post(
+      `${course(id)}/lessons/${lessonId}/video`,
+      schema.uploadTicket,
+      title ? { title } : {},
     ),
+  refreshVideo: (id: string, lessonId: string) =>
+    api.post(`${course(id)}/lessons/${lessonId}/video/refresh`, schema.videoRefresh),
   uploadResource: (id: string, lessonId: string, file: File) => {
     const form = new FormData();
     form.append('file', file);
-    return api.postForm<LessonResource[]>(`${course(id)}/lessons/${lessonId}/resources`, form);
+    return api.postForm(
+      `${course(id)}/lessons/${lessonId}/resources`,
+      schema.lessonResources,
+      form,
+    );
   },
   deleteResource: (id: string, lessonId: string, resourceId: string) =>
-    api.delete<LessonResource[]>(`${course(id)}/lessons/${lessonId}/resources/${resourceId}`),
+    api.delete(`${course(id)}/lessons/${lessonId}/resources/${resourceId}`, schema.lessonResources),
 
   roster: (
     id: string,
     query: { limit: number; offset: number; status?: string },
     signal?: AbortSignal,
-  ) => api.get<Paged<RosterEntry>>(`${course(id)}/enrollments`, query, signal),
+  ) => api.get(`${course(id)}/enrollments`, paged(schema.rosterEntry), query, signal),
 };
 
 /** Moves item `index` one step up (-1) or down (+1); the same array when it cannot move. */

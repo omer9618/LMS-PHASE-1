@@ -1,15 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { Alert, Badge, Button, ButtonLink, type BadgeTone } from '@/components/ui';
+import {
+  Badge,
+  ButtonLink,
+  Loadable,
+  PageHeader,
+  StatGrid,
+  StatTile,
+  type BadgeTone,
+} from '@/components/ui';
 import { api } from '@/lib/api/client';
-import { errorMessage } from '@/lib/api/errors';
+import * as enrollmentSchema from '@/lib/api/schemas/enrollment';
 import type { AccessState, DashboardEntry } from '@/lib/api/types';
 import { formatDate } from '@/lib/format';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import styles from './Dashboard.module.css';
-import * as enrollmentSchema from '@/lib/api/schemas/enrollment';
 
 const ACCESS: Record<AccessState, { label: string; tone: BadgeTone }> = {
   ACTIVE: { label: 'Active', tone: 'success' },
@@ -54,33 +61,61 @@ export function StudentDashboard() {
 
   return (
     <div className="stack">
-      <h1>My learning</h1>
-      {enrollments.status === 'loading' && <p role="status">Loading your courses…</p>}
-      {enrollments.status === 'error' && (
-        <Alert tone="danger" title="Could not load your courses">
-          <p>{errorMessage(enrollments.error)}</p>
-          <Button size="sm" variant="secondary" onClick={enrollments.reload}>
-            Try again
-          </Button>
-        </Alert>
-      )}
-      {enrollments.status === 'success' && enrollments.data.length === 0 && (
-        <div className={styles.empty}>
-          <p>You are not enrolled in any course yet.</p>
-          <ButtonLink href="/courses">Browse courses</ButtonLink>
-        </div>
-      )}
-      {enrollments.status === 'success' && enrollments.data.length > 0 && (
-        <ul className={styles.list}>
-          {sortEntries(enrollments.data).map((entry) => (
-            <li key={entry.id}>
-              <EnrollmentCard entry={entry} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <PageHeader
+        eyebrow="Your courses"
+        title="My learning"
+        description="Pick up where you left off. A course shows as complete when every lesson is done."
+        actions={
+          <ButtonLink href="/courses" variant="secondary" size="sm">
+            Find more courses
+          </ButtonLink>
+        }
+      />
+      <Loadable state={enrollments} what="your courses">
+        {(entries) => {
+          if (entries.length === 0) {
+            return (
+              <div className={styles.empty}>
+                <p>You are not enrolled in any course yet.</p>
+                <ButtonLink href="/courses">Browse courses</ButtonLink>
+              </div>
+            );
+          }
+          const summary = summarise(entries);
+          return (
+            <>
+              <StatGrid label="Your progress">
+                <StatTile label="Active courses" value={summary.active} />
+                <StatTile label="Completed" value={summary.completed} />
+                <StatTile
+                  label="Lessons done"
+                  value={`${summary.lessonsDone} / ${summary.lessonsTotal}`}
+                />
+              </StatGrid>
+              <ul className={styles.list}>
+                {sortEntries(entries).map((entry) => (
+                  <li key={entry.id}>
+                    <EnrollmentCard entry={entry} />
+                  </li>
+                ))}
+              </ul>
+            </>
+          );
+        }}
+      </Loadable>
     </div>
   );
+}
+
+/** Counts for the tiles above the cards. Only courses with access count as active. */
+export function summarise(entries: DashboardEntry[]) {
+  const active = entries.filter((e) => e.access === 'ACTIVE');
+  return {
+    active: active.length,
+    completed: active.filter((e) => Math.round(e.completionPercent ?? 0) >= 100).length,
+    lessonsDone: active.reduce((sum, e) => sum + (e.completedLessons ?? 0), 0),
+    lessonsTotal: active.reduce((sum, e) => sum + (e.totalLessons ?? 0), 0),
+  };
 }
 
 function EnrollmentCard({ entry }: { entry: DashboardEntry }) {

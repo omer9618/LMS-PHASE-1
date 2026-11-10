@@ -34,15 +34,15 @@ How the Next.js app in `web/` moves from its neutral placeholder look to the Exa
 - Schemas live in `lib/api/schemas/<area>.ts`; types are `z.infer`-ed from them and re-exported from `lib/api/types.ts`, `orders.ts` and `learn.ts`, so components keep their imports. Shared building blocks are in `schemas/common.ts`: minor-units money, ISO dates, IDs, pages, and `openEnum` for values the API may add.
 - Objects strip unknown keys, so the API can add fields without breaking the app.
 
-| Area                                                  | Status                                                               |
-| ----------------------------------------------------- | -------------------------------------------------------------------- |
-| Auth, session, MFA                                    | Done (checked against live API)                                      |
-| Catalogue, reference data, course detail, playback    | Done (checked against live API)                                      |
-| Student enrollments, cart, orders                     | Done (checked against live API)                                      |
-| Player and quiz taking                                | Done (outline, content, completion checked live; quiz by unit tests) |
-| Teacher authoring, roster, earnings, profiles         | Next PR                                                              |
-| Admin                                                 | After teacher                                                        |
-| Forms validating with the same schemas before sending | With each area's screens                                             |
+| Area                                                        | Status                                                               |
+| ----------------------------------------------------------- | -------------------------------------------------------------------- |
+| Auth, session, MFA                                          | Done (checked against live API)                                      |
+| Catalogue, reference data, course detail, playback          | Done (checked against live API)                                      |
+| Student enrollments, cart, orders                           | Done (checked against live API)                                      |
+| Player and quiz taking                                      | Done (outline, content, completion checked live; quiz by unit tests) |
+| Teacher authoring, roster, earnings, profiles, quiz builder | Done (checked against live API)                                      |
+| Admin                                                       | Done (checked against live API)                                      |
+| Forms validating with the same schemas before sending       | With each area's screens                                             |
 
 ### 2. Public and student screens
 
@@ -63,3 +63,15 @@ A visual check of every route at 380px and 1440px, an axe accessibility pass, an
 ## Definition of done for each PR
 
 `npm run lint`, `typecheck`, `test` and `build` pass in `web/`; root CI is untouched; the PR lists the screens it changed with before/after notes.
+
+## Screen status
+
+| Screen                                 | State                                                                                      |
+| -------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Teacher: My courses, Earnings          | Rebuilt to the canvas layout (status tiles, next-step column; balance tiles, split layout) |
+| Teacher: Quiz builder                  | New: `/teacher/courses/:id/quiz/:lessonId`, forms validated with zod before sending        |
+| Student: My learning                   | Rebuilt (progress tiles)                                                                   |
+| Admin: Dashboard, Payment verification | Rebuilt (queue tiles with actions; queue table beside the review panel)                    |
+| Everything else                        | Takes the new tokens and shared components; dedicated layouts still to do                  |
+
+Still to do: Home landing page (the app redirects to the catalogue today), catalogue and course detail layouts, admin course review and payout run, teacher content editor layout, and moving the older forms (login, register, teacher application, course details) onto `validateForm` with zod schemas.

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { humanize } from '@/lib/format';
 import { formatMoney } from '@/lib/money';
@@ -87,17 +88,28 @@ export function StatTile({
   value,
   note,
   tone = 'neutral',
+  action,
 }: {
   label: ReactNode;
   value: ReactNode;
   note?: ReactNode;
   tone?: StatTone;
+  /** Where to act on this number ("Open queue"). */
+  action?: { href: string; label: string };
 }) {
   return (
     <div className={cx(styles.stat, styles[`stat-${tone}`])}>
       <dt className={styles.statLabel}>{label}</dt>
       <dd className={styles.statValue}>{value}</dd>
       {note && <dd className={styles.statNote}>{note}</dd>}
+      {action && (
+        <dd className={styles.statAction}>
+          <Link href={action.href}>
+            {action.label}
+            <span className="visually-hidden">: {label}</span>
+          </Link>
+        </dd>
+      )}
     </div>
   );
 }

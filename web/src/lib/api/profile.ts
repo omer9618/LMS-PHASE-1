@@ -1,42 +1,13 @@
 import { api } from './client';
-import type { CatalogueListing } from './types';
+import * as schema from './schemas/teacher';
+import type { F2fLocation, SocialLink } from './schemas/teacher';
 
-export interface SocialLink {
-  label: string;
-  url: string;
-}
-
-export interface F2fLocation {
-  city: string;
-  area?: string;
-  notes?: string;
-}
-
-/** GET /teacher/profile (#98). */
-export interface TeacherProfile {
-  teacherId: string;
-  fullName: string | null;
-  bio: string | null;
-  qualifications: string | null;
-  socialLinks: SocialLink[];
-  f2fLocations: F2fLocation[];
-  photoUrl: string | null;
-  isPublished: boolean;
-  /** Set while unpublished by an admin (#100). */
-  moderation: { unpublishedAt: string; reason: string | null } | null;
-}
-
-/** GET /teachers/:teacherId (#99, #101). */
-export interface PublicTeacherProfile {
-  teacherId: string;
-  fullName: string | null;
-  bio: string | null;
-  qualifications: string | null;
-  socialLinks: SocialLink[];
-  f2fLocations: F2fLocation[];
-  photoUrl: string | null;
-  courses: CatalogueListing;
-}
+export type {
+  F2fLocation,
+  PublicTeacherProfile,
+  SocialLink,
+  TeacherProfile,
+} from './schemas/teacher';
 
 export interface ProfileUpdate {
   bio?: string | null;
@@ -52,16 +23,17 @@ export const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
 export const PHOTO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
 export const profileApi = {
-  get: (signal?: AbortSignal) => api.get<TeacherProfile>('/teacher/profile', undefined, signal),
-  update: (body: ProfileUpdate) => api.put<TeacherProfile>('/teacher/profile', body),
-  publish: () => api.post<TeacherProfile>('/teacher/profile/publish'),
-  unpublish: () => api.post<TeacherProfile>('/teacher/profile/unpublish'),
+  get: (signal?: AbortSignal) =>
+    api.get('/teacher/profile', schema.teacherProfile, undefined, signal),
+  update: (body: ProfileUpdate) => api.put('/teacher/profile', schema.teacherProfile, body),
+  publish: () => api.post('/teacher/profile/publish', schema.teacherProfile),
+  unpublish: () => api.post('/teacher/profile/unpublish', schema.teacherProfile),
   uploadPhoto: (file: File) => {
     const form = new FormData();
     form.append('photo', file);
-    return api.postForm<TeacherProfile>('/teacher/profile/photo', form);
+    return api.postForm('/teacher/profile/photo', schema.teacherProfile, form);
   },
-  removePhoto: () => api.delete<TeacherProfile>('/teacher/profile/photo'),
+  removePhoto: () => api.delete('/teacher/profile/photo', schema.teacherProfile),
 };
 
 /** Only http(s) links with a dotted host, as the API accepts. Returns an error or undefined. */

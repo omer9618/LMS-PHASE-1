@@ -107,7 +107,7 @@ describe('ProfileEditor', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Save profile' }));
     expect(await screen.findByText('Profile saved.')).toBeVisible();
-    expect(apiMock.put).toHaveBeenCalledWith('/teacher/profile', {
+    expect(apiMock.put).toHaveBeenCalledWith('/teacher/profile', expect.anything(), {
       bio: 'I teach physics.',
       qualifications: null,
       socialLinks: [{ label: 'YouTube', url: 'https://youtube.com/@omar' }],
@@ -131,7 +131,7 @@ describe('ProfileEditor', () => {
     renderEditor(profile());
     await userEvent.click(await screen.findByRole('button', { name: 'Publish profile' }));
     expect(await screen.findByText(/Add a bio and save it before publishing/)).toBeVisible();
-    expect(apiMock.post).toHaveBeenCalledWith('/teacher/profile/publish');
+    expect(apiMock.post).toHaveBeenCalledWith('/teacher/profile/publish', expect.anything());
   });
 
   it('publishes, then links to the public page and can unpublish', async () => {
@@ -145,7 +145,10 @@ describe('ProfileEditor', () => {
     apiMock.post.mockResolvedValueOnce(profile({ bio: 'x' }));
     await userEvent.click(screen.getByRole('button', { name: 'Unpublish' }));
     await waitFor(() =>
-      expect(apiMock.post).toHaveBeenLastCalledWith('/teacher/profile/unpublish'),
+      expect(apiMock.post).toHaveBeenLastCalledWith(
+        '/teacher/profile/unpublish',
+        expect.anything(),
+      ),
     );
   });
 
@@ -171,7 +174,7 @@ describe('ProfileEditor', () => {
       'src',
       'https://files.example/p.png',
     );
-    const [path, form] = apiMock.postForm.mock.calls[0] as [string, FormData];
+    const [path, , form] = apiMock.postForm.mock.calls[0] as [string, unknown, FormData];
     expect(path).toBe('/teacher/profile/photo');
     expect((form.get('photo') as File).name).toBe('me.png');
   });

@@ -10,10 +10,16 @@ import { useSession } from '@/lib/session';
 export function TeacherGuard({ children }: { children: ReactNode }) {
   const { status, user } = useSession();
   const pathname = usePathname() ?? '/teacher/courses';
-  if (status === 'loading') return <p role="status">Loading…</p>;
+  if (status === 'loading') {
+    return (
+      <p role="status" className="page">
+        Loading…
+      </p>
+    );
+  }
   if (!user) {
     return (
-      <div className="stack">
+      <div className="page stack">
         <h1>Teaching</h1>
         <p>
           <Link href={`/login?next=${encodeURIComponent(pathname)}`}>Sign in</Link> with your
@@ -24,7 +30,7 @@ export function TeacherGuard({ children }: { children: ReactNode }) {
   }
   if (!user.roles.includes('TEACHER')) {
     return (
-      <div className="stack">
+      <div className="page stack">
         <h1>Teaching</h1>
         <Alert tone="warning">
           This area is for teachers. Want to teach? <Link href="/teach-with-us">Apply here</Link>.

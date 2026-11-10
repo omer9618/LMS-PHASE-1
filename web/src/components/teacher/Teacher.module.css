@@ -179,3 +179,37 @@
   border-radius: 50%;
   object-fit: cover;
 }
+
+/* Course list cells. */
+.courseCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.courseCell a {
+  font-weight: var(--weight-bold);
+  text-decoration: none;
+}
+
+.courseMeta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+  color: var(--color-text-muted);
+}
+
+.courseReason {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+  color: var(--color-danger);
+}
+
+.salesIntro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+}

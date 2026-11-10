@@ -1,7 +1,16 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { Alert, Badge, Button, Checkbox, Input, Select, Textarea } from '@/components/ui';
+import {
+  Alert,
+  Badge,
+  Button,
+  ButtonLink,
+  Checkbox,
+  Input,
+  Select,
+  Textarea,
+} from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { moveItem, teacherApi } from '@/lib/api/teacher';
 import type { AuthoringLesson, AuthoringSection, LessonType, Outline } from '@/lib/api/types';
@@ -305,6 +314,17 @@ function LessonRow({
       {open && (
         <div id={panelId} className={styles.lessonPanel}>
           <LessonEditor lesson={lesson} actions={actions} />
+          {lesson.type === 'QUIZ' && (
+            <p>
+              <ButtonLink
+                size="sm"
+                variant="secondary"
+                href={`/teacher/courses/${courseId}/quiz/${lesson.id}`}
+              >
+                {editable ? 'Build the quiz' : 'View the quiz'}
+              </ButtonLink>
+            </p>
+          )}
           {lesson.type === 'VIDEO' && (
             <VideoPanel
               courseId={courseId}

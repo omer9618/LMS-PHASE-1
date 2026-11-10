@@ -15,10 +15,16 @@ export const user = z.object({
 });
 export type User = z.infer<typeof user>;
 
-/** GET /auth/me */
+export const contextRole = z.enum(['ADMIN', 'TEACHER']);
+export type ContextRole = z.infer<typeof contextRole>;
+
+/** GET /auth/me and POST /auth/context. */
 export const me = user.extend({
   mfaEnabled: z.boolean(),
   mfaVerified: z.boolean(),
+  /** Which role a dual-role (Admin + Teacher) account is working as (#109). */
+  activeContext: contextRole.nullable().optional(),
+  availableContexts: z.array(contextRole).optional(),
 });
 export type Me = z.infer<typeof me>;
 
