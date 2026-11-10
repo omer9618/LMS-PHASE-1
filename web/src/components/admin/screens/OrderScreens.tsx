@@ -15,7 +15,7 @@ import {
   Table,
   Textarea,
 } from '@/components/ui';
-import { getOrder, recordRefund, type AdminOrder } from '@/lib/api/admin-money';
+import { adminFinanceApi, type AdminOrder } from '@/lib/api/admin-finance';
 import { formatBps, todayIso } from '@/lib/admin/format';
 import { minorToMajorInput, minorUnitExponent } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
@@ -45,7 +45,9 @@ export function OrdersScreen() {
 
 /** One order: frozen line snapshots, proofs, decisions, and (once verified) the refund form. */
 export function OrderDetailScreen({ orderId }: { orderId: string }) {
-  const order = useApi(`admin-order:${orderId}`, (signal) => getOrder(orderId, signal));
+  const order = useApi(`admin-order:${orderId}`, (signal) =>
+    adminFinanceApi.getOrder(orderId, signal),
+  );
   return (
     <Loadable state={order} what="the order">
       {(o) => (
@@ -193,7 +195,7 @@ function RefundForm({ order, onRefunded }: { order: AdminOrder; onRefunded: () =
     if (!body) return;
     const ok = await mutation.run(
       () =>
-        recordRefund(order.id, {
+        adminFinanceApi.recordRefund(order.id, {
           amountMinor: body.amountMinor,
           transferDate: body.transferDate,
           transactionId: body.transactionId,

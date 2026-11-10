@@ -5,14 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { Alert, Button, Input } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
-import { api } from '@/lib/api/client';
+import { authApi } from '@/lib/api/auth';
 import { errorMessage, fieldErrors, isApiError } from '@/lib/api/errors';
 import { safeNextPath } from '@/lib/format';
 import { needsMfaSetup, useSession } from '@/lib/session';
-import * as authSchema from '@/lib/api/schemas/auth';
 import { loginForm, mfaCodeForm } from '@/lib/forms/auth';
 import { validateForm } from '@/lib/zod-form';
-import { ignored } from '@/lib/api/schemas/common';
 
 type Step = { kind: 'password' } | { kind: 'mfa'; challengeToken: string };
 
@@ -53,7 +51,7 @@ export function LoginForm() {
 
     setSubmitting(true);
     try {
-      const result = await api.post('/auth/login', authSchema.loginResult, checked.data);
+      const result = await authApi.login(checked.data);
       if (result.mfaRequired) {
         setStep({ kind: 'mfa', challengeToken: result.challengeToken });
         setPassword('');
@@ -80,7 +78,7 @@ export function LoginForm() {
     setErrors({});
     setSubmitting(true);
     try {
-      await api.post('/auth/login/mfa', ignored, {
+      await authApi.loginWithMfa({
         challengeToken,
         ...(useRecovery ? { recoveryCode: value } : { code: value }),
       });

@@ -18,19 +18,7 @@ import {
   Table,
   Textarea,
 } from '@/components/ui';
-import {
-  approveCourse,
-  archiveCourse,
-  getCourse,
-  getCourseOutline,
-  listCoursesForReview,
-  rejectCourse,
-  setCourseEnrollment,
-  setCoursePricing,
-  unpublishCourse,
-  updateCourse,
-  type AdminCourse,
-} from '@/lib/api/admin';
+import { adminApi, type AdminCourse } from '@/lib/api/admin';
 import { submitChecklist } from '@/lib/api/teacher';
 import type { CourseStatus, Outline, Pacing } from '@/lib/api/types';
 import { formatBps } from '@/lib/admin/format';
@@ -51,7 +39,7 @@ export function CoursesScreen() {
   const [status, setStatus] = useState<CourseStatus>('PENDING_APPROVAL');
   const [offset, setOffset] = useState(0);
   const courses = useApi(`admin-courses:${status}:${offset}`, (signal) =>
-    listCoursesForReview({ status, limit: LIMIT, offset }, signal),
+    adminApi.listCoursesForReview({ status, limit: LIMIT, offset }, signal),
   );
   return (
     <>
@@ -129,9 +117,11 @@ export function CoursesScreen() {
 
 /** #28–#33: one course: decide, price, unpublish or archive, edit details, see the outline. */
 export function CourseDetailScreen({ courseId }: { courseId: string }) {
-  const course = useApi(`admin-course:${courseId}`, (signal) => getCourse(courseId, signal));
+  const course = useApi(`admin-course:${courseId}`, (signal) =>
+    adminApi.getCourse(courseId, signal),
+  );
   const outline = useApi(`admin-outline:${courseId}`, (signal) =>
-    getCourseOutline(courseId, signal),
+    adminApi.getCourseOutline(courseId, signal),
   );
   const mutation = useMutation();
   const act = async (action: () => Promise<unknown>, success: string) => {
@@ -254,7 +244,10 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                           size="sm"
                           loading={mutation.pending}
                           onClick={() =>
-                            act(() => approveCourse(c.id), 'Course approved and published.')
+                            act(
+                              () => adminApi.approveCourse(c.id),
+                              'Course approved and published.',
+                            )
                           }
                         >
                           Approve and publish
@@ -265,7 +258,7 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                           hint="Rejection is final. The teacher sees this reason."
                           minLength={1}
                           onConfirm={(reason) =>
-                            act(() => rejectCourse(c.id, reason), 'Course rejected.')
+                            act(() => adminApi.rejectCourse(c.id, reason), 'Course rejected.')
                           }
                         />
                       </>
@@ -277,7 +270,7 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                         hint="Returns the course to draft. The teacher receives this reason."
                         minLength={1}
                         onConfirm={(reason) =>
-                          act(() => unpublishCourse(c.id, reason), 'Course unpublished.')
+                          act(() => adminApi.unpublishCourse(c.id, reason), 'Course unpublished.')
                         }
                       />
                     )}
@@ -288,7 +281,10 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                         reasonLabel="Reason (optional)"
                         hint="Enrolled students keep their access."
                         onConfirm={(reason) =>
-                          act(() => archiveCourse(c.id, reason || undefined), 'Course archived.')
+                          act(
+                            () => adminApi.archiveCourse(c.id, reason || undefined),
+                            'Course archived.',
+                          )
                         }
                       />
                     )}
@@ -297,7 +293,7 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                       variant="secondary"
                       onClick={() =>
                         act(
-                          () => setCourseEnrollment(c.id, !c.isEnrollmentOpen),
+                          () => adminApi.setCourseEnrollment(c.id, !c.isEnrollmentOpen),
                           c.isEnrollmentOpen ? 'Enrollment closed.' : 'Enrollment opened.',
                         )
                       }
@@ -363,7 +359,8 @@ function PricingForm({
     event.preventDefault();
     const body = form.check();
     if (!body) return;
-    if (await mutation.run(() => setCoursePricing(course.id, body), 'Pricing saved.')) onSaved();
+    if (await mutation.run(() => adminApi.setCoursePricing(course.id, body), 'Pricing saved.'))
+      onSaved();
   }
 
   return (
@@ -411,7 +408,7 @@ function DetailsForm({
     event.preventDefault();
     const ok = await mutation.run(
       () =>
-        updateCourse(course.id, {
+        adminApi.updateCourse(course.id, {
           title: title.trim(),
           syllabusArea: syllabusArea.trim() || null,
           description: description.trim() || null,

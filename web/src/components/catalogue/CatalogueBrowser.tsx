@@ -4,13 +4,12 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useId, useState } from 'react';
 import { Alert, Button } from '@/components/ui';
-import { api } from '@/lib/api/client';
+import { catalogueApi } from '@/lib/api/catalogue';
 import { errorMessage } from '@/lib/api/errors';
 import {
   activeFilterCount,
   PAGE_SIZE,
   parseCatalogueParams,
-  toCatalogueApiQuery,
   toCatalogueSearch,
   updateFilters,
   type CatalogueFilters,
@@ -19,8 +18,6 @@ import { useApi } from '@/lib/use-api';
 import { CourseCard } from './CourseCard';
 import { CatalogueFiltersPanel, SearchBox, SortSelect } from './CatalogueFilters';
 import styles from './Catalogue.module.css';
-import { z } from 'zod';
-import * as catalogueSchema from '@/lib/api/schemas/catalogue';
 
 /**
  * The public catalogue (#40–#44). Every filter, the search, the sort and the page live in the
@@ -34,22 +31,11 @@ export function CatalogueBrowser() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const panelId = useId();
 
-  const listing = useApi(`listing${search}`, (signal) =>
-    api.get(
-      '/catalogue/courses',
-      catalogueSchema.catalogueListing,
-      toCatalogueApiQuery(filters),
-      signal,
-    ),
-  );
-  const subjects = useApi('subjects', (signal) =>
-    api.get('/catalogue/subjects', z.array(catalogueSchema.catalogueSubject), undefined, signal),
-  );
-  const boards = useApi('boards', (signal) =>
-    api.get('/boards', z.array(catalogueSchema.board), undefined, signal),
-  );
+  const listing = useApi(`listing${search}`, (signal) => catalogueApi.listing(filters, signal));
+  const subjects = useApi('subjects', (signal) => catalogueApi.subjects(signal));
+  const boards = useApi('boards', (signal) => catalogueApi.boards(signal));
   const levels = useApi(filters.boardId ? `levels:${filters.boardId}` : null, (signal) =>
-    api.get(`/boards/${filters.boardId}/levels`, z.array(catalogueSchema.level), undefined, signal),
+    catalogueApi.levels(filters.boardId!, signal),
   );
 
   function apply(change: Partial<CatalogueFilters>) {

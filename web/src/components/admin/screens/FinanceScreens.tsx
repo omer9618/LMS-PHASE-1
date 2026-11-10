@@ -17,20 +17,14 @@ import {
   Textarea,
 } from '@/components/ui';
 import {
-  getFinancialSummary,
-  getPayout,
-  getTeacherStatement,
-  listOpenConcerns,
-  recordAdjustment,
-  recordPayout,
-  resolvePayoutConcern,
+  adminFinanceApi,
   type CurrencyBalance,
   type CurrencyFinancialSummary,
   type LedgerEntry,
   type OpenConcern,
   type Payout,
   type TeacherSale,
-} from '@/lib/api/admin-money';
+} from '@/lib/api/admin-finance';
 import { formatAgeHours, formatBps, parseSignedMajorToMinor, todayIso } from '@/lib/admin/format';
 import { formatDate } from '@/lib/format';
 import { formatMoney, minorToMajorInput, minorUnitExponent } from '@/lib/money';
@@ -60,7 +54,7 @@ export function FinanceSummaryScreen() {
   const [to, setTo] = useState('');
   const [query, setQuery] = useState<{ from?: string; to?: string }>({});
   const summary = useApi(`finance:${JSON.stringify(query)}`, (signal) =>
-    getFinancialSummary(query, signal),
+    adminFinanceApi.getFinancialSummary(query, signal),
   );
   return (
     <>
@@ -141,7 +135,7 @@ export function FinanceSummaryScreen() {
 // ── #106 Open payout concerns with ageing ──
 
 export function ConcernsScreen() {
-  const concerns = useApi('concerns', (signal) => listOpenConcerns(signal));
+  const concerns = useApi('concerns', (signal) => adminFinanceApi.listOpenConcerns(signal));
   return (
     <>
       <PageHeader
@@ -209,7 +203,7 @@ export function ConcernsScreen() {
 
 export function TeacherStatementScreen({ teacherId }: { teacherId: string }) {
   const statement = useApi(`statement:${teacherId}`, (signal) =>
-    getTeacherStatement(teacherId, signal),
+    adminFinanceApi.getTeacherStatement(teacherId, signal),
   );
   return (
     <Loadable state={statement} what="the statement">
@@ -432,7 +426,7 @@ function RecordPayoutForm({
     const body = form.check();
     if (!body) return;
     const ok = await mutation.run(
-      () => recordPayout(teacherId, body),
+      () => adminFinanceApi.recordPayout(teacherId, body),
       'Payout recorded. The teacher can raise a concern within the window.',
     );
     if (ok) {
@@ -477,7 +471,10 @@ function AdjustmentForm({ teacherId, onRecorded }: { teacherId: string; onRecord
     event.preventDefault();
     const body = form.check();
     if (!body) return;
-    const ok = await mutation.run(() => recordAdjustment(teacherId, body), 'Adjustment recorded.');
+    const ok = await mutation.run(
+      () => adminFinanceApi.recordAdjustment(teacherId, body),
+      'Adjustment recorded.',
+    );
     if (ok) {
       form.setValues({ ...form.values, amount: '', reason: '' });
       onRecorded();
@@ -510,7 +507,9 @@ function AdjustmentForm({ teacherId, onRecorded }: { teacherId: string; onRecord
 // ── #86–#89 Payout detail and concern resolution ──
 
 export function PayoutDetailScreen({ payoutId }: { payoutId: string }) {
-  const detail = useApi(`payout:${payoutId}`, (signal) => getPayout(payoutId, signal));
+  const detail = useApi(`payout:${payoutId}`, (signal) =>
+    adminFinanceApi.getPayout(payoutId, signal),
+  );
   return (
     <Loadable state={detail} what="the payout">
       {({ payout, coveredSales }) => {
@@ -639,7 +638,7 @@ function ResolveConcernForm({
     setError(null);
     const ok = await mutation.run(
       () =>
-        resolvePayoutConcern(payoutId, {
+        adminFinanceApi.resolvePayoutConcern(payoutId, {
           resolutionNotes: notes.trim(),
           adjustmentAmountMinor,
           adjustmentCurrency: adjustmentAmountMinor ? currency : undefined,

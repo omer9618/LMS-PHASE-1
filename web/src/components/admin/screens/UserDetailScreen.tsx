@@ -14,17 +14,7 @@ import {
   StatusBadge,
   Table,
 } from '@/components/ui';
-import {
-  deactivateTeacher,
-  getUserOverview,
-  grantRole,
-  reactivateUser,
-  revokeRole,
-  sendPasswordReset,
-  suspendUser,
-  type AdminCourse,
-  type AdminEnrollment,
-} from '@/lib/api/admin';
+import { adminApi, type AdminCourse, type AdminEnrollment } from '@/lib/api/admin';
 import type { Role } from '@/lib/api/types';
 import { formatDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
@@ -36,7 +26,9 @@ const ROLES: Role[] = ['STUDENT', 'TEACHER', 'ADMIN'];
 
 /** #103: one account with its enrollments, courses taught and every account action. */
 export function UserDetailScreen({ userId }: { userId: string }) {
-  const overview = useApi(`admin-user:${userId}`, (signal) => getUserOverview(userId, signal));
+  const overview = useApi(`admin-user:${userId}`, (signal) =>
+    adminApi.getUserOverview(userId, signal),
+  );
   const mutation = useMutation();
   const [role, setRole] = useState<Role>('TEACHER');
 
@@ -83,14 +75,14 @@ export function UserDetailScreen({ userId }: { userId: string }) {
                     variant="danger"
                     hint="Signs the user out everywhere. Teachers' courses stop taking enrollments."
                     onConfirm={(reason) =>
-                      act(() => suspendUser(user.id, reason), 'Account suspended.')
+                      act(() => adminApi.suspendUser(user.id, reason), 'Account suspended.')
                     }
                   />
                 ) : user.status === 'SUSPENDED' ? (
                   <ReasonAction
                     label="Reactivate"
                     onConfirm={(reason) =>
-                      act(() => reactivateUser(user.id, reason), 'Account reactivated.')
+                      act(() => adminApi.reactivateUser(user.id, reason), 'Account reactivated.')
                     }
                   />
                 ) : null}
@@ -101,7 +93,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
                     loading={mutation.pending}
                     onClick={() =>
                       act(
-                        () => sendPasswordReset(user.id),
+                        () => adminApi.sendPasswordReset(user.id),
                         `A password reset link has been emailed to ${user.email}.`,
                       )
                     }
@@ -115,7 +107,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
                     variant="danger"
                     hint="Permanent. Refused while students hold active enrollments in their courses."
                     onConfirm={(reason) =>
-                      act(() => deactivateTeacher(user.id, reason), 'Teacher deactivated.')
+                      act(() => adminApi.deactivateTeacher(user.id, reason), 'Teacher deactivated.')
                     }
                   />
                 )}
@@ -132,7 +124,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
                       variant="ghost"
                       aria-label={`Remove the ${humanize(r)} role`}
                       onClick={() =>
-                        act(() => revokeRole(user.id, r), `${humanize(r)} role removed.`)
+                        act(() => adminApi.revokeRole(user.id, r), `${humanize(r)} role removed.`)
                       }
                     >
                       Remove
@@ -158,7 +150,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
                     onClick={() => {
                       const chosen = missingRoles.includes(role) ? role : missingRoles[0]!;
                       void act(
-                        () => grantRole(user.id, chosen),
+                        () => adminApi.grantRole(user.id, chosen),
                         `${humanize(chosen)} role granted.`,
                       );
                     }}

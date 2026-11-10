@@ -24,16 +24,13 @@ import {
   Textarea,
 } from '@/components/ui';
 import {
-  confirmPayment,
-  getVerificationMetrics,
-  getVerificationQueue,
-  rejectPayment,
+  adminFinanceApi,
   REJECTION_REASONS,
   type MismatchAction,
   type PaymentProof,
   type RejectionReason,
   type VerificationQueueEntry,
-} from '@/lib/api/admin-money';
+} from '@/lib/api/admin-finance';
 import { formatAgeHours, formatAgeMinutes, todayIso } from '@/lib/admin/format';
 import { absMinor, checkReceived, MISMATCH_LABELS } from '@/lib/admin/verification';
 import { formatMoney, minorToMajorInput, minorUnitExponent, parseMajorToMinor } from '@/lib/money';
@@ -52,10 +49,10 @@ export function VerificationScreen() {
   const [refresh, setRefresh] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const metrics = useApi(`verification-metrics:${refresh}`, (signal) =>
-    getVerificationMetrics(signal),
+    adminFinanceApi.getVerificationMetrics(signal),
   );
   const queue = useApi(`verification-queue:${offset}:${refresh}`, (signal) =>
-    getVerificationQueue({ limit: LIMIT, offset }, signal),
+    adminFinanceApi.getVerificationQueue({ limit: LIMIT, offset }, signal),
   );
   const reload = () => setRefresh((n) => n + 1);
 
@@ -348,7 +345,7 @@ export function DecisionPanel({
         return;
       }
       const ok = await mutation.run(
-        () => rejectPayment(orderId, checked.data),
+        () => adminFinanceApi.rejectPayment(orderId, checked.data),
         'Payment rejected. The student has been told why.',
       );
       if (ok) onDecided();
@@ -366,7 +363,7 @@ export function DecisionPanel({
     }
     const body = checked.data;
     const ok = await mutation.run(
-      () => confirmPayment(orderId, body),
+      () => adminFinanceApi.confirmPayment(orderId, body),
       body.mismatchAction === undefined || body.mismatchAction === 'CONFIRM_ANYWAY'
         ? 'Payment confirmed. Access granted and earnings recorded.'
         : body.mismatchAction === 'REQUEST_TOP_UP'

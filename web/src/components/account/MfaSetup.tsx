@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Alert, Button, ButtonLink, Checkbox, Input } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
-import { api } from '@/lib/api/client';
+import { authApi } from '@/lib/api/auth';
 import { errorMessage } from '@/lib/api/errors';
 import { safeNextPath } from '@/lib/format';
 import { useSession } from '@/lib/session';
@@ -30,9 +30,7 @@ type Setup = authSchema.MfaSetup;
 export function MfaSetup() {
   const next = safeNextPath(useSearchParams().get('next'), '/courses');
   const { status: sessionStatus, user, refresh } = useSession();
-  const mfaStatus = useApi(user ? `mfa:${user.id}` : null, (signal) =>
-    api.get('/auth/mfa', authSchema.mfaStatus, undefined, signal),
-  );
+  const mfaStatus = useApi(user ? `mfa:${user.id}` : null, (signal) => authApi.mfaStatus(signal));
   const [setup, setSetup] = useState<Setup | null>(null);
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [starting, setStarting] = useState(false);
@@ -74,9 +72,7 @@ export function MfaSetup() {
           intro="The old codes stop working. Enter a code from your authenticator app to continue."
           submitLabel="Create new recovery codes"
           onCode={async (code) => {
-            const result = await api.post('/auth/mfa/recovery-codes', authSchema.recoveryCodes, {
-              code,
-            });
+            const result = await authApi.newRecoveryCodes(code);
             setRecoveryCodes(result.recoveryCodes);
           }}
         />
@@ -88,7 +84,7 @@ export function MfaSetup() {
     setStarting(true);
     setStartError(null);
     try {
-      setSetup(await api.post('/auth/mfa/setup', authSchema.mfaSetup));
+      setSetup(await authApi.mfaSetup());
     } catch (error) {
       setStartError(errorMessage(error));
     } finally {
@@ -121,9 +117,7 @@ export function MfaSetup() {
             intro="Enter the 6-digit code your app now shows."
             submitLabel="Turn on two-step verification"
             onCode={async (code) => {
-              const result = await api.post('/auth/mfa/enable', authSchema.recoveryCodes, {
-                code,
-              });
+              const result = await authApi.mfaEnable(code);
               setRecoveryCodes(result.recoveryCodes);
               await refresh();
             }}

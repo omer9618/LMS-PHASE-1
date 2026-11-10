@@ -29,13 +29,13 @@ export type { F2fLocation, SocialLink, TeacherProfile } from './schemas/teacher'
 
 // ── Session and role context (#109) ──
 
-export function switchContext(role: ContextRole) {
+function switchContext(role: ContextRole) {
   return api.post('/auth/context', schema.meWithContext, { role });
 }
 
 // ── Dashboard (#102) ──
 
-export const getDashboard = (signal?: AbortSignal) =>
+const getDashboard = (signal?: AbortSignal) =>
   api.get('/admin/dashboard', schema.adminDashboard, undefined, signal);
 
 // ── Users (#15, #103) ──
@@ -48,73 +48,73 @@ export interface UserListQuery {
   offset?: number;
 }
 
-export const listUsers = (query: UserListQuery, signal?: AbortSignal) =>
+const listUsers = (query: UserListQuery, signal?: AbortSignal) =>
   api.get('/admin/users', paged(schema.adminUser), clean(query), signal);
-export const getUserOverview = (userId: string, signal?: AbortSignal) =>
+const getUserOverview = (userId: string, signal?: AbortSignal) =>
   api.get(`/admin/users/${userId}/overview`, schema.adminUserOverview, undefined, signal);
-export const createStaffAccount = (body: {
+const createStaffAccount = (body: {
   email: string;
   fullName: string;
   roles: Array<'ADMIN' | 'TEACHER'>;
 }) => api.post('/admin/users', schema.adminUser, body);
-export const suspendUser = (userId: string, reason: string) =>
+const suspendUser = (userId: string, reason: string) =>
   api.post(`/admin/users/${userId}/suspend`, schema.adminUser, { reason });
-export const reactivateUser = (userId: string, reason: string) =>
+const reactivateUser = (userId: string, reason: string) =>
   api.post(`/admin/users/${userId}/reactivate`, schema.adminUser, { reason });
-export const sendPasswordReset = (userId: string) =>
+const sendPasswordReset = (userId: string) =>
   api.post(`/admin/users/${userId}/password-reset`, schema.sent);
-export const grantRole = (userId: string, role: Role) =>
+const grantRole = (userId: string, role: Role) =>
   api.post(`/admin/users/${userId}/roles`, schema.adminUser, { role });
-export const revokeRole = (userId: string, role: Role) =>
+const revokeRole = (userId: string, role: Role) =>
   api.delete(`/admin/users/${userId}/roles/${role}`, schema.adminUser);
-export const deactivateTeacher = (teacherId: string, reason: string) =>
+const deactivateTeacher = (teacherId: string, reason: string) =>
   api.post(`/admin/teachers/${teacherId}/deactivate`, schema.adminUser, { reason });
 
 // ── Teacher applications (#20, #21) ──
 
-export const listApplications = (
+const listApplications = (
   query: { status?: ApplicationStatus | ''; q?: string; limit?: number; offset?: number },
   signal?: AbortSignal,
 ) => api.get('/admin/teacher-applications', paged(schema.teacherApplication), clean(query), signal);
-export const getApplication = (id: string, signal?: AbortSignal) =>
+const getApplication = (id: string, signal?: AbortSignal) =>
   api.get(`/admin/teacher-applications/${id}`, schema.teacherApplication, undefined, signal);
-export const getApplicationCv = (id: string) =>
+const getApplicationCv = (id: string) =>
   api.get(`/admin/teacher-applications/${id}/cv`, schema.signedDownload);
-export const reviewApplication = (
+const reviewApplication = (
   id: string,
   body: { status: 'UNDER_REVIEW' | 'REJECTED' | 'HIRED'; notes?: string },
 ) => api.post(`/admin/teacher-applications/${id}/review`, schema.teacherApplication, body);
-export const createAccountFromApplication = (id: string, fullName?: string) =>
+const createAccountFromApplication = (id: string, fullName?: string) =>
   api.post(
     `/admin/teacher-applications/${id}/account`,
     schema.teacherApplication,
     fullName ? { fullName } : {},
   );
-export const linkApplication = (id: string, userId: string) =>
+const linkApplication = (id: string, userId: string) =>
   api.post(`/admin/teacher-applications/${id}/link`, schema.teacherApplication, { userId });
 
 // ── Courses (#28–#33) ──
 
-export const listCoursesForReview = (
+const listCoursesForReview = (
   query: { status?: CourseStatus; limit?: number; offset?: number },
   signal?: AbortSignal,
 ) => api.get('/admin/courses', schema.adminCourses, clean(query), signal);
-export const getCourse = (courseId: string, signal?: AbortSignal) =>
+const getCourse = (courseId: string, signal?: AbortSignal) =>
   api.get(`/admin/courses/${courseId}`, schema.adminCourse, undefined, signal);
-export const getCourseOutline = (courseId: string, signal?: AbortSignal) =>
+const getCourseOutline = (courseId: string, signal?: AbortSignal) =>
   api.get(`/admin/courses/${courseId}/outline`, outline, undefined, signal);
-export const approveCourse = (courseId: string) =>
+const approveCourse = (courseId: string) =>
   api.post(`/admin/courses/${courseId}/approve`, schema.adminCourse);
-export const rejectCourse = (courseId: string, reason: string) =>
+const rejectCourse = (courseId: string, reason: string) =>
   api.post(`/admin/courses/${courseId}/reject`, schema.adminCourse, { reason });
-export const unpublishCourse = (courseId: string, reason: string) =>
+const unpublishCourse = (courseId: string, reason: string) =>
   api.post(`/admin/courses/${courseId}/unpublish`, schema.adminCourse, { reason });
-export const archiveCourse = (courseId: string, reason?: string) =>
+const archiveCourse = (courseId: string, reason?: string) =>
   api.post(`/admin/courses/${courseId}/archive`, schema.adminCourse, reason ? { reason } : {});
-export const setCourseEnrollment = (courseId: string, open: boolean) =>
+const setCourseEnrollment = (courseId: string, open: boolean) =>
   api.put(`/admin/courses/${courseId}/enrollment`, schema.adminCourse, { open });
 export type PricingInput = z.output<typeof pricingForm>;
-export const setCoursePricing = (courseId: string, body: PricingInput) =>
+const setCoursePricing = (courseId: string, body: PricingInput) =>
   api.put(`/admin/courses/${courseId}/pricing`, schema.adminCourse, body);
 export interface CourseDetailsInput {
   title?: string;
@@ -122,12 +122,12 @@ export interface CourseDetailsInput {
   syllabusArea?: string | null;
   progressionMode?: 'FREE' | 'SEQUENTIAL';
 }
-export const updateCourse = (courseId: string, body: CourseDetailsInput) =>
+const updateCourse = (courseId: string, body: CourseDetailsInput) =>
   api.patch(`/admin/courses/${courseId}`, schema.adminCourse, body);
 
 // ── Enrollments (#49) ──
 
-export const listEnrollments = (
+const listEnrollments = (
   query: {
     courseId?: string;
     studentId?: string;
@@ -137,21 +137,21 @@ export const listEnrollments = (
   },
   signal?: AbortSignal,
 ) => api.get('/admin/enrollments', paged(schema.adminEnrollment), clean(query), signal);
-export const grantEnrollment = (body: {
+const grantEnrollment = (body: {
   studentEmail: string;
   courseId: string;
   paymentChannel: string;
   reason: string;
   expiresAt?: string;
 }) => api.post('/admin/enrollments', schema.adminEnrollment, body);
-export const revokeEnrollment = (enrollmentId: string, reason: string) =>
+const revokeEnrollment = (enrollmentId: string, reason: string) =>
   api.post(`/admin/enrollments/${enrollmentId}/revoke`, schema.adminEnrollment, { reason });
 
 // ── Platform settings (#8) and audit log (#108) ──
 
-export const listSettings = (signal?: AbortSignal) =>
+const listSettings = (signal?: AbortSignal) =>
   api.get('/admin/settings', schema.platformSettings, undefined, signal);
-export const updateSetting = (key: string, value: number | string | boolean) =>
+const updateSetting = (key: string, value: number | string | boolean) =>
   api.put(`/admin/settings/${key}`, schema.platformSetting, { value });
 
 export interface AuditQuery {
@@ -165,7 +165,7 @@ export interface AuditQuery {
   offset?: number;
 }
 
-export const searchAuditLog = (query: AuditQuery, signal?: AbortSignal) =>
+const searchAuditLog = (query: AuditQuery, signal?: AbortSignal) =>
   api.get('/admin/audit-log', paged(schema.auditEntry), clean(query), signal);
 
 // ── Teacher profiles (#100) ──
@@ -177,13 +177,13 @@ export interface ProfileFieldsInput {
   f2fLocations?: Array<{ city: string; area?: string; notes?: string }>;
 }
 
-export const getTeacherProfile = (teacherId: string, signal?: AbortSignal) =>
+const getTeacherProfile = (teacherId: string, signal?: AbortSignal) =>
   api.get(`/admin/teachers/${teacherId}/profile`, teacherProfile, undefined, signal);
-export const updateTeacherProfile = (teacherId: string, body: ProfileFieldsInput) =>
+const updateTeacherProfile = (teacherId: string, body: ProfileFieldsInput) =>
   api.put(`/admin/teachers/${teacherId}/profile`, teacherProfile, body);
-export const unpublishTeacherProfile = (teacherId: string, reason: string) =>
+const unpublishTeacherProfile = (teacherId: string, reason: string) =>
   api.post(`/admin/teachers/${teacherId}/profile/unpublish`, teacherProfile, { reason });
-export const removeTeacherPhoto = (teacherId: string, reason: string) =>
+const removeTeacherPhoto = (teacherId: string, reason: string) =>
   api.post(`/admin/teachers/${teacherId}/profile/photo/remove`, teacherProfile, { reason });
 
 // ── Helpers ──
@@ -199,3 +199,44 @@ export function clean(query: object): Record<string, QueryValue> {
 }
 
 export type { NamedRef };
+
+/** Every admin call, by name: `adminApi.switchContext(...)`. */
+export const adminApi = {
+  switchContext,
+  getDashboard,
+  listUsers,
+  getUserOverview,
+  createStaffAccount,
+  suspendUser,
+  reactivateUser,
+  sendPasswordReset,
+  grantRole,
+  revokeRole,
+  deactivateTeacher,
+  listApplications,
+  getApplication,
+  getApplicationCv,
+  reviewApplication,
+  createAccountFromApplication,
+  linkApplication,
+  listCoursesForReview,
+  getCourse,
+  getCourseOutline,
+  approveCourse,
+  rejectCourse,
+  unpublishCourse,
+  archiveCourse,
+  setCourseEnrollment,
+  setCoursePricing,
+  updateCourse,
+  listEnrollments,
+  grantEnrollment,
+  revokeEnrollment,
+  listSettings,
+  updateSetting,
+  searchAuditLog,
+  getTeacherProfile,
+  updateTeacherProfile,
+  unpublishTeacherProfile,
+  removeTeacherPhoto,
+};

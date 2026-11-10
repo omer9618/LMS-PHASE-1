@@ -10,8 +10,7 @@ import {
   StatTile,
   type BadgeTone,
 } from '@/components/ui';
-import { api } from '@/lib/api/client';
-import * as enrollmentSchema from '@/lib/api/schemas/enrollment';
+import { enrollmentApi } from '@/lib/api/enrollment';
 import type { AccessState, DashboardEntry } from '@/lib/api/types';
 import { formatDate } from '@/lib/format';
 import { useSession } from '@/lib/session';
@@ -44,7 +43,7 @@ export function sortEntries(entries: DashboardEntry[]): DashboardEntry[] {
 export function StudentDashboard() {
   const { status, user } = useSession();
   const enrollments = useApi(user ? `dashboard:${user.id}` : null, (signal) =>
-    api.get('/me/enrollments', enrollmentSchema.dashboard, undefined, signal),
+    enrollmentApi.mine(signal),
   );
 
   if (status === 'loading') return <p role="status">Loading…</p>;

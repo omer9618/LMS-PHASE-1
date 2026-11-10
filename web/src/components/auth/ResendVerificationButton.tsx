@@ -2,10 +2,9 @@
 
 import { useState } from 'react';
 import { Button, type ButtonProps } from '@/components/ui';
-import { api } from '@/lib/api/client';
+import { authApi } from '@/lib/api/auth';
 import { errorMessage } from '@/lib/api/errors';
 import styles from '@/components/forms/Form.module.css';
-import * as authSchema from '@/lib/api/schemas/auth';
 
 /** POST /auth/verify-email/resend for the signed-in user, with its outcome announced. */
 export function ResendVerificationButton(props: Pick<ButtonProps, 'variant' | 'size'>) {
@@ -14,7 +13,7 @@ export function ResendVerificationButton(props: Pick<ButtonProps, 'variant' | 's
   async function resend() {
     setState('sending');
     try {
-      const result = await api.post('/auth/verify-email/resend', authSchema.resendVerification);
+      const result = await authApi.resendVerification();
       setState(result.sent ? 'sent' : { error: 'Your email address is already verified.' });
     } catch (error) {
       setState({ error: errorMessage(error) });

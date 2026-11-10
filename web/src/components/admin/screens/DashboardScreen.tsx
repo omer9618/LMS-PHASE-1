@@ -1,8 +1,8 @@
 'use client';
 
 import { Loadable, PageHeader, Section, StatGrid, StatTile } from '@/components/ui';
-import { getDashboard } from '@/lib/api/admin';
-import { getVerificationMetrics } from '@/lib/api/admin-money';
+import { adminApi } from '@/lib/api/admin';
+import { adminFinanceApi } from '@/lib/api/admin-finance';
 import { useApi } from '@/lib/use-api';
 import { formatDateTime } from '../kit';
 
@@ -15,9 +15,11 @@ export function formatWait(minutes: number | null): string {
 
 /** #102: what needs an admin now, with links into each queue. */
 export function DashboardScreen() {
-  const dashboard = useApi('admin-dashboard', (signal) => getDashboard(signal));
+  const dashboard = useApi('admin-dashboard', (signal) => adminApi.getDashboard(signal));
   // Waiting times for the payment queue; the tiles still show without it.
-  const metrics = useApi('admin-dashboard-metrics', (signal) => getVerificationMetrics(signal));
+  const metrics = useApi('admin-dashboard-metrics', (signal) =>
+    adminFinanceApi.getVerificationMetrics(signal),
+  );
   const queue = metrics.status === 'success' ? metrics.data : null;
 
   return (

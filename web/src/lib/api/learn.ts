@@ -1,4 +1,4 @@
-import { api, type ApiClient } from './client';
+import { api } from './client';
 import { playback } from './schemas/catalogue';
 import * as schema from './schemas/learn';
 
@@ -31,48 +31,40 @@ export interface AnswerInput {
 const lessonPath = (courseId: string, lessonId: string) =>
   `/courses/${encodeURIComponent(courseId)}/lessons/${encodeURIComponent(lessonId)}`;
 
-export function learnApi(client: ApiClient = api) {
-  const quiz = (c: string, l: string) => `${lessonPath(c, l)}/quiz`;
-  return {
-    outline: (courseId: string) =>
-      client.get(`/learn/courses/${encodeURIComponent(courseId)}`, schema.learnerOutline),
-    content: (courseId: string, lessonId: string) =>
-      client.get(`${lessonPath(courseId, lessonId)}/content`, schema.lessonContent),
-    playback: (courseId: string, lessonId: string) =>
-      client.get(`${lessonPath(courseId, lessonId)}/playback`, playback),
-    resourceDownload: (courseId: string, lessonId: string, resourceId: string) =>
-      client.get(
-        `${lessonPath(courseId, lessonId)}/resources/${encodeURIComponent(resourceId)}/download`,
-        schema.resourceDownload,
-      ),
-    reportWatch: (courseId: string, lessonId: string, positionSeconds: number) =>
-      client.put(`${lessonPath(courseId, lessonId)}/watch`, schema.watchProgress, {
-        positionSeconds,
-      }),
-    complete: (courseId: string, lessonId: string) =>
-      client.post(`${lessonPath(courseId, lessonId)}/complete`, schema.completion),
-
-    quizOverview: (c: string, l: string) => client.get(quiz(c, l), schema.quizOverview),
-    startAttempt: (c: string, l: string) =>
-      client.post(`${quiz(c, l)}/attempts`, schema.attemptView),
-    getAttempt: (c: string, l: string, attemptId: string) =>
-      client.get(`${quiz(c, l)}/attempts/${encodeURIComponent(attemptId)}`, schema.attemptView),
-    saveAnswers: (c: string, l: string, attemptId: string, answers: AnswerInput[]) =>
-      client.put(
-        `${quiz(c, l)}/attempts/${encodeURIComponent(attemptId)}/answers`,
-        schema.attemptView,
-        { answers },
-      ),
-    submitAttempt: (c: string, l: string, attemptId: string, answers: AnswerInput[]) =>
-      client.post(
-        `${quiz(c, l)}/attempts/${encodeURIComponent(attemptId)}/submit`,
-        schema.attemptView,
-        { answers },
-      ),
-  };
-}
-
-export type LearnApi = ReturnType<typeof learnApi>;
+const quiz = (c: string, l: string) => `${lessonPath(c, l)}/quiz`;
 
 /** The browser's learner API. */
-export const learn = learnApi();
+export const learn = {
+  outline: (courseId: string) =>
+    api.get(`/learn/courses/${encodeURIComponent(courseId)}`, schema.learnerOutline),
+  content: (courseId: string, lessonId: string) =>
+    api.get(`${lessonPath(courseId, lessonId)}/content`, schema.lessonContent),
+  playback: (courseId: string, lessonId: string) =>
+    api.get(`${lessonPath(courseId, lessonId)}/playback`, playback),
+  resourceDownload: (courseId: string, lessonId: string, resourceId: string) =>
+    api.get(
+      `${lessonPath(courseId, lessonId)}/resources/${encodeURIComponent(resourceId)}/download`,
+      schema.resourceDownload,
+    ),
+  reportWatch: (courseId: string, lessonId: string, positionSeconds: number) =>
+    api.put(`${lessonPath(courseId, lessonId)}/watch`, schema.watchProgress, {
+      positionSeconds,
+    }),
+  complete: (courseId: string, lessonId: string) =>
+    api.post(`${lessonPath(courseId, lessonId)}/complete`, schema.completion),
+
+  quizOverview: (c: string, l: string) => api.get(quiz(c, l), schema.quizOverview),
+  startAttempt: (c: string, l: string) => api.post(`${quiz(c, l)}/attempts`, schema.attemptView),
+  getAttempt: (c: string, l: string, attemptId: string) =>
+    api.get(`${quiz(c, l)}/attempts/${encodeURIComponent(attemptId)}`, schema.attemptView),
+  saveAnswers: (c: string, l: string, attemptId: string, answers: AnswerInput[]) =>
+    api.put(`${quiz(c, l)}/attempts/${encodeURIComponent(attemptId)}/answers`, schema.attemptView, {
+      answers,
+    }),
+  submitAttempt: (c: string, l: string, attemptId: string, answers: AnswerInput[]) =>
+    api.post(`${quiz(c, l)}/attempts/${encodeURIComponent(attemptId)}/submit`, schema.attemptView, {
+      answers,
+    }),
+};
+
+export type LearnApi = typeof learn;

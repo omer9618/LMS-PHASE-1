@@ -2,10 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { Alert, Button, Input, Select, Textarea } from '@/components/ui';
-import { z } from 'zod';
-import { api } from '@/lib/api/client';
-import * as catalogueSchema from '@/lib/api/schemas/catalogue';
-import { namedRef } from '@/lib/api/schemas/common';
+import { catalogueApi } from '@/lib/api/catalogue';
 import { errorMessage, fieldErrors } from '@/lib/api/errors';
 import type { CourseDetailsInput } from '@/lib/api/teacher';
 import type { Pacing, TeacherCourse } from '@/lib/api/types';
@@ -97,14 +94,10 @@ export function CourseDetailsForm({
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const boards = useApi('boards', (signal) =>
-    api.get('/boards', z.array(catalogueSchema.board), undefined, signal),
-  );
-  const subjects = useApi('subjects', (signal) =>
-    api.get('/subjects', z.array(namedRef), undefined, signal),
-  );
+  const boards = useApi('boards', (signal) => catalogueApi.boards(signal));
+  const subjects = useApi('subjects', (signal) => catalogueApi.allSubjects(signal));
   const levels = useApi(values.boardId ? `levels:${values.boardId}` : null, (signal) =>
-    api.get(`/boards/${values.boardId}/levels`, z.array(catalogueSchema.level), undefined, signal),
+    catalogueApi.levels(values.boardId, signal),
   );
 
   const set = (key: keyof DetailsValues, value: string) => {
