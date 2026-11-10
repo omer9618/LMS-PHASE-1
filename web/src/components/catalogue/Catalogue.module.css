@@ -117,11 +117,6 @@
   font-size: var(--text-lg);
 }
 
-.ordering {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
 .sort {
   flex: 0 1 14rem;
 }
@@ -179,11 +174,6 @@
 
 .cardSyllabus,
 .cardTeacher,
-.cardMeta {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
 .cardSyllabus {
   font-family: var(--font-mono);
   font-size: var(--text-xs);

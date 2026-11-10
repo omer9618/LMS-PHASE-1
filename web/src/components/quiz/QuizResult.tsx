@@ -21,7 +21,7 @@ export interface QuizResultProps {
 export function QuizResult({ attempt, overview, onBack, onRetry, busy }: QuizResultProps) {
   return (
     <section className={styles.panel} aria-labelledby="result-heading">
-      <div className={styles.headerRow}>
+      <div className="cluster">
         <h2 id="result-heading">Attempt {attempt.attemptNumber} result</h2>
         {attempt.isPassed === true && <Badge tone="success">Passed</Badge>}
         {attempt.isPassed === false && <Badge tone="danger">Not passed</Badge>}
@@ -81,7 +81,7 @@ function ReviewItem({ number, question }: { number: number; question: AttemptQue
   const correct = question.isCorrect === true;
   return (
     <li className={styles.reviewItem} data-correct={correct ? 'true' : 'false'}>
-      <div className={styles.headerRow}>
+      <div className="cluster">
         <p className={styles.questionNumber}>Question {number}</p>
         <Badge tone={correct ? 'success' : 'danger'}>
           {correct ? 'Correct' : 'Incorrect'} · {question.marksAwarded ?? 0}/{question.marks}

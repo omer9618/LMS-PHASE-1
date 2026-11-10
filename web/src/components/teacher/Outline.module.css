@@ -30,13 +30,6 @@
 }
 
 .sectionHead,
-.lessonHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
 .sectionTitle {
   flex: 1 1 14rem;
   min-width: 0;
@@ -112,13 +105,6 @@
 
 .subTitle {
   font-size: var(--text-md);
-}
-
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
 }
 
 .files {

@@ -261,7 +261,7 @@ function ManagePanel({
           }}
         />
       )}
-      <div className={styles.actions}>
+      <div className="cluster">
         {canArchive(course.status) && (
           <ConfirmButton
             question="Archive this course?"

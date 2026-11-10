@@ -101,7 +101,7 @@ export function VideoPanel({
     <section className={styles.subPanel} aria-label="Video">
       <h3 className={styles.subTitle}>Video</h3>
       {video ? (
-        <p className={styles.row}>
+        <p className="cluster">
           {video.status === 'READY' && <Badge tone="success">Ready</Badge>}
           {video.status === 'PROCESSING' && <Badge tone="info">Processing</Badge>}
           {video.status === 'FAILED' && <Badge tone="danger">Processing failed</Badge>}
@@ -135,7 +135,7 @@ export function VideoPanel({
         </div>
       )}
       {upload.kind === 'uploading' && (
-        <div className={styles.row}>
+        <div className="cluster">
           <progress
             max={100}
             value={percent}

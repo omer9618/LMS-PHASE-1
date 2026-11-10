@@ -100,7 +100,7 @@ export function CatalogueBrowser() {
             </h2>
             {listing.status === 'success' && (
               // #44: the backend states its ordering criterion; show it with the results.
-              <p className={styles.ordering}>
+              <p className="hint">
                 <span className="visually-hidden">Ordering: </span>
                 {listing.data.ordering}
               </p>

@@ -17,7 +17,7 @@ export function PublicProfile({ profile }: { profile: PublicTeacherProfile }) {
   const courses = profile.courses.items;
   return (
     <article className={styles.layout} aria-labelledby="teacher-name">
-      <nav aria-label="Breadcrumb" className={styles.breadcrumb}>
+      <nav aria-label="Breadcrumb" className="hint">
         <Link href="/courses">Courses</Link> / Teachers / {name}
       </nav>
       <header className={styles.header}>

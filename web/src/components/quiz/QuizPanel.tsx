@@ -138,7 +138,7 @@ export function QuizPanel({
   const noAttemptsLeft = overview.attemptsRemaining === 0 && !overview.openAttemptId;
   return (
     <section className={styles.panel} aria-labelledby="quiz-heading">
-      <div className={styles.headerRow}>
+      <div className="cluster">
         <h2 id="quiz-heading">Quiz</h2>
         {overview.isBreakpoint && <Badge tone="warning">Checkpoint</Badge>}
         {overview.hasPassed && <Badge tone="success">Passed</Badge>}

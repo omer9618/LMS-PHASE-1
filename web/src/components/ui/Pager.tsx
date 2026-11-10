@@ -1,5 +1,4 @@
 import { Button } from './Button';
-import styles from './Pager.module.css';
 
 /** Previous and next for a list with a known total: "21–40 of 133". */
 export function Pager({
@@ -17,7 +16,7 @@ export function Pager({
   const from = total === 0 ? 0 : offset + 1;
   const to = Math.min(offset + limit, total);
   return (
-    <nav className={styles.pager} aria-label="Pages">
+    <nav className="cluster" aria-label="Pages">
       <span className="muted">
         {from}–{to} of {total}
       </span>
@@ -55,7 +54,7 @@ export function SimplePager({
 }) {
   if (!hasMore && offset === 0) return null;
   return (
-    <nav className={styles.pager} aria-label="Pages">
+    <nav className="cluster" aria-label="Pages">
       <Button
         size="sm"
         variant="secondary"

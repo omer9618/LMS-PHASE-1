@@ -72,18 +72,18 @@ export function ComponentShowcase({ density }: { density: 'comfortable' | 'compa
 
       <div className={styles.group}>
         <h3>Buttons</h3>
-        <div className={styles.row}>
+        <div className="cluster">
           <Button>Primary</Button>
           <Button variant="secondary">Secondary</Button>
           <Button variant="ghost">Ghost</Button>
           <Button variant="danger">Danger</Button>
         </div>
-        <div className={styles.row}>
+        <div className="cluster">
           <Button size="sm">Small</Button>
           <Button size="md">Medium</Button>
           <Button size="lg">Large</Button>
         </div>
-        <div className={styles.row}>
+        <div className="cluster">
           <Button
             loading={loading}
             loadingText="Saving…"
@@ -119,7 +119,7 @@ export function ComponentShowcase({ density }: { density: 'comfortable' | 'compa
 
       <div className={styles.group}>
         <h3>Badges</h3>
-        <div className={styles.row}>
+        <div className="cluster">
           <Badge>Neutral</Badge>
           <Badge tone="primary">Primary</Badge>
           <Badge tone="info">Info</Badge>

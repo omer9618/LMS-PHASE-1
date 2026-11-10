@@ -141,6 +141,12 @@ a:hover {
   gap: var(--stack-gap);
 }
 
+/* Small, quiet helper text under a field or beside a title. */
+.hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
 /* A row of buttons or chips that wraps on narrow screens. */
 .cluster {
   display: flex;

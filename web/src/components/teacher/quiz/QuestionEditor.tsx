@@ -276,7 +276,7 @@ export function QuestionEditor({
             )}
           </div>
           {!mcq && values.correctAnswer && (
-            <p className={styles.accepts}>
+            <p className="hint">
               Accepts <span className="mono">{values.correctAnswer}</span>
               {values.tolerance && values.tolerance !== '0' && (
                 <>

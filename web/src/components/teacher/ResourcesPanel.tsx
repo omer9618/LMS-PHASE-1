@@ -69,7 +69,7 @@ export function ResourcesPanel({
       ) : (
         <ul className={styles.files}>
           {lesson.resources.map((r) => (
-            <li key={r.id} className={styles.row}>
+            <li key={r.id} className="cluster">
               <span>{r.fileName}</span>
               <span className="muted">{formatBytes(r.fileSizeBytes)}</span>
               {editable && (

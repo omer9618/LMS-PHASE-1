@@ -129,7 +129,7 @@ function EnrollmentCard({ entry }: { entry: DashboardEntry }) {
         </h2>
         <Badge tone={access.tone}>{access.label}</Badge>
       </div>
-      <p className={styles.meta}>
+      <p className="hint">
         {[entry.course.subject?.name, entry.course.teacher?.fullName].filter(Boolean).join(' · ')}
       </p>
       <div className={styles.progressRow}>
@@ -150,7 +150,7 @@ function EnrollmentCard({ entry }: { entry: DashboardEntry }) {
         </span>
       </div>
       {entry.expiresAt && (
-        <p className={styles.meta}>
+        <p className="hint">
           {entry.access === 'ACTIVE' ? 'Access until' : 'Access ended'}{' '}
           {formatDate(entry.expiresAt)}
         </p>

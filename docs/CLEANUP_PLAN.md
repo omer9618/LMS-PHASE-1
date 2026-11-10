@@ -227,16 +227,22 @@ payout and verification lists, and the student's orders and dashboard.
 
 ### Phase 3: web consistency
 
-- [ ] One API style: an exported object per backend area, all through `lib/api/client.ts`:
-      `auth`, `catalogue`, `enrollment`, `orders`, `learn`, `teacher`, `profile`, `earnings`,
-      `quiz`, `admin`, `adminFinance`. Rename `admin-money.ts` → `admin-finance.ts`.
-- [ ] Components stop calling `api.*` directly (the 13 files in W1).
-- [ ] Every form schema in `lib/forms/` (`quiz.ts` added); delete the wrapper validators in W2.
-- [ ] Move `useMutation` to `lib/use-mutation.ts`, `MutationStatus` and `ReasonAction` to
-      `components/ui`; rewrite the components in W3; delete `ConfirmButton`.
-- [ ] Dates in `lib/format.ts`, money in `lib/money.ts`; delete the duplicates in W4 and
-      `lib/api/types.ts` (import from `lib/api/schemas`).
-- [ ] Add `.cluster` and `.hint` to `globals.css`; remove the repeated rules in W6.
+- [x] One API style: an exported object per backend area, all through :
+      , , (new), , , , ,
+      , , , ( is now
+      ). The and factories are plain objects.
+- [x] Components no longer call directly (the 13 files in W1).
+- [x] Every form schema is in ( added); the wrapper validators in W2 are gone.
+- [x] is in ; , and
+      are in . is kept: it asks a yes/no question,
+      collects a written reason, so they are not duplicates.
+- [ ] Move the remaining hand-rolled busy/error components to . Only the photo panel
+      in is done; the others map field errors or special error codes, so each one
+      needs its own small change (left for a follow-up).
+- [x] Dates in , money and percent in ; and
+      are gone.
+- [x] and in ; 14 repeated rules removed. The mono eyebrow copies
+      are handled in phase 3b (D8).
 
 ### Phase 3b: design-system conformance
 

@@ -19,7 +19,7 @@ export function PageHeader({ title, eyebrow, description, actions }: PageHeaderP
         <h1 className={styles.title}>{title}</h1>
         {description && <p className={styles.description}>{description}</p>}
       </div>
-      {actions && <div className={styles.actions}>{actions}</div>}
+      {actions && <div className="cluster">{actions}</div>}
     </div>
   );
 }
@@ -54,7 +54,7 @@ export function Section({
       {(title || actions) && (
         <div className={styles.sectionHead}>
           {title && <h2 className={styles.sectionTitle}>{title}</h2>}
-          {actions && <div className={styles.actions}>{actions}</div>}
+          {actions && <div className="cluster">{actions}</div>}
         </div>
       )}
       <div className={cx(styles.sectionBody, flush && styles.flush)}>{children}</div>

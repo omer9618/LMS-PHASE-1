@@ -163,7 +163,7 @@ export function CourseDetailsForm({
           error={errors.description}
         />
       </div>
-      <div className={styles.actions}>
+      <div className="cluster">
         <Button type="submit" loading={submitting} loadingText="Saving…">
           {submitLabel}
         </Button>

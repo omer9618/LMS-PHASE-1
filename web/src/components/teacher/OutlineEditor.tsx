@@ -252,7 +252,7 @@ function LessonRow({
 
   return (
     <div className={styles.lesson}>
-      <div className={styles.lessonHead}>
+      <div className="cluster">
         <span className={styles.lessonTitle}>{lesson.title}</span>
         <span className={styles.badges}>
           <Badge>{TYPE_LABEL[lesson.type] ?? lesson.type}</Badge>
