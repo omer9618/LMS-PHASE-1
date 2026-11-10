@@ -1,6 +1,7 @@
 import { api } from './client';
 import * as schema from './schemas/teacher';
 import type { LedgerEntry, PayoutSummary } from './schemas/teacher';
+import { ignored } from './schemas/common';
 
 // ── Teacher earnings and payouts (#78–#89). Money is minor units as strings. ──
 
@@ -23,7 +24,7 @@ export const earningsApi = {
   payout: (payoutId: string, signal?: AbortSignal) =>
     api.get(`/teacher/payouts/${payoutId}`, schema.payoutDetail, undefined, signal),
   raiseConcern: (payoutId: string, reason: string) =>
-    api.post(`/teacher/payouts/${payoutId}/concerns`, { reason }),
+    api.post(`/teacher/payouts/${payoutId}/concerns`, ignored, { reason }),
 };
 
 /** A concern can be raised on a PENDING payout until its dispute deadline (#88). */

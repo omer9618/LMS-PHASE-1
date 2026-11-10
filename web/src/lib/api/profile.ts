@@ -1,6 +1,8 @@
+import type { z } from 'zod';
+import type { profileForm } from '@/lib/forms/profile';
 import { api } from './client';
 import * as schema from './schemas/teacher';
-import type { F2fLocation, SocialLink } from './schemas/teacher';
+import type { F2fLocation } from './schemas/teacher';
 
 export type {
   F2fLocation,
@@ -9,12 +11,8 @@ export type {
   TeacherProfile,
 } from './schemas/teacher';
 
-export interface ProfileUpdate {
-  bio?: string | null;
-  qualifications?: string | null;
-  socialLinks?: SocialLink[];
-  f2fLocations?: F2fLocation[];
-}
+/** The PUT body of a profile: what `profileForm` produces. */
+export type ProfileUpdate = z.output<typeof profileForm>;
 
 /** Mirrors the API's limits (src/modules/profiles/schemas/teacher-profile.schema.ts). */
 export const MAX_SOCIAL_LINKS = 10;

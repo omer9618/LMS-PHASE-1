@@ -13,6 +13,7 @@ import { api } from './api/client';
 import { isApiError } from './api/errors';
 import type { Me } from './api/types';
 import * as authSchema from './api/schemas/auth';
+import { ignored } from './api/schemas/common';
 
 export type SessionStatus = 'loading' | 'signed-in' | 'signed-out';
 
@@ -57,7 +58,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     try {
-      await api.post('/auth/logout');
+      await api.post('/auth/logout', ignored);
     } finally {
       setUser(null);
       setStatus('signed-out');

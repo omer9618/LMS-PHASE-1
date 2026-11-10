@@ -42,7 +42,7 @@ export function paged<T extends z.ZodType>(item: T) {
 }
 export type Paged<T> = { items: T[]; total: number; limit: number; offset: number };
 
-/** A response whose body the caller does not read (logout, delete). */
+/** A response whose body the caller does not read (logout, delete, register). */
 export const ignored = z.unknown();
 
 /**

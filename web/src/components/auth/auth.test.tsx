@@ -84,7 +84,7 @@ describe('LoginForm', () => {
     await userEvent.type(code, '123456');
     await userEvent.click(screen.getByRole('button', { name: 'Verify and sign in' }));
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/courses'));
-    expect(apiMock.post).toHaveBeenLastCalledWith('/auth/login/mfa', {
+    expect(apiMock.post).toHaveBeenLastCalledWith('/auth/login/mfa', expect.anything(), {
       challengeToken: 'chal-1',
       code: '123456',
     });
@@ -104,7 +104,7 @@ describe('LoginForm', () => {
     await userEvent.type(screen.getByLabelText(/^Recovery code/), 'abcd-efgh-ijkl');
     await userEvent.click(screen.getByRole('button', { name: 'Verify and sign in' }));
     await waitFor(() =>
-      expect(apiMock.post).toHaveBeenLastCalledWith('/auth/login/mfa', {
+      expect(apiMock.post).toHaveBeenLastCalledWith('/auth/login/mfa', expect.anything(), {
         challengeToken: 'chal-2',
         recoveryCode: 'abcd-efgh-ijkl',
       }),
@@ -169,7 +169,7 @@ describe('RegisterForm', () => {
     await userEvent.type(screen.getByLabelText(/^Password/), 'a long passphrase');
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
     expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeVisible();
-    expect(apiMock.post).toHaveBeenCalledWith('/auth/register', {
+    expect(apiMock.post).toHaveBeenCalledWith('/auth/register', expect.anything(), {
       fullName: 'Ayesha Khan',
       email: 'ayesha@example.com',
       password: 'a long passphrase',
@@ -222,7 +222,9 @@ describe('VerifyEmail', () => {
     renderWithSession(<VerifyEmail />, STUDENT);
     expect(await screen.findByText('Email verified')).toBeVisible();
     expect(apiMock.post).toHaveBeenCalledTimes(1);
-    expect(apiMock.post).toHaveBeenCalledWith('/auth/verify-email', { token: 'tok-1' });
+    expect(apiMock.post).toHaveBeenCalledWith('/auth/verify-email', expect.anything(), {
+      token: 'tok-1',
+    });
   });
 
   it('explains an invalid link and offers a resend when signed in', async () => {
@@ -252,7 +254,7 @@ describe('ForgotPasswordForm', () => {
     await userEvent.type(screen.getByLabelText(/^Email/), 'nobody@example.com');
     await userEvent.click(screen.getByRole('button', { name: 'Send reset link' }));
     expect(await screen.findByText(/if an account exists/i)).toBeVisible();
-    expect(apiMock.post).toHaveBeenCalledWith('/auth/password-reset/request', {
+    expect(apiMock.post).toHaveBeenCalledWith('/auth/password-reset/request', expect.anything(), {
       email: 'nobody@example.com',
     });
   });
@@ -268,7 +270,7 @@ describe('ResetPasswordForm', () => {
     await userEvent.type(screen.getByLabelText(/^Confirm new password/), 'a brand new phrase');
     await userEvent.click(screen.getByRole('button', { name: 'Change password' }));
     expect(await screen.findByRole('heading', { name: 'Password changed' })).toBeVisible();
-    expect(apiMock.post).toHaveBeenCalledWith('/auth/password-reset/confirm', {
+    expect(apiMock.post).toHaveBeenCalledWith('/auth/password-reset/confirm', expect.anything(), {
       token: 'reset-1',
       password: 'a brand new phrase',
     });

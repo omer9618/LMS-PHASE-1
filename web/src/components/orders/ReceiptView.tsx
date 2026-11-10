@@ -50,8 +50,11 @@ export function ReceiptView({
       {back}
       <article className={styles.receipt} aria-labelledby="receipt-heading">
         <header className={styles.titleRow}>
-          <h1 id="receipt-heading">Receipt</h1>
-          <span className="muted">No. {r.receiptNumber}</span>
+          <div>
+            <p className="eyebrow">Payment confirmed</p>
+            <h1 id="receipt-heading">Receipt</h1>
+          </div>
+          <span className="mono muted">No. {r.receiptNumber}</span>
         </header>
         <dl className={styles.receiptFacts}>
           <div>

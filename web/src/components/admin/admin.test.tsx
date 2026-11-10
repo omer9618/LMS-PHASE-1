@@ -12,7 +12,7 @@ import { DashboardScreen, formatWait } from './screens/DashboardScreen';
 import { reviewChecklist } from './screens/CoursesScreen';
 import { sortRun, toRunRow, totalsOwed, type RunRow } from './screens/PayoutRunScreen';
 import { DecisionPanel, queueFlags } from './screens/VerificationScreen';
-import { parseSettingInput } from './screens/SettingsScreen';
+import { settingValue } from '@/lib/forms/admin';
 import { dayBoundary } from './screens/AuditScreen';
 
 vi.mock('next/navigation', async () => (await import('@/test/mocks')).navigationMock);
@@ -236,10 +236,10 @@ describe('DecisionPanel (#64–#66)', () => {
 
 describe('screen helpers', () => {
   it('parses setting values by the setting type', () => {
-    expect(parseSettingInput({ defaultValue: 48 }, '72')).toBe(72);
-    expect(parseSettingInput({ defaultValue: 48 }, 'abc')).toBeNull();
-    expect(parseSettingInput({ defaultValue: true }, false)).toBe(false);
-    expect(parseSettingInput({ defaultValue: 'text' }, 'Bank: X')).toBe('Bank: X');
+    expect(settingValue(48).parse('72')).toBe(72);
+    expect(settingValue(48).safeParse('abc').success).toBe(false);
+    expect(settingValue(true).parse(false)).toBe(false);
+    expect(settingValue('text').parse('Bank: X')).toBe('Bank: X');
   });
 
   it('turns audit date filters into day boundaries', () => {

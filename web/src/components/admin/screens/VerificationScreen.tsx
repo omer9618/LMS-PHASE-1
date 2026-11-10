@@ -6,12 +6,15 @@ import { useState, type FormEvent } from 'react';
 import {
   Alert,
   Badge,
+  type BadgeTone,
   Button,
+  type Column,
   Facts,
   Input,
   Loadable,
   Money,
   PageHeader,
+  Pager,
   Section,
   Select,
   SplitLayout,
@@ -19,8 +22,6 @@ import {
   StatTile,
   Table,
   Textarea,
-  type BadgeTone,
-  type Column,
 } from '@/components/ui';
 import {
   confirmPayment,
@@ -38,8 +39,10 @@ import { absMinor, checkReceived, MISMATCH_LABELS } from '@/lib/admin/verificati
 import { formatMoney, minorToMajorInput, minorUnitExponent, parseMajorToMinor } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, Pager, useMutation } from '../kit';
+import { formatDateTime, MutationStatus, useMutation } from '../kit';
 import { humanize } from '@/lib/format';
+import { confirmPaymentForm, rejectPaymentForm } from '@/lib/forms/admin';
+import { firstError, validateForm } from '@/lib/zod-form';
 
 const LIMIT = 20;
 
@@ -339,36 +342,34 @@ export function DecisionPanel({
     event.preventDefault();
     setError(null);
     if (mode === 'reject') {
-      if (reason === 'OTHER' && !notes.trim()) {
-        setError('Explain the rejection in the notes when the reason is Other.');
+      const checked = validateForm(rejectPaymentForm, { reason, notes });
+      if (!checked.ok) {
+        setError(firstError(checked.errors));
         return;
       }
       const ok = await mutation.run(
-        () => rejectPayment(orderId, { rejectionReason: reason, notes: notes.trim() || undefined }),
+        () => rejectPayment(orderId, checked.data),
         'Payment rejected. The student has been told why.',
       );
       if (ok) onDecided();
       return;
     }
-    if (!check) {
-      setError('Enter the amount received, above zero.');
+    const checked = validateForm(confirmPaymentForm(totalMinor, currency), {
+      received,
+      valueDate,
+      action,
+      notes,
+    });
+    if (!checked.ok) {
+      setError(firstError(checked.errors));
       return;
     }
-    if (check.kind !== 'exact' && !action) {
-      setError('The amount differs from the total: choose what to do.');
-      return;
-    }
+    const body = checked.data;
     const ok = await mutation.run(
-      () =>
-        confirmPayment(orderId, {
-          amountReceivedMinor: receivedMinor!,
-          valueDate,
-          mismatchAction: check.kind === 'exact' ? undefined : (action as MismatchAction),
-          notes: notes.trim() || undefined,
-        }),
-      check.kind === 'exact' || action === 'CONFIRM_ANYWAY'
+      () => confirmPayment(orderId, body),
+      body.mismatchAction === undefined || body.mismatchAction === 'CONFIRM_ANYWAY'
         ? 'Payment confirmed. Access granted and earnings recorded.'
-        : action === 'REQUEST_TOP_UP'
+        : body.mismatchAction === 'REQUEST_TOP_UP'
           ? 'Top-up requested from the student.'
           : 'Payment rejected.',
     );

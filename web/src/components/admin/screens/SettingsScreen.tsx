@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { type FormEvent } from 'react';
 import { Button, Checkbox, Input, Loadable, PageHeader, Section, Textarea } from '@/components/ui';
 import { listSettings, updateSetting, type PlatformSetting } from '@/lib/api/admin';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
 import { formatDateTime, MutationStatus, useMutation } from '../kit';
+import { useMemo } from 'react';
+import { z } from 'zod';
+import { settingValue } from '@/lib/forms/admin';
+import { useZodForm } from '@/lib/use-zod-form';
 
 /** #8: values admins change without a deploy. Each change is audited by the API. */
 export function SettingsScreen() {
@@ -13,6 +17,7 @@ export function SettingsScreen() {
   return (
     <>
       <PageHeader
+        eyebrow="Platform"
         title="Platform settings"
         description="Changes apply at once and are recorded in the audit log."
       />
@@ -29,62 +34,30 @@ export function SettingsScreen() {
   );
 }
 
-/** The value typed into the form → what the API expects for this setting's type. */
-export function parseSettingInput(
-  setting: Pick<PlatformSetting, 'defaultValue'>,
-  raw: string | boolean,
-): number | string | boolean | null {
-  if (typeof setting.defaultValue === 'boolean') return Boolean(raw);
-  if (typeof setting.defaultValue === 'number') {
-    const text = String(raw).trim();
-    if (!/^-?\d+(\.\d+)?$/.test(text)) return null;
-    return Number(text);
-  }
-  return String(raw);
-}
-
 function SettingForm({ setting, onSaved }: { setting: PlatformSetting; onSaved: () => void }) {
-  const [value, setValue] = useState<string | boolean>(
-    typeof setting.value === 'boolean' ? setting.value : String(setting.value),
-  );
-  const [error, setError] = useState<string | null>(null);
+  const schema = useMemo(() => z.object({ value: settingValue(setting.defaultValue) }), [setting]);
+  const form = useZodForm(schema, {
+    value: typeof setting.value === 'boolean' ? setting.value : String(setting.value),
+  });
   const mutation = useMutation();
   const isLong = typeof setting.defaultValue === 'string';
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const parsed = parseSettingInput(setting, value);
-    if (parsed === null) {
-      setError('Enter a number.');
-      return;
-    }
-    setError(null);
-    if (await mutation.run(() => updateSetting(setting.key, parsed), 'Saved.')) onSaved();
+    const body = form.check();
+    if (!body) return;
+    if (await mutation.run(() => updateSetting(setting.key, body.value), 'Saved.')) onSaved();
   }
 
   return (
     <Section title={<code>{setting.key}</code>}>
-      <form className={styles.inlineForm} onSubmit={submit}>
+      <form className={styles.inlineForm} onSubmit={submit} noValidate>
         {typeof setting.defaultValue === 'boolean' ? (
-          <Checkbox
-            label={setting.description}
-            checked={Boolean(value)}
-            onChange={(e) => setValue(e.target.checked)}
-          />
+          <Checkbox label={setting.description} {...form.bindCheck('value')} />
         ) : isLong ? (
-          <Textarea
-            label={setting.description}
-            value={String(value)}
-            onChange={(e) => setValue(e.target.value)}
-          />
+          <Textarea label={setting.description} {...form.bind('value')} />
         ) : (
-          <Input
-            label={setting.description}
-            inputMode="decimal"
-            value={String(value)}
-            error={error}
-            onChange={(e) => setValue(e.target.value)}
-          />
+          <Input label={setting.description} inputMode="decimal" {...form.bind('value')} />
         )}
         <p className="muted">
           Default: {String(setting.defaultValue) || '(empty)'}

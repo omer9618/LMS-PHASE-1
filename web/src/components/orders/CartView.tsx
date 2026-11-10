@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Alert, Button, ButtonLink } from '@/components/ui';
+import { Alert, Button, ButtonLink, PageHeader, Section, SplitLayout } from '@/components/ui';
 import { ApiError, errorMessage } from '@/lib/api/errors';
 import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
 import { useCart } from '@/lib/cart';
@@ -50,7 +50,7 @@ export function CartView({ client = defaultOrders }: { client?: OrdersApi }) {
   if (cart.ids.length === 0) {
     return (
       <div className="stack">
-        <h1>Your cart</h1>
+        <PageHeader eyebrow="Checkout" title="Your cart" />
         <p>Your cart is empty.</p>
         <p>
           <ButtonLink href="/courses">Browse courses</ButtonLink>
@@ -62,7 +62,7 @@ export function CartView({ client = defaultOrders }: { client?: OrdersApi }) {
   if (status === 'signed-out') {
     return (
       <div className="stack">
-        <h1>Your cart</h1>
+        <PageHeader eyebrow="Checkout" title="Your cart" />
         <p>
           {cart.ids.length} course{cart.ids.length === 1 ? '' : 's'} in your cart.
         </p>
@@ -77,7 +77,7 @@ export function CartView({ client = defaultOrders }: { client?: OrdersApi }) {
 
   return (
     <div className="stack">
-      <h1>Your cart</h1>
+      <PageHeader eyebrow="Checkout" title="Your cart" />
 
       {quote.status === 'loading' && (
         <p className="muted" role="status">
@@ -105,66 +105,75 @@ export function CartView({ client = defaultOrders }: { client?: OrdersApi }) {
       )}
 
       {quote.status === 'success' && (
-        <>
-          {groupByTeacher(quote.data.items).map((group) => (
-            <section
-              key={group.teacherId}
-              className={styles.card}
-              aria-label={`Courses by ${group.teacherName}`}
-            >
-              <h2 className={styles.groupTitle}>{group.teacherName}</h2>
-              <ul className={styles.lines}>
-                {group.items.map((item) => (
-                  <li key={item.courseId}>
-                    <Link href={`/courses/${encodeURIComponent(item.courseId)}`}>{item.title}</Link>
-                    <span className={styles.lineEnd}>
-                      <strong>{formatMoney(item.priceMinor, item.currency)}</strong>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => cart.remove(item.courseId)}
-                        aria-label={`Remove ${item.title}`}
-                      >
-                        Remove
-                      </Button>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              {quote.data.teacherCount > 1 && (
-                <p className={styles.subtotal}>
-                  Subtotal: {formatMoney(group.subtotalMinor, quote.data.currency)}
-                </p>
+        <SplitLayout
+          main={
+            <>
+              {groupByTeacher(quote.data.items).map((group) => (
+                <section
+                  key={group.teacherId}
+                  className={styles.card}
+                  aria-label={`Courses by ${group.teacherName}`}
+                >
+                  <h2 className={styles.groupTitle}>{group.teacherName}</h2>
+                  <ul className={styles.lines}>
+                    {group.items.map((item) => (
+                      <li key={item.courseId}>
+                        <Link href={`/courses/${encodeURIComponent(item.courseId)}`}>
+                          {item.title}
+                        </Link>
+                        <span className={styles.lineEnd}>
+                          <strong>{formatMoney(item.priceMinor, item.currency)}</strong>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => cart.remove(item.courseId)}
+                            aria-label={`Remove ${item.title}`}
+                          >
+                            Remove
+                          </Button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {quote.data.teacherCount > 1 && (
+                    <p className={styles.subtotal}>
+                      Subtotal: {formatMoney(group.subtotalMinor, quote.data.currency)}
+                    </p>
+                  )}
+                </section>
+              ))}
+            </>
+          }
+          aside={
+            <Section raised title="Order summary">
+              <div className={styles.totalRow}>
+                <span>Total</span>
+                <strong className={styles.bigValue}>
+                  {formatMoney(quote.data.totalMinor, quote.data.currency)}
+                </strong>
+              </div>
+              <p className="muted">
+                You pay once, by bank transfer, with the reference you get on the next page. Prices
+                are fixed when you place the order.
+              </p>
+
+              {placeError !== null && (
+                <Alert tone="danger" title="The order could not be placed">
+                  <p>{errorMessage(placeError)}</p>
+                  {placeError instanceof ApiError && placeError.name === 'EMAIL_NOT_VERIFIED' && (
+                    <p>Check your inbox for the verification link, then try again.</p>
+                  )}
+                </Alert>
               )}
-            </section>
-          ))}
 
-          <div className={styles.totalRow}>
-            <span>Total</span>
-            <strong className={styles.bigValue}>
-              {formatMoney(quote.data.totalMinor, quote.data.currency)}
-            </strong>
-          </div>
-          <p className="muted">
-            You pay once, by bank transfer, with the reference you get on the next page. Prices are
-            fixed when you place the order.
-          </p>
-
-          {placeError !== null && (
-            <Alert tone="danger" title="The order could not be placed">
-              <p>{errorMessage(placeError)}</p>
-              {placeError instanceof ApiError && placeError.name === 'EMAIL_NOT_VERIFIED' && (
-                <p>Check your inbox for the verification link, then try again.</p>
-              )}
-            </Alert>
-          )}
-
-          <div>
-            <Button size="lg" onClick={checkout} loading={placing} loadingText="Placing order…">
-              Place order
-            </Button>
-          </div>
-        </>
+              <div>
+                <Button size="lg" onClick={checkout} loading={placing} loadingText="Placing order…">
+                  Place order
+                </Button>
+              </div>
+            </Section>
+          }
+        />
       )}
     </div>
   );

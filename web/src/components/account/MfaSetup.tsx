@@ -13,6 +13,8 @@ import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import mfa from './Mfa.module.css';
 import * as authSchema from '@/lib/api/schemas/auth';
+import { mfaCodeForm } from '@/lib/forms/auth';
+import { validateForm } from '@/lib/zod-form';
 
 /** "JBSWY3DPEHPK3PXP" → "JBSW Y3DP EHPK 3PXP": easier to type into an authenticator app. */
 export function groupSecret(secret: string): string {
@@ -184,8 +186,9 @@ function CodeForm({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!/^\d{6}$/.test(code.trim())) {
-      setError('Enter the 6-digit code from your authenticator app');
+    const checked = validateForm(mfaCodeForm(false), { code });
+    if (!checked.ok) {
+      setError(checked.errors.code);
       return;
     }
     setError(undefined);

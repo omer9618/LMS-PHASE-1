@@ -22,4 +22,5 @@ export {
 export { Loadable } from './Loadable';
 export { MarkSheet, type MarkPoint, type MarkSheetProps } from './MarkSheet';
 export { PageHeader, Section, SplitLayout, type PageHeaderProps, type SectionProps } from './Page';
+export { Pager, SimplePager } from './Pager';
 export { Table, type Column, type TableProps } from './Table';

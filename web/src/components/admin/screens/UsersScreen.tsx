@@ -9,6 +9,7 @@ import {
   Input,
   Loadable,
   PageHeader,
+  Pager,
   Section,
   Select,
   StatusBadge,
@@ -25,7 +26,9 @@ import { fieldErrors } from '@/lib/api/errors';
 import type { Role } from '@/lib/api/types';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, Pager, useMutation } from '../kit';
+import { formatDateTime, MutationStatus, useMutation } from '../kit';
+import { staffForm } from '@/lib/forms/admin';
+import { useZodForm } from '@/lib/use-zod-form';
 
 const LIMIT = 50;
 
@@ -39,7 +42,11 @@ export function UsersScreen() {
 
   return (
     <>
-      <PageHeader title="Users and teachers" description="Students, teachers and admins." />
+      <PageHeader
+        eyebrow="Accounts"
+        title="Users and teachers"
+        description="Students, teachers and admins."
+      />
       <form
         className={styles.filters}
         onSubmit={(e) => {
@@ -127,70 +134,41 @@ export function UsersScreen() {
 
 /** #15: admins create staff accounts; the new user sets a password from the emailed link. */
 function CreateStaffAccount({ onCreated }: { onCreated: () => void }) {
-  const [email, setEmail] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [admin, setAdmin] = useState(false);
-  const [teacher, setTeacher] = useState(true);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const form = useZodForm(staffForm, { email: '', fullName: '', admin: false, teacher: true });
   const mutation = useMutation();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const roles = [admin && 'ADMIN', teacher && 'TEACHER'].filter(Boolean) as Array<
-      'ADMIN' | 'TEACHER'
-    >;
-    if (roles.length === 0) {
-      setErrors({ roles: 'Choose at least one role.' });
-      return;
-    }
-    setErrors({});
+    const body = form.check();
+    if (!body) return;
     let failure: unknown;
     const ok = await mutation.run(
       () =>
-        createStaffAccount({ email: email.trim(), fullName: fullName.trim(), roles }).catch((e) => {
+        createStaffAccount(body).catch((e) => {
           failure = e;
           throw e;
         }),
-      `Account created. ${email.trim()} has been emailed a link to set a password.`,
+      `Account created. ${body.email} has been emailed a link to set a password.`,
     );
     if (ok) {
-      setEmail('');
-      setFullName('');
+      form.setValues({ ...form.values, email: '', fullName: '' });
       onCreated();
     } else {
-      setErrors(fieldErrors(failure));
+      form.setErrors(fieldErrors(failure));
     }
   }
 
   return (
     <Section title="Create a staff account">
-      <form className={styles.form} onSubmit={submit}>
-        <Input
-          label="Email"
-          type="email"
-          required
-          value={email}
-          error={errors.email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <Input
-          label="Full name"
-          required
-          value={fullName}
-          error={errors.fullName}
-          onChange={(e) => setFullName(e.target.value)}
-        />
-        <Checkbox
-          label="Teacher"
-          checked={teacher}
-          onChange={(e) => setTeacher(e.target.checked)}
-        />
+      <form className={styles.form} onSubmit={submit} noValidate>
+        <Input label="Email" type="email" required {...form.bind('email')} />
+        <Input label="Full name" required {...form.bind('fullName')} />
+        <Checkbox label="Teacher" {...form.bindCheck('teacher')} />
         <Checkbox
           label="Admin"
           hint="Admins must set up two-step verification on first sign-in."
-          checked={admin}
-          error={errors.roles}
-          onChange={(e) => setAdmin(e.target.checked)}
+          error={form.errors.roles}
+          {...form.bindCheck('admin')}
         />
         <MutationStatus mutation={mutation} />
         <div className={styles.actions}>

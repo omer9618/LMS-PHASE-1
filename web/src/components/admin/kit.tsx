@@ -4,6 +4,8 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Alert, Button, Textarea, type ButtonVariant } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import styles from './Admin.module.css';
+import { reasonForm } from '@/lib/forms/admin';
+import { validateForm } from '@/lib/zod-form';
 
 /**
  * Admin-only building blocks: writes with feedback, reason dialogs, paging. Generic layout and
@@ -100,11 +102,12 @@ export function ReasonAction({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const trimmed = reason.trim();
-    if (!optional && trimmed.length < minLength) {
-      setError(`Write at least ${minLength} characters.`);
+    const checked = validateForm(reasonForm(minLength, optional), { reason });
+    if (!checked.ok) {
+      setError(checked.errors.reason ?? null);
       return;
     }
+    const trimmed = checked.data.reason;
     setBusy(true);
     const ok = await onConfirm(trimmed);
     setBusy(false);
@@ -140,80 +143,6 @@ export function ReasonAction({
         </Button>
       </div>
     </form>
-  );
-}
-
-export function Pager({
-  total,
-  limit,
-  offset,
-  onChange,
-}: {
-  total: number;
-  limit: number;
-  offset: number;
-  onChange: (offset: number) => void;
-}) {
-  if (total <= limit && offset === 0) return null;
-  const from = total === 0 ? 0 : offset + 1;
-  const to = Math.min(offset + limit, total);
-  return (
-    <nav className={styles.pager} aria-label="Pages">
-      <span className="muted">
-        {from}–{to} of {total}
-      </span>
-      <Button
-        size="sm"
-        variant="secondary"
-        disabled={offset === 0}
-        onClick={() => onChange(Math.max(0, offset - limit))}
-      >
-        Previous
-      </Button>
-      <Button
-        size="sm"
-        variant="secondary"
-        disabled={offset + limit >= total}
-        onClick={() => onChange(offset + limit)}
-      >
-        Next
-      </Button>
-    </nav>
-  );
-}
-
-/** Previous/next for lists that return no total. */
-export function SimplePager({
-  hasMore,
-  limit,
-  offset,
-  onChange,
-}: {
-  hasMore: boolean;
-  limit: number;
-  offset: number;
-  onChange: (offset: number) => void;
-}) {
-  if (!hasMore && offset === 0) return null;
-  return (
-    <nav className={styles.pager} aria-label="Pages">
-      <Button
-        size="sm"
-        variant="secondary"
-        disabled={offset === 0}
-        onClick={() => onChange(Math.max(0, offset - limit))}
-      >
-        Previous
-      </Button>
-      <Button
-        size="sm"
-        variant="secondary"
-        disabled={!hasMore}
-        onClick={() => onChange(offset + limit)}
-      >
-        Next
-      </Button>
-    </nav>
   );
 }
 

@@ -2,6 +2,11 @@ import type { z } from 'zod';
 
 export type FieldErrors = Record<string, string>;
 
+/** The first message, for a form that shows one error line instead of one per field. */
+export function firstError(errors: FieldErrors): string {
+  return Object.values(errors)[0] ?? 'Check the form.';
+}
+
 /**
  * Checks a form's values with a zod schema before anything is sent. Returns the parsed data, or
  * one message per field (the first issue for each; nested paths are joined with dots, so

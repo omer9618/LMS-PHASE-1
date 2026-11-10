@@ -56,3 +56,11 @@ export const recoveryCodes = z.object({ recoveryCodes: z.array(z.string()).min(1
 
 /** POST /auth/verify-email/resend: false when the address is already verified. */
 export const resendVerification = z.object({ sent: z.boolean() });
+
+/** POST /teacher-applications */
+export const submittedApplication = z.object({
+  id,
+  status: z.string(),
+  submittedAt: isoDateTime,
+});
+export type SubmittedApplication = z.infer<typeof submittedApplication>;

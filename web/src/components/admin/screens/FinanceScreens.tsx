@@ -10,6 +10,8 @@ import {
   Money,
   PageHeader,
   Section,
+  StatGrid,
+  StatTile,
   StatusBadge,
   Table,
   Textarea,
@@ -29,19 +31,15 @@ import {
   type Payout,
   type TeacherSale,
 } from '@/lib/api/admin-money';
-import {
-  formatAgeHours,
-  formatBps,
-  parsePositiveMajorToMinor,
-  parseSignedMajorToMinor,
-  todayIso,
-} from '@/lib/admin/format';
+import { formatAgeHours, formatBps, parseSignedMajorToMinor, todayIso } from '@/lib/admin/format';
 import { formatDate } from '@/lib/format';
-import { minorToMajorInput, minorUnitExponent } from '@/lib/money';
+import { formatMoney, minorToMajorInput, minorUnitExponent } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
 import { formatDateTime, MutationStatus, useMutation } from '../kit';
 import { humanize } from '@/lib/format';
+import { adjustmentForm, payoutForm } from '@/lib/forms/admin';
+import { useZodForm } from '@/lib/use-zod-form';
 
 // ── #104 Financial summary by period ──
 
@@ -67,6 +65,7 @@ export function FinanceSummaryScreen() {
   return (
     <>
       <PageHeader
+        eyebrow="Ledger · all amounts in each currency"
         title="Financial summary"
         description="Sales, commission, refunds, adjustments and payouts by period (UTC dates, inclusive)."
       />
@@ -94,13 +93,27 @@ export function FinanceSummaryScreen() {
             {data.currencies.length === 0 && <p>No money has moved in this period.</p>}
             {data.currencies.map((c) => (
               <Section key={c.currency} title={c.currency}>
-                <Facts
-                  items={[
-                    ['Confirmed sales', c.confirmedSalesCount],
-                    ['Refunds', c.refundsCount],
-                    ['Payouts', c.payoutsCount],
-                  ]}
-                />
+                <StatGrid label={`${c.currency} headline figures`}>
+                  <StatTile
+                    label="Confirmed sales"
+                    value={formatMoney(c.confirmedSalesGrossMinor, c.currency)}
+                    note={`${c.confirmedSalesCount} sales`}
+                  />
+                  <StatTile
+                    label="Commission kept"
+                    value={formatMoney(c.commissionRetainedMinor, c.currency)}
+                  />
+                  <StatTile
+                    tone="primary"
+                    label="Owed to teachers"
+                    value={formatMoney(c.outstandingLiabilityMinor, c.currency)}
+                  />
+                  <StatTile
+                    label="Paid out"
+                    value={formatMoney(c.payoutsMinor, c.currency)}
+                    note={`${c.payoutsCount} payouts · ${c.refundsCount} refunds`}
+                  />
+                </StatGrid>
                 <Table<[keyof CurrencyFinancialSummary, string]>
                   caption={`${c.currency} totals`}
                   hideCaption
@@ -131,7 +144,11 @@ export function ConcernsScreen() {
   const concerns = useApi('concerns', (signal) => listOpenConcerns(signal));
   return (
     <>
-      <PageHeader title="Payout concerns" description="Open concerns, oldest first." />
+      <PageHeader
+        eyebrow="Payouts · oldest first"
+        title="Payout concerns"
+        description="Open concerns raised by teachers about a payout."
+      />
       <Loadable state={concerns} what="concerns">
         {(data) => (
           <>
@@ -395,99 +412,49 @@ function RecordPayoutForm({
   onRecorded: () => void;
 }) {
   const first = balances[0];
-  const [currency, setCurrency] = useState(first?.currency ?? 'PKR');
-  const [amount, setAmount] = useState(
-    first && !first.balanceMinor.startsWith('-') && first.balanceMinor !== '0'
-      ? minorToMajorInput(first.balanceMinor, minorUnitExponent(first.currency))
-      : '',
-  );
-  const [transactionId, setTransactionId] = useState('');
-  const [method, setMethod] = useState('');
-  const [transferDate, setTransferDate] = useState(todayIso());
-  const [periodStart, setPeriodStart] = useState('');
-  const [periodEnd, setPeriodEnd] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const form = useZodForm(payoutForm, {
+    amount:
+      first && !first.balanceMinor.startsWith('-') && first.balanceMinor !== '0'
+        ? minorToMajorInput(first.balanceMinor, minorUnitExponent(first.currency))
+        : '',
+    currency: first?.currency ?? 'PKR',
+    transactionId: '',
+    method: '',
+    transferDate: todayIso(),
+    periodStart: '',
+    periodEnd: '',
+  });
   const mutation = useMutation();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const code = currency.trim().toUpperCase();
-    const amountMinor = parsePositiveMajorToMinor(amount, code);
-    if (!amountMinor) {
-      setError('Enter the amount paid, above zero.');
-      return;
-    }
-    setError(null);
+    const body = form.check();
+    if (!body) return;
     const ok = await mutation.run(
-      () =>
-        recordPayout(teacherId, {
-          amountMinor,
-          currency: code,
-          transactionId: transactionId.trim(),
-          transferDate,
-          method: method.trim() || undefined,
-          periodStart: periodStart || undefined,
-          periodEnd: periodEnd || undefined,
-        }),
+      () => recordPayout(teacherId, body),
       'Payout recorded. The teacher can raise a concern within the window.',
     );
     if (ok) {
-      setTransactionId('');
+      form.set('transactionId', '');
       onRecorded();
     }
   }
 
   return (
     <Section title="Record a payout">
-      <form className={styles.form} onSubmit={submit}>
+      <form className={styles.form} onSubmit={submit} noValidate>
         <div className={styles.filters}>
-          <Input
-            label="Amount paid"
-            inputMode="decimal"
-            value={amount}
-            error={error}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-          <Input
-            label="Currency"
-            maxLength={3}
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-          />
+          <Input label="Amount paid" inputMode="decimal" {...form.bind('amount')} />
+          <Input label="Currency" maxLength={3} {...form.bind('currency')} />
         </div>
         <div className={styles.filters}>
-          <Input
-            label="Bank transaction ID"
-            required
-            value={transactionId}
-            onChange={(e) => setTransactionId(e.target.value)}
-          />
-          <Input
-            label="Method (optional)"
-            value={method}
-            onChange={(e) => setMethod(e.target.value)}
-          />
-          <Input
-            label="Transfer date"
-            type="date"
-            required
-            value={transferDate}
-            onChange={(e) => setTransferDate(e.target.value)}
-          />
+          <Input label="Bank transaction ID" required {...form.bind('transactionId')} />
+          <Input label="Method (optional)" {...form.bind('method')} />
+          <Input label="Transfer date" type="date" required {...form.bind('transferDate')} />
         </div>
         <div className={styles.filters}>
-          <Input
-            label="Sales from (optional)"
-            type="date"
-            value={periodStart}
-            onChange={(e) => setPeriodStart(e.target.value)}
-          />
-          <Input
-            label="Sales to (optional)"
-            type="date"
-            value={periodEnd}
-            onChange={(e) => setPeriodEnd(e.target.value)}
-          />
+          <Input label="Sales from (optional)" type="date" {...form.bind('periodStart')} />
+          <Input label="Sales to (optional)" type="date" {...form.bind('periodEnd')} />
         </div>
         <MutationStatus mutation={mutation} />
         <div className={styles.actions}>
@@ -502,57 +469,32 @@ function RecordPayoutForm({
 
 /** #83: a signed manual credit or debit on the teacher's ledger, with a reason. */
 function AdjustmentForm({ teacherId, onRecorded }: { teacherId: string; onRecorded: () => void }) {
-  const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('PKR');
-  const [reason, setReason] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const form = useZodForm(adjustmentForm, { amount: '', currency: 'PKR', reason: '' });
   const mutation = useMutation();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const code = currency.trim().toUpperCase();
-    const amountMinor = parseSignedMajorToMinor(amount, code);
-    if (!amountMinor) {
-      setError('Enter a non-zero amount; negative for a debit.');
-      return;
-    }
-    setError(null);
-    const ok = await mutation.run(
-      () => recordAdjustment(teacherId, { amountMinor, currency: code, reason: reason.trim() }),
-      'Adjustment recorded.',
-    );
+    const body = form.check();
+    if (!body) return;
+    const ok = await mutation.run(() => recordAdjustment(teacherId, body), 'Adjustment recorded.');
     if (ok) {
-      setAmount('');
-      setReason('');
+      form.setValues({ ...form.values, amount: '', reason: '' });
       onRecorded();
     }
   }
 
   return (
     <Section title="Manual adjustment">
-      <form className={styles.form} onSubmit={submit}>
+      <form className={styles.form} onSubmit={submit} noValidate>
         <div className={styles.filters}>
           <Input
             label="Amount"
             hint="Positive credits the teacher; negative (e.g. -500) debits."
-            value={amount}
-            error={error}
-            onChange={(e) => setAmount(e.target.value)}
+            {...form.bind('amount')}
           />
-          <Input
-            label="Currency"
-            maxLength={3}
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-          />
+          <Input label="Currency" maxLength={3} {...form.bind('currency')} />
         </div>
-        <Textarea
-          label="Reason"
-          required
-          rows={2}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-        />
+        <Textarea label="Reason" required rows={2} {...form.bind('reason')} />
         <MutationStatus mutation={mutation} />
         <div className={styles.actions}>
           <Button type="submit" size="sm" loading={mutation.pending}>

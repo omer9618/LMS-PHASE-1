@@ -1,7 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Alert, Badge, Button, Select, Table, type BadgeTone, type Column } from '@/components/ui';
+import {
+  Alert,
+  Badge,
+  Button,
+  Pager,
+  Select,
+  Table,
+  type BadgeTone,
+  type Column,
+} from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { teacherApi } from '@/lib/api/teacher';
 import type { EnrollmentSource, EnrollmentStatus, RosterEntry } from '@/lib/api/types';
@@ -69,9 +78,6 @@ export function Roster() {
       signal,
     ),
   );
-  const pages =
-    roster.status === 'success' ? Math.max(1, Math.ceil(roster.data.total / ROSTER_PAGE_SIZE)) : 1;
-
   return (
     <div className="stack">
       <p className="muted">View only. To grant or remove access, contact an administrator.</p>
@@ -109,29 +115,12 @@ export function Roster() {
             rowKey={(e) => e.id}
             empty="No students yet."
           />
-          {pages > 1 && (
-            <nav aria-label="Pages" className={styles.actions}>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={page <= 1}
-                onClick={() => setPage(page - 1)}
-              >
-                Previous
-              </Button>
-              <span>
-                Page {page} of {pages}
-              </span>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={page >= pages}
-                onClick={() => setPage(page + 1)}
-              >
-                Next
-              </Button>
-            </nav>
-          )}
+          <Pager
+            total={roster.data.total}
+            limit={ROSTER_PAGE_SIZE}
+            offset={(page - 1) * ROSTER_PAGE_SIZE}
+            onChange={(offset) => setPage(offset / ROSTER_PAGE_SIZE + 1)}
+          />
         </>
       )}
     </div>

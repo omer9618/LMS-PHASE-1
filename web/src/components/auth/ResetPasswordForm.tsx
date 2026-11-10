@@ -11,6 +11,7 @@ import { useSession } from '@/lib/session';
 import { resetPasswordForm } from '@/lib/forms/auth';
 import { PASSWORD_MIN_LENGTH } from '@/lib/forms/fields';
 import { validateForm } from '@/lib/zod-form';
+import { ignored } from '@/lib/api/schemas/common';
 
 /**
  * #13 password reset, and #15 first password for staff accounts an admin created: the welcome
@@ -41,7 +42,7 @@ export function ResetPasswordForm() {
 
     setSubmitting(true);
     try {
-      await api.post('/auth/password-reset/confirm', { token, password });
+      await api.post('/auth/password-reset/confirm', ignored, { token, password });
       setDone(true);
       // A reset signs the account out everywhere, including here.
       await refresh();
@@ -96,6 +97,7 @@ export function ResetPasswordForm() {
   return (
     <form className={styles.form} noValidate onSubmit={submit} aria-labelledby="reset-title">
       <div className={styles.header}>
+        <p className="eyebrow">Account recovery</p>
         <h1 id="reset-title">{title}</h1>
         {welcome && (
           <p className={styles.intro}>

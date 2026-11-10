@@ -8,6 +8,7 @@ import {
   Input,
   Loadable,
   PageHeader,
+  Pager,
   Section,
   Select,
   StatusBadge,
@@ -27,7 +28,7 @@ import {
 import { formatDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, Pager, useMutation } from '../kit';
+import { formatDateTime, MutationStatus, useMutation } from '../kit';
 
 const LIMIT = 50;
 
@@ -45,7 +46,11 @@ export function ApplicationsScreen() {
   );
   return (
     <>
-      <PageHeader title="Teacher applications" description="Oldest first." />
+      <PageHeader
+        eyebrow="Teacher intake · oldest first"
+        title="Teacher applications"
+        description="Read the CV, then move the application along or reject it with notes."
+      />
       <form
         className={styles.filters}
         onSubmit={(e) => {

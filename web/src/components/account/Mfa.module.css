@@ -1,23 +1,3 @@
-.setupKey {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-3);
-}
-
-.stepTitle {
-  font-size: var(--text-lg);
-}
-
-.secret {
-  font-family: var(--font-mono);
-  font-size: var(--text-md);
-  padding: 0 var(--space-1);
-  background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
-  overflow-wrap: anywhere;
-}
-
 .codes {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
@@ -29,15 +9,4 @@
   border-radius: var(--radius-md);
   background: var(--color-surface);
   font-family: var(--font-mono);
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.download {
-  font-size: var(--text-sm);
 }

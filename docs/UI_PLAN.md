@@ -66,19 +66,20 @@ A visual check of every route at 380px and 1440px, an axe accessibility pass, an
 
 ## Screen status
 
-All planned screens are built.
+Every route uses the Exam Hall tokens and shared components (`PageHeader`, `Section`, `SplitLayout`, `StatTile`, `Pager`). The rows below name the screens that were rebuilt; the rest were restyled and given page headers.
 
-| Screen                                        | State                                                                                           |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Home (`/`)                                    | New landing page: hero with mark scheme, how buying works, practice, teach with us; site footer |
-| Catalogue, course detail                      | Restyled: graph-paper course header, paper cards, mono codes and prices                         |
-| Student: My learning                          | Progress tiles                                                                                  |
-| Teacher: My courses, Earnings, Content editor | Status tiles and next step; balance tiles and split layout; sand section heads                  |
-| Teacher: Quiz builder                         | New: `/teacher/courses/:id/quiz/:lessonId`                                                      |
-| Admin: Dashboard, Payment verification        | Queue tiles with actions; queue table beside the review panel                                   |
-| Admin: Course review                          | Checklist, content and details beside the decision and pricing panel                            |
-| Admin: Payout run                             | New: `/admin/payouts`, who is owed what, linking to each teacher's statement                    |
-| Everything else                               | Takes the tokens and shared components                                                          |
+| Screen                                          | State                                                                                           |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Home (`/`)                                      | New landing page: hero with mark scheme, how buying works, practice, teach with us; site footer |
+| Catalogue, course detail                        | Restyled: graph-paper course header, paper cards, mono codes and prices                         |
+| Student: My learning                            | Progress tiles                                                                                  |
+| Teacher: My courses, Earnings, Content editor   | Status tiles and next step; balance tiles and split layout; sand section heads                  |
+| Teacher: Quiz builder                           | New: `/teacher/courses/:id/quiz/:lessonId`                                                      |
+| Admin: Dashboard, Payment verification          | Queue tiles with actions; queue table beside the review panel                                   |
+| Admin: Course review                            | Checklist, content and details beside the decision and pricing panel                            |
+| Admin: Payout run                               | New: `/admin/payouts`, who is owed what, linking to each teacher's statement                    |
+| Auth, cart, order, receipt, roster, admin lists | Rebuilt: step bar, split layouts, page headers, finance tiles, shared pager                     |
+| Everything else                                 | Takes the tokens and shared components                                                          |
 
 Forms validated with zod (`lib/forms/`): sign in, MFA code, registration, password reset, teacher application, course details, payment proof, teacher profile, quiz rules and questions. Admin reason dialogs and settings keep their own small checks.
 

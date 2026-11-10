@@ -1,22 +1,22 @@
+/* Sign-in, registration and account recovery: one paper card on the sand ground. */
 .shell {
   display: flex;
   justify-content: center;
-  padding: var(--space-6) var(--page-gutter) var(--space-12);
+  min-height: calc(100vh - 9rem);
+  padding: var(--space-8) var(--page-gutter) var(--space-12);
+  background: var(--color-surface);
 }
 
 .card {
   width: 100%;
   max-width: var(--form-max-width);
+  align-self: flex-start;
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-}
-
-@media (min-width: 30rem) {
-  .card {
-    padding: var(--space-8);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
-  }
+  padding: var(--space-6);
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-lg);
 }
