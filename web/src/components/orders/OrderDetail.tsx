@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Alert, Badge, ButtonLink, PageHeader, SplitLayout } from '@/components/ui';
+import { Alert, Badge, ButtonLink, PageHeader, SplitLayout, Icon, Money } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import {
   orders as defaultOrders,
@@ -10,8 +10,8 @@ import {
   type StudentOrder,
   type SubmittedProof,
 } from '@/lib/api/orders';
-import { formatMoney } from '@/lib/money';
-import { humaniseGuidance, STATUS_TONES } from '@/lib/order-display';
+import { humaniseGuidance } from '@/lib/order-display';
+import { statusTone } from '@/lib/status';
 import { formatDateTime } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { PaymentInstructions } from './PaymentInstructions';
@@ -62,13 +62,17 @@ export function OrderDetail({
   return (
     <div className="stack">
       <PageHeader
-        eyebrow={<Link href="/orders">← My orders</Link>}
+        eyebrow={
+          <Link href="/orders">
+            <Icon name="arrowLeft" /> My orders
+          </Link>
+        }
         title={
           <>
             Order <code>{order.paymentReference}</code>
           </>
         }
-        actions={<Badge tone={STATUS_TONES[order.status]}>{guidance.statusLabel}</Badge>}
+        actions={<Badge tone={statusTone(order.status)}>{guidance.statusLabel}</Badge>}
       />
 
       {justPlaced && order.status === 'PENDING' && !latest && (
@@ -101,8 +105,10 @@ export function OrderDetail({
       {lastDecision?.kind === 'TOP_UP_REQUESTED' && order.status === 'PENDING' && (
         <Alert tone="warning" title="Top-up needed">
           We received less than the order total. Please transfer the remaining{' '}
-          <strong>{formatMoney(lastDecision.shortfallMinor, order.currency)}</strong> with the same
-          reference.
+          <strong>
+            <Money minor={lastDecision.shortfallMinor} currency={order.currency} />
+          </strong>{' '}
+          with the same reference.
         </Alert>
       )}
 
@@ -139,13 +145,17 @@ export function OrderDetail({
                       )}
                       {item.teacherName && <span className="muted"> · {item.teacherName}</span>}
                     </span>
-                    <strong>{formatMoney(item.priceMinor, order.currency)}</strong>
+                    <strong>
+                      <Money minor={item.priceMinor} currency={order.currency} />
+                    </strong>
                   </li>
                 ))}
               </ul>
               <div className={styles.totalRow}>
                 <span>Total</span>
-                <strong>{formatMoney(order.totalMinor, order.currency)}</strong>
+                <strong>
+                  <Money minor={order.totalMinor} currency={order.currency} />
+                </strong>
               </div>
               <p className="muted">Placed {formatDateTime(order.createdAt)}</p>
             </section>
@@ -159,7 +169,10 @@ export function OrderDetail({
                       <span>
                         <code>{proof.transactionId}</code>
                         {proof.amountClaimedMinor && (
-                          <> · {formatMoney(proof.amountClaimedMinor, order.currency)}</>
+                          <>
+                            {' '}
+                            · <Money minor={proof.amountClaimedMinor} currency={order.currency} />
+                          </>
                         )}
                         {proof.hasFile && proof.fileUrl && (
                           <>

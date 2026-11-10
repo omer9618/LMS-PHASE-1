@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Alert, Badge, Button } from '@/components/ui';
+import { Alert, Badge, Button, Icon } from '@/components/ui';
 import { catalogueApi } from '@/lib/api/catalogue';
 import { errorMessage } from '@/lib/api/errors';
 import type { CourseDetail, OutlineLesson } from '@/lib/api/schemas/catalogue';
@@ -86,7 +86,7 @@ export function CourseDetailContent({ course }: { course: CourseDetail }) {
             <strong>{course.teacher.fullName ?? 'a verified teacher'}</strong>
           )}
         </p>
-        <dl className={styles.facts}>
+        <dl className={`${styles.facts} eyebrow-terms`}>
           <div>
             <dt>Pacing</dt>
             <dd>
@@ -129,7 +129,7 @@ export function CourseDetailContent({ course }: { course: CourseDetail }) {
                   aria-pressed={playing?.id === lesson.id}
                   onClick={() => setPlaying(lesson)}
                 >
-                  ▶ {lesson.title}
+                  <Icon name="play" /> {lesson.title}
                 </Button>
               ))}
             </div>

@@ -5,8 +5,8 @@
   margin: 0;
   padding: var(--space-4);
   list-style: none;
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
   background: var(--color-surface);
   font-family: var(--font-mono);
 }

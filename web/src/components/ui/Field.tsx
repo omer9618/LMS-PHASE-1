@@ -1,5 +1,7 @@
 'use client';
 
+import { Icon } from './Icon';
+
 import {
   useId,
   type InputHTMLAttributes,
@@ -50,7 +52,7 @@ function FieldText({
       )}
       {error && (
         <p id={errorId} className={styles.error}>
-          <span aria-hidden="true">⚠ </span>
+          <Icon name="alert" />
           {error}
         </p>
       )}

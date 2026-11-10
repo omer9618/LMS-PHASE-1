@@ -75,19 +75,21 @@ CI runs all of them in the `web` job of `.github/workflows/ci.yml`.
 
 ## Layout
 
-| Path                                                                 | What                                                                       |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `src/app/`                                                           | Routes (App Router)                                                        |
-| `src/components/ui/`                                                 | Base primitives: Button, Input/Select/Checkbox, Badge, Table, Alert        |
-| `src/styles/tokens.css`                                              | Design tokens: colour, type, spacing, density                              |
-| `src/lib/api/`                                                       | Typed fetch client, error type, response shapes                            |
-| `src/lib/money.ts`                                                   | Money formatting and parsing with string maths (minor units, never floats) |
-| `src/lib/catalogue-url.ts`                                           | Catalogue filter state in the URL (#42)                                    |
-| `src/app/learn/[courseId]`                                           | Course player (#53) and quiz taking (#75); `?lesson=` selects the lesson   |
-| `src/components/learn/`, `src/components/quiz/`                      | Player, outline, video (watch reporting), LaTeX `MathText`, quiz screens   |
-| `src/lib/api/learn.ts`                                               | Typed learner API: outline, content, playback, watch, completion, quizzes  |
-| `src/app/cart`, `src/app/orders`                                     | Cart and checkout (#54, #55), my orders, proof upload, receipt (#58–#62)   |
-| `src/components/orders/`, `src/lib/cart.ts`, `src/lib/api/orders.ts` | Purchase screens; the cart in localStorage; typed orders API               |
+| Path                                                                 | What                                                                                                   |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `src/app/`                                                           | Routes (App Router)                                                                                    |
+| `src/components/ui/`                                                 | Base primitives: Button, Input/Select/Checkbox, Badge, Table, Alert                                    |
+| `src/styles/tokens.css`                                              | Design tokens: colour, type, spacing, density                                                          |
+| `src/lib/api/`                                                       | Typed fetch client, error type, one module per backend area (`authApi`, `catalogueApi`, …), `schemas/` |
+| `src/components/chrome/`, `forms/`, `teachers/`, `onboarding/`       | Header, nav and banners; form fields and styles; public teacher page; teacher application              |
+| `src/lib/forms/`, `src/lib/status.ts`                                | Every form schema; the tone of every status                                                            |
+| `src/lib/money.ts`                                                   | Money formatting and parsing with string maths (minor units, never floats)                             |
+| `src/lib/catalogue-url.ts`                                           | Catalogue filter state in the URL (#42)                                                                |
+| `src/app/learn/[courseId]`                                           | Course player (#53) and quiz taking (#75); `?lesson=` selects the lesson                               |
+| `src/components/learn/`, `src/components/quiz/`                      | Player, outline, video (watch reporting), LaTeX `MathText`, quiz screens                               |
+| `src/lib/api/learn.ts`                                               | Typed learner API: outline, content, playback, watch, completion, quizzes                              |
+| `src/app/cart`, `src/app/orders`                                     | Cart and checkout (#54, #55), my orders, proof upload, receipt (#58–#62)                               |
+| `src/components/orders/`, `src/lib/cart.ts`, `src/lib/api/orders.ts` | Purchase screens; the cart in localStorage; typed orders API                                           |
 
 Tests sit next to the code as `*.test.ts(x)` (not `*.spec.ts`, which the API's Jest would pick up).
 
@@ -99,3 +101,13 @@ Tests sit next to the code as `*.test.ts(x)` (not `*.spec.ts`, which the API's J
 - **Money** is a string of minor units, as in the API. Format with `formatMoney` / `formatPrice`; parse what people type with `parseMajorToMinor`. Never `Number()` or `parseFloat` an amount.
 - **Accessibility:** every control has a label; errors are linked with `aria-describedby` and marked `aria-invalid`; focus is always visible; colour pairs meet WCAG 2.2 AA (checked in `src/styles/tokens.test.ts`).
 - **Dependencies** are pinned exactly. `.npmrc` sets `legacy-peer-deps` because npm 10 crashes resolving vite 8's optional peer chain; every needed peer is listed in `package.json`.
+- **Design system rules (Exam Hall)** for any new screen:
+  - Colours, spacing, radii and shadows come from `src/styles/tokens.css` only, never raw values.
+  - A status is shown with `StatusBadge`; the tone of every status is in `src/lib/status.ts`.
+  - Money is rendered with `<Money>` (mono, two decimals) and sits in a `numeric` table column.
+  - Icons are `<Icon name="…">` (inline stroke SVG). No emoji, glyph arrows or icon fonts.
+  - Tables go through `ui/Table`; a page starts with `PageHeader` (eyebrow, then serif title), and a
+    list says how it is sorted in its eyebrow ("newest first").
+  - Cards are lifted with `--shadow-md`, not borders; `--shadow-lg` is for the one focused panel.
+  - Repeated styles live in `globals.css` (`.stack`, `.cluster`, `.hint`, `.muted`, `.mono`,
+    `.eyebrow`), not in each module.

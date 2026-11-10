@@ -7,6 +7,7 @@ import {
   Button,
   Checkbox,
   Facts,
+  Icon,
   Input,
   Money,
   PageHeader,
@@ -18,7 +19,6 @@ import {
   Table,
   type Column,
 } from '@/components/ui';
-import { formatMoney } from '@/lib/money';
 import styles from './showcase.module.css';
 
 interface SampleRow {
@@ -57,7 +57,12 @@ const COLUMNS: Array<Column<SampleRow>> = [
     header: 'Status',
     cell: (r) => <Badge tone={STATUS_TONE[r.status]}>{r.status.toLowerCase()}</Badge>,
   },
-  { key: 'paid', header: 'Paid', cell: (r) => formatMoney(r.paidMinor, 'PKR'), numeric: true },
+  {
+    key: 'paid',
+    header: 'Paid',
+    cell: (r) => <Money minor={r.paidMinor} currency={'PKR'} />,
+    numeric: true,
+  },
 ];
 
 export function ComponentShowcase({ density }: { density: 'comfortable' | 'compact' }) {
@@ -128,6 +133,53 @@ export function ComponentShowcase({ density }: { density: 'comfortable' | 'compa
           <Badge tone="danger">Danger</Badge>
           <Badge tone="highlight">7</Badge>
           <StatusBadge status="PENDING_APPROVAL" />
+        </div>
+      </div>
+
+      <div className={styles.group}>
+        <h3>Statuses</h3>
+        <div className="cluster">
+          {[
+            'DRAFT',
+            'PENDING_APPROVAL',
+            'PUBLISHED',
+            'REJECTED',
+            'ARCHIVED',
+            'PENDING',
+            'PROOF_SUBMITTED',
+            'VERIFIED',
+            'LAPSED',
+            'REFUNDED',
+          ].map((s) => (
+            <StatusBadge key={s} status={s} />
+          ))}
+        </div>
+      </div>
+
+      <div className={styles.group}>
+        <h3>Icons</h3>
+        <div className="cluster">
+          {(
+            [
+              'check',
+              'cross',
+              'alert',
+              'lock',
+              'circle',
+              'clock',
+              'play',
+              'arrowLeft',
+              'arrowRight',
+              'arrowUp',
+              'arrowDown',
+              'chevronUp',
+              'chevronDown',
+            ] as const
+          ).map((n) => (
+            <span key={n} className="mono">
+              <Icon name={n} size={20} /> {n}
+            </span>
+          ))}
         </div>
       </div>
 

@@ -121,7 +121,7 @@ describe('QuizPanel (#75)', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Start quiz' }));
     expect(await screen.findByText(/Question 1 of 2/)).toBeInTheDocument();
-    expect(screen.getByText(/⏱/).parentElement).toHaveTextContent(/\d+:\d\d/);
+    expect(screen.getByText(/Time left/).parentElement).toHaveTextContent(/\d+:\d\d/);
     // LaTeX is rendered by KaTeX.
     expect(document.querySelector('.katex')).not.toBeNull();
 

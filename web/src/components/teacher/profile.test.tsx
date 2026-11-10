@@ -13,7 +13,7 @@ import { courseCard, listing } from '@/test/fixtures';
 import { apiMock, resetMocks } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';
 import { draftFrom, ProfileEditor, updateBody, validateDraft } from './ProfileEditor';
-import { profileDescription, PublicProfile } from './PublicProfile';
+import { profileDescription, PublicProfile } from '../teachers/PublicProfile';
 
 vi.mock('next/navigation', async () => (await import('@/test/mocks')).navigationMock);
 vi.mock('@/lib/api/client', async () => (await import('@/test/mocks')).apiClientMock);

@@ -32,8 +32,8 @@ import {
   type VerificationQueueEntry,
 } from '@/lib/api/admin-finance';
 import { formatAgeHours, formatAgeMinutes, todayIso } from '@/lib/format';
-import { absMinor, checkReceived, MISMATCH_LABELS } from '@/lib/admin/verification';
-import { formatMoney, minorToMajorInput, minorUnitExponent, parseMajorToMinor } from '@/lib/money';
+import { minorToMajorInput, minorUnitExponent, parseMajorToMinor } from '@/lib/money';
+import { absMinor, checkReceived, MISMATCH_LABELS } from '@/lib/verification';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
 import { MutationStatus } from '@/components/ui';
@@ -164,7 +164,7 @@ function queueColumns(
       key: 'total',
       header: 'Total',
       numeric: true,
-      cell: (e) => formatMoney(e.totalMinor, e.currency),
+      cell: (e) => <Money minor={e.totalMinor} currency={e.currency} />,
     },
     {
       key: 'claimed',
@@ -173,7 +173,7 @@ function queueColumns(
       cell: (e) =>
         e.claimed.claimedMinor ? (
           <span className={e.claimed.mismatch ? styles.bad : undefined}>
-            {formatMoney(e.claimed.claimedMinor, e.currency)}
+            <Money minor={e.claimed.claimedMinor} currency={e.currency} />
           </span>
         ) : (
           '—'
@@ -292,8 +292,12 @@ export function ProofList({ proofs, currency }: { proofs: PaymentProof[]; curren
         <li key={p.id}>
           Transaction <code>{p.transactionId}</code>
           {p.amountClaimedMinor && (
-            <> · claims {formatMoney(p.amountClaimedMinor, currency)}</>
-          )} · {formatDateTime(p.submittedAt)}
+            <>
+              {' '}
+              · claims <Money minor={p.amountClaimedMinor} currency={currency} />
+            </>
+          )}{' '}
+          · {formatDateTime(p.submittedAt)}
           {p.fileUrl && (
             <>
               {' '}
@@ -418,8 +422,8 @@ export function DecisionPanel({
               <Alert tone="warning" title="Amount mismatch">
                 <p>
                   {check.kind === 'short' ? 'Short by' : 'Overpaid by'}{' '}
-                  {formatMoney(absMinor(check.differenceMinor), currency)} against a total of{' '}
-                  {formatMoney(totalMinor, currency)}.
+                  <Money minor={absMinor(check.differenceMinor)} currency={currency} /> against a
+                  total of <Money minor={totalMinor} currency={currency} />.
                 </p>
               </Alert>
               <Select

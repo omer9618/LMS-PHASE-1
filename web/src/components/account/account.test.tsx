@@ -1,8 +1,8 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TeacherApplicationForm, checkCv } from '@/components/apply/TeacherApplicationForm';
-import { DEV_CAPTCHA_TOKEN } from '@/components/Captcha';
+import { TeacherApplicationForm, checkCv } from '@/components/onboarding/TeacherApplicationForm';
+import { DEV_CAPTCHA_TOKEN } from '@/components/forms/Captcha';
 import { StudentDashboard, sortEntries } from '@/components/dashboard/StudentDashboard';
 import { ApiError } from '@/lib/api/errors';
 import type { DashboardEntry } from '@/lib/api/schemas/enrollment';

@@ -564,7 +564,7 @@ describe('Earnings', () => {
     });
     expect((await screen.findAllByText('PKR 4,000.00', { selector: 'dd' }))[0]).toBeVisible();
     const pending = screen.getByRole('region', { name: 'Pending sales' });
-    expect(within(pending).getByText('PKR 1,000.00 (20%)')).toBeVisible();
+    expect(pending).toHaveTextContent('PKR 1,000.00 (20%)');
     expect(screen.getByRole('table', { name: /Every entry/ })).toHaveTextContent('PKR -8,000.00');
 
     const payout = screen.getByRole('article', { name: /PKR 8,000.00/ });

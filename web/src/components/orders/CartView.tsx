@@ -3,11 +3,18 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Alert, Button, ButtonLink, PageHeader, Section, SplitLayout } from '@/components/ui';
+import {
+  Alert,
+  Button,
+  ButtonLink,
+  PageHeader,
+  Section,
+  SplitLayout,
+  Money,
+} from '@/components/ui';
 import { ApiError, errorMessage } from '@/lib/api/errors';
 import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
 import { useCart } from '@/lib/cart';
-import { formatMoney } from '@/lib/money';
 import { groupByTeacher } from '@/lib/order-display';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
@@ -122,7 +129,9 @@ export function CartView({ client = defaultOrders }: { client?: OrdersApi }) {
                           {item.title}
                         </Link>
                         <span className={styles.lineEnd}>
-                          <strong>{formatMoney(item.priceMinor, item.currency)}</strong>
+                          <strong>
+                            <Money minor={item.priceMinor} currency={item.currency} />
+                          </strong>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -137,7 +146,7 @@ export function CartView({ client = defaultOrders }: { client?: OrdersApi }) {
                   </ul>
                   {quote.data.teacherCount > 1 && (
                     <p className={styles.subtotal}>
-                      Subtotal: {formatMoney(group.subtotalMinor, quote.data.currency)}
+                      Subtotal: <Money minor={group.subtotalMinor} currency={quote.data.currency} />
                     </p>
                   )}
                 </section>
@@ -149,7 +158,7 @@ export function CartView({ client = defaultOrders }: { client?: OrdersApi }) {
               <div className={styles.totalRow}>
                 <span>Total</span>
                 <strong className={styles.bigValue}>
-                  {formatMoney(quote.data.totalMinor, quote.data.currency)}
+                  <Money minor={quote.data.totalMinor} currency={quote.data.currency} />
                 </strong>
               </div>
               <p className="muted">

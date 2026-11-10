@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { JetBrains_Mono, Source_Sans_3, Source_Serif_4 } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { SiteFooter } from '@/components/chrome/SiteFooter';
-import { SiteHeader } from '@/components/SiteHeader';
+import { SiteHeader } from '@/components/chrome/SiteHeader';
 import { SessionProvider } from '@/lib/session';
 import '@/styles/globals.css';
 

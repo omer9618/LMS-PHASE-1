@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { AccountMenu } from './AccountMenu';
-import { BrandMark } from './chrome/BrandMark';
+import { BrandMark } from './BrandMark';
 import { MfaBanner } from './MfaBanner';
-import { PurchaseNav } from './orders/PurchaseNav';
+import { PurchaseNav } from '../orders/PurchaseNav';
 import { RoleNav } from './RoleNav';
 import { VerifyEmailBanner } from './VerifyEmailBanner';
 import styles from './SiteHeader.module.css';

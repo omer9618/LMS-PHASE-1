@@ -1,5 +1,4 @@
-import type { BadgeTone } from '@/components/ui';
-import type { CartQuote, OrderStatus } from './api/orders';
+import type { CartQuote } from './api/orders';
 import { formatDateTime } from './format';
 import { formatMoney } from './money';
 
@@ -43,15 +42,6 @@ export function groupByTeacher(items: CartQuote['items']): TeacherGroup[] {
   }
   return [...groups.values()];
 }
-
-export const STATUS_TONES: Record<OrderStatus, BadgeTone> = {
-  PENDING: 'warning',
-  PROOF_SUBMITTED: 'info',
-  VERIFIED: 'success',
-  REJECTED: 'danger',
-  LAPSED: 'neutral',
-  REFUNDED: 'neutral',
-};
 
 /** "in 1 day 3 h", "in 45 min", or "passed". For the payment deadline. */
 export function timeUntil(iso: string, nowMs: number): string {

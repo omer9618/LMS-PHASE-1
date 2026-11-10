@@ -1,10 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Alert, Button } from '@/components/ui';
+import { Alert, Button, Icon, Money } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
-import { formatMoney } from '@/lib/money';
 import { formatDateTime } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import styles from './Orders.module.css';
@@ -20,7 +19,9 @@ export function ReceiptView({
   const receipt = useApi(`receipt:${orderId}`, () => client.receipt(orderId));
   const back = (
     <p className={styles.noPrint}>
-      <Link href={`/orders/${encodeURIComponent(orderId)}`}>← Back to the order</Link>
+      <Link href={`/orders/${encodeURIComponent(orderId)}`}>
+        <Icon name="arrowLeft" /> Back to the order
+      </Link>
     </p>
   );
 
@@ -56,7 +57,7 @@ export function ReceiptView({
           </div>
           <span className="mono muted">No. {r.receiptNumber}</span>
         </header>
-        <dl className={styles.receiptFacts}>
+        <dl className={`${styles.receiptFacts} eyebrow-terms`}>
           <div>
             <dt>Issued</dt>
             <dd>{formatDateTime(r.issuedAt)}</dd>
@@ -82,13 +83,17 @@ export function ReceiptView({
                 {item.courseTitle}
                 {item.teacherName && <span className="muted"> · {item.teacherName}</span>}
               </span>
-              <strong>{formatMoney(item.priceMinor, r.currency)}</strong>
+              <strong>
+                <Money minor={item.priceMinor} currency={r.currency} />
+              </strong>
             </li>
           ))}
         </ul>
         <div className={styles.totalRow}>
           <span>Total paid</span>
-          <strong className={styles.bigValue}>{formatMoney(r.totalMinor, r.currency)}</strong>
+          <strong className={styles.bigValue}>
+            <Money minor={r.totalMinor} currency={r.currency} />
+          </strong>
         </div>
       </article>
       <p className={styles.noPrint}>

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
-import { Alert, Button, Checkbox, Input } from '@/components/ui';
+import { Alert, Button, Checkbox, Input, Icon } from '@/components/ui';
 import { errorMessage, isApiError } from '@/lib/api/errors';
 import { submitChecklist, teacherApi } from '@/lib/api/teacher';
 import type { TeacherCourse } from '@/lib/api/schemas/teacher';
@@ -189,7 +189,7 @@ function SubmitPanel({
       <ul className={styles.checklist} aria-label="Before you submit">
         {checklist.map((item) => (
           <li key={item.label} className={item.done ? styles.done : styles.todo}>
-            <span aria-hidden="true">{item.done ? '✓ ' : '✗ '}</span>
+            <Icon name={item.done ? 'check' : 'cross'} />{' '}
             <span className="visually-hidden">{item.done ? 'Done: ' : 'To do: '}</span>
             {item.label}
           </li>

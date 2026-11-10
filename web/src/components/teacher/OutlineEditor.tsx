@@ -10,6 +10,7 @@ import {
   Input,
   Select,
   Textarea,
+  Icon,
 } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { moveItem, teacherApi } from '@/lib/api/teacher';
@@ -152,7 +153,7 @@ function SectionCard({
                 )
               }
             >
-              ↑
+              <Icon name="arrowUp" />
             </Button>
             <Button
               size="sm"
@@ -166,7 +167,7 @@ function SectionCard({
                 )
               }
             >
-              ↓
+              <Icon name="arrowDown" />
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setRenaming((r) => !r)}>
               Rename
@@ -282,7 +283,7 @@ function LessonRow({
                   )
                 }
               >
-                ↑
+                <Icon name="arrowUp" />
               </Button>
               <Button
                 size="sm"
@@ -296,7 +297,7 @@ function LessonRow({
                   )
                 }
               >
-                ↓
+                <Icon name="arrowDown" />
               </Button>
             </>
           )}

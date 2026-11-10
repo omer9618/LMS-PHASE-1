@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Badge, Button, ButtonLink } from '@/components/ui';
+import { Alert, Badge, Button, ButtonLink, Icon } from '@/components/ui';
 import { QuizPanel } from '@/components/quiz/QuizPanel';
 import { ApiError, errorMessage } from '@/lib/api/errors';
 import { learn, type LearnApi, type LearnerLesson, type LearnerOutline } from '@/lib/api/learn';
@@ -170,7 +170,7 @@ export function CoursePlayer({ courseId, client = learn }: CoursePlayerProps) {
             <div className={styles.lessonFooter}>
               {previous ? (
                 <Button variant="ghost" onClick={() => select(previous.id)}>
-                  ← {previous.title}
+                  <Icon name="arrowLeft" /> {previous.title}
                 </Button>
               ) : (
                 <span />
@@ -190,7 +190,7 @@ export function CoursePlayer({ courseId, client = learn }: CoursePlayerProps) {
                   variant={selected.state === 'COMPLETED' ? 'primary' : 'ghost'}
                   onClick={() => select(next.id)}
                 >
-                  {next.title} →
+                  {next.title} <Icon name="arrowRight" />
                 </Button>
               ) : (
                 <span />

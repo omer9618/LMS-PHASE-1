@@ -1,5 +1,6 @@
 'use client';
 
+import { Icon } from '@/components/ui';
 import type { LearnerOutline } from '@/lib/api/learn';
 import { formatDuration } from '@/lib/format';
 import { lessonStatusLabel, lessonTypeLabel } from '@/lib/learn-outline';
@@ -11,7 +12,11 @@ export interface LessonOutlineProps {
   onSelect: (lessonId: string) => void;
 }
 
-const STATE_ICONS = { COMPLETED: '✓', AVAILABLE: '○', LOCKED: '🔒' } as const;
+const STATE_ICONS = {
+  COMPLETED: <Icon name="check" />,
+  AVAILABLE: <Icon name="circle" />,
+  LOCKED: <Icon name="lock" />,
+} as const;
 
 /**
  * #53, #94, #97: sections and lessons with their state. Locked lessons stay selectable so the

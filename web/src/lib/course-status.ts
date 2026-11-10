@@ -1,13 +1,14 @@
 import type { BadgeTone } from '@/components/ui';
+import { statusTone } from './status';
 import type { CourseStatus } from './api/schemas/enrollment';
 
 /** Mirrors the API's course rules (src/modules/courses/domain/course.rules.ts). */
 export const COURSE_STATUS: Record<CourseStatus, { label: string; tone: BadgeTone }> = {
-  DRAFT: { label: 'Draft', tone: 'neutral' },
-  PENDING_APPROVAL: { label: 'In review', tone: 'info' },
-  PUBLISHED: { label: 'Published', tone: 'success' },
-  REJECTED: { label: 'Rejected', tone: 'danger' },
-  ARCHIVED: { label: 'Archived', tone: 'warning' },
+  DRAFT: { label: 'Draft', tone: statusTone('DRAFT') },
+  PENDING_APPROVAL: { label: 'In review', tone: statusTone('PENDING_APPROVAL') },
+  PUBLISHED: { label: 'Published', tone: statusTone('PUBLISHED') },
+  REJECTED: { label: 'Rejected', tone: statusTone('REJECTED') },
+  ARCHIVED: { label: 'Archived', tone: statusTone('ARCHIVED') },
 };
 
 /** Teachers edit details only while drafting; published details are locked (decided 2026-10-26). */

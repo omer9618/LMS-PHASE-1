@@ -166,7 +166,8 @@ a:hover {
 }
 
 /* Uppercase mono label above a title, in a stat tile or a table header. */
-.eyebrow {
+.eyebrow,
+.eyebrow-terms dt {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   font-weight: var(--weight-medium);

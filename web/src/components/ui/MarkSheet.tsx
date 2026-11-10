@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import type { ReactNode } from 'react';
 import { Badge } from './Badge';
 import styles from './MarkSheet.module.css';
@@ -70,7 +71,7 @@ export function MarkSheet({
           {points.map((p) => (
             <div key={p.code} className={styles.point}>
               <span className={styles.code} data-awarded={p.awarded || undefined}>
-                {p.awarded ? '✓' : '✗'} {p.code}
+                <Icon name={p.awarded ? 'check' : 'cross'} /> {p.code}
               </span>
               <span>{p.text}</span>
             </div>

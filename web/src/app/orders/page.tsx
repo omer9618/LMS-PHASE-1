@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: 'My orders' };
 export default function OrdersPage() {
   return (
     <div className="page stack">
-      <PageHeader eyebrow="Purchases" title="My orders" />
+      <PageHeader eyebrow="Purchases · newest first" title="My orders" />
       <OrdersList />
     </div>
   );
