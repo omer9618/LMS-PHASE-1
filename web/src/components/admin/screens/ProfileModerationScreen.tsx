@@ -31,6 +31,7 @@ export function ProfileModerationScreen({ teacherId }: { teacherId: string }) {
       {(p) => (
         <>
           <PageHeader
+            eyebrow="Teacher · public page"
             title={`Public profile: ${p.fullName ?? 'teacher'}`}
             description={
               <>
@@ -57,6 +58,11 @@ export function ProfileModerationScreen({ teacherId }: { teacherId: string }) {
             </p>
           )}
           <Section title="Moderation">
+            {!p.isPublished && !p.photoUrl && (
+              <p className="muted">
+                Nothing to moderate yet: the profile is not published and has no photo.
+              </p>
+            )}
             <div className={styles.actions}>
               {p.isPublished && (
                 <ReasonAction

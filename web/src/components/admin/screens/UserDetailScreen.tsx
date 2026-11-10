@@ -54,6 +54,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
         return (
           <>
             <PageHeader
+              eyebrow="Account"
               title={user.fullName || user.email}
               description={user.email}
               actions={<StatusBadge status={user.status} />}

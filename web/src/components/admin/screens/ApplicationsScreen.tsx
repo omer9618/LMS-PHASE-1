@@ -139,6 +139,7 @@ export function ApplicationDetailScreen({ applicationId }: { applicationId: stri
         return (
           <>
             <PageHeader
+              eyebrow="Teacher application"
               title={a.applicantName}
               description={a.applicantEmail}
               actions={<StatusBadge status={a.status} />}
