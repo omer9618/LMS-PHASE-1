@@ -3,21 +3,33 @@
  * arithmetic: a value is never turned into a float or a Number, so no amount can lose precision.
  */
 
-/** ISO 4217 minor-unit exponents that are not 2. Anything unlisted (PKR, GBP, USD, ...) uses 2. */
+/**
+ * ISO 4217 minor-unit exponents that are not 2. Anything unlisted (PKR, GBP, USD, ...) uses 2.
+ * Must match `src/common/money.ts` (the API); `money.spec.ts` there compares the two.
+ */
 const EXPONENTS: Record<string, number> = {
-  BHD: 3,
-  IQD: 3,
-  JOD: 3,
-  KWD: 3,
-  LYD: 3,
-  OMR: 3,
-  TND: 3,
-  JPY: 0,
-  KRW: 0,
-  VND: 0,
-  CLP: 0,
-  ISK: 0,
-  UGX: 0,
+  ...Object.fromEntries(
+    [
+      'BIF',
+      'CLP',
+      'DJF',
+      'GNF',
+      'ISK',
+      'JPY',
+      'KMF',
+      'KRW',
+      'PYG',
+      'RWF',
+      'UGX',
+      'UYI',
+      'VND',
+      'VUV',
+      'XAF',
+      'XOF',
+      'XPF',
+    ].map((c) => [c, 0]),
+  ),
+  ...Object.fromEntries(['BHD', 'IQD', 'JOD', 'KWD', 'LYD', 'OMR', 'TND'].map((c) => [c, 3])),
 };
 
 /** Fallback when a price has no currency (Phase 1 sells in one currency: open question #127). */
