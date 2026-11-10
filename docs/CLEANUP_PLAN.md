@@ -264,18 +264,17 @@ desktop, on the student ground and on the staff (sand, compact) ground.
 - [x] D10: delete `--space-0`.
 - [x] `ComponentShowcase` shows every status tone and every icon.
 - [x] The design-system rules for new screens are in `web/README.md` (Conventions).
-- [ ] Left over: currency in single-currency table headers (D3); `docs/UI_PLAN.md` still describes
-      the old status tables.
+- [ ] Left over: currency in single-currency table headers (D3).
 
 ### Phase 4: folders and names (mechanical moves)
 
-- [ ] `components/chrome/`: `SiteHeader`, `RoleNav`, `AccountMenu`, `MfaBanner`,
+- [x] `components/chrome/`: `SiteHeader`, `RoleNav`, `AccountMenu`, `MfaBanner`,
       `VerifyEmailBanner`, `SiteFooter`, `StaffBar`, `BrandMark`.
-- [ ] `components/forms/`: `Captcha`, `Form.module.css`.
-- [ ] `components/apply/` → `components/onboarding/` (or merge into `auth/`).
-- [ ] `components/teacher/PublicProfile.*` → `components/teachers/` (student-facing).
-- [ ] Fold `lib/admin/*` into `lib/` (`access`, `verification`, `profile-lines`).
-- [ ] Update `docs/BACKEND_STRUCTURE.md`, `web/README.md` and `docs/UI_PLAN.md`.
+- [x] `components/forms/`: `Captcha`, `Form.module.css`.
+- [x] `components/apply/` → `components/onboarding/` (or merge into `auth/`).
+- [x] `components/teacher/PublicProfile.*` → `components/teachers/` (student-facing).
+- [x] Fold `lib/admin/*` into `lib/` (`access`, `verification`, `profile-lines`).
+- [x] Update `docs/BACKEND_STRUCTURE.md`, `web/README.md` and `docs/UI_PLAN.md`.
 
 ## Target layout
 

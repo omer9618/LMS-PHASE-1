@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { Captcha } from '@/components/Captcha';
-import { Alert, Button, Input, Textarea } from '@/components/ui';
+import { Captcha } from '@/components/forms/Captcha';
+import { Alert, Button, Input, Textarea } from '@/components/ui/index';
 import styles from '@/components/forms/Form.module.css';
 import { api } from '@/lib/api/client';
 import { errorMessage, fieldErrors, isApiError } from '@/lib/api/errors';

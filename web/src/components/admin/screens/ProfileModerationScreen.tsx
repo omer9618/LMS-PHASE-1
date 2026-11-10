@@ -9,7 +9,7 @@ import {
   linesToLocations,
   linksToLines,
   locationsToLines,
-} from '@/lib/admin/profile-lines';
+} from '@/lib/profile-lines';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
 import { MutationStatus, ReasonAction } from '@/components/ui';

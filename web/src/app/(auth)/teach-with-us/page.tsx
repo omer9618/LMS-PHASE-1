@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { TeacherApplicationForm } from '@/components/apply/TeacherApplicationForm';
+import { TeacherApplicationForm } from '@/components/onboarding/TeacherApplicationForm';
 
 export const metadata: Metadata = {
   title: 'Teach with us',

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { Alert, Badge, Button, ButtonLink } from '@/components/ui';
-import { adminAccess, canSwitchContext } from '@/lib/admin/access';
+import { adminAccess, canSwitchContext } from '@/lib/access';
 import { adminApi, type AdminDashboard, type MeWithContext } from '@/lib/api/admin';
 import { errorMessage } from '@/lib/api/errors';
 import { useSession } from '@/lib/session';

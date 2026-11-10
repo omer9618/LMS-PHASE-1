@@ -80,7 +80,9 @@ CI runs all of them in the `web` job of `.github/workflows/ci.yml`.
 | `src/app/`                                                           | Routes (App Router)                                                        |
 | `src/components/ui/`                                                 | Base primitives: Button, Input/Select/Checkbox, Badge, Table, Alert        |
 | `src/styles/tokens.css`                                              | Design tokens: colour, type, spacing, density                              |
-| `src/lib/api/`                                                       | Typed fetch client, error type, response shapes                            |
+| `src/lib/api/`                                                       | Typed fetch client, error type, one module per backend area (`authApi`, `catalogueApi`, …), `schemas/` |
+| `src/components/chrome/`, `forms/`, `teachers/`, `onboarding/`        | Header, nav and banners; form fields and styles; public teacher page; teacher application |
+| `src/lib/forms/`, `src/lib/status.ts`                                 | Every form schema; the tone of every status                                |
 | `src/lib/money.ts`                                                   | Money formatting and parsing with string maths (minor units, never floats) |
 | `src/lib/catalogue-url.ts`                                           | Catalogue filter state in the URL (#42)                                    |
 | `src/app/learn/[courseId]`                                           | Course player (#53) and quiz taking (#75); `?lesson=` selects the lesson   |

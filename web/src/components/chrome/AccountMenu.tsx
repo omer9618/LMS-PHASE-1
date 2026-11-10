@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Badge, Button, ButtonLink } from '@/components/ui';
+import { Badge, Button, ButtonLink } from '@/components/ui/index';
 import type { Role } from '@/lib/api/schemas/auth';
 import { displayName, useSession } from '@/lib/session';
 import styles from './SiteHeader.module.css';

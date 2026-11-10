@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useSession } from '@/lib/session';
-import { ResendVerificationButton } from './auth/ResendVerificationButton';
+import { ResendVerificationButton } from '../auth/ResendVerificationButton';
 import styles from './SiteHeader.module.css';
 
 /** Reminds a signed-in user with an unverified email to confirm it (#11). */

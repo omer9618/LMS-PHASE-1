@@ -33,7 +33,7 @@ import {
 } from '@/lib/api/admin-finance';
 import { formatAgeHours, formatAgeMinutes, todayIso } from '@/lib/format';
 import { minorToMajorInput, minorUnitExponent, parseMajorToMinor } from '@/lib/money';
-import { absMinor, checkReceived, MISMATCH_LABELS } from '@/lib/admin/verification';
+import { absMinor, checkReceived, MISMATCH_LABELS } from '@/lib/verification';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
 import { MutationStatus } from '@/components/ui';
