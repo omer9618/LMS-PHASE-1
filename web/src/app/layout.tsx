@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { JetBrains_Mono, Source_Sans_3, Source_Serif_4 } from 'next/font/google';
 import type { ReactNode } from 'react';
+import { SiteFooter } from '@/components/chrome/SiteFooter';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SessionProvider } from '@/lib/session';
 import '@/styles/globals.css';
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <main id="main" tabIndex={-1}>
             {children}
           </main>
+          <SiteFooter />
         </SessionProvider>
       </body>
     </html>

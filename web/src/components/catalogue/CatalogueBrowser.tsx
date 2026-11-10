@@ -68,7 +68,10 @@ export function CatalogueBrowser() {
   return (
     <div className={styles.layout}>
       <div className={styles.top}>
-        <h1>Courses</h1>
+        <div className={styles.heading}>
+          <p className="eyebrow">Cambridge and Edexcel</p>
+          <h1>Courses</h1>
+        </div>
         <SearchBox key={filters.q ?? ''} initial={filters.q ?? ''} onSearch={(q) => apply({ q })} />
       </div>
 

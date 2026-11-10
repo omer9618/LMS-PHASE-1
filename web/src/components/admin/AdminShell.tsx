@@ -54,7 +54,10 @@ export const ADMIN_NAV: Array<{ group: string; items: AdminNavItem[] }> = [
   },
   {
     group: 'Finance',
-    items: [{ href: '/admin/finance', label: 'Financial summary' }],
+    items: [
+      { href: '/admin/finance', label: 'Financial summary' },
+      { href: '/admin/payouts', label: 'Payout run' },
+    ],
   },
   {
     group: 'Platform',

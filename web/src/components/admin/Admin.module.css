@@ -149,3 +149,33 @@ ul.actions {
   flex-wrap: wrap;
   gap: var(--space-1);
 }
+
+/* The review checklist: a word and a mark, so state is never only colour. */
+.checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checklist li {
+  display: flex;
+  gap: var(--space-2);
+  color: var(--color-warning);
+}
+
+.checklist li[data-done] {
+  color: var(--color-text);
+}
+
+.checklist li > span:first-child {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-bold);
+  color: var(--color-warning);
+}
+
+.checklist li[data-done] > span:first-child {
+  color: var(--color-success);
+}
