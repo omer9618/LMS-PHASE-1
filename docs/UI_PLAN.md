@@ -29,10 +29,20 @@ How the Next.js app in `web/` moves from its neutral placeholder look to the Exa
 
 ### 1. Zod at the API boundary
 
-- Add `zod` to `web/package.json`, pinned to the API's major version.
-- `createApiClient` takes an optional schema: `api.get(path, { schema })` returns `z.infer<typeof schema>` and turns a mismatch into `ApiError('BAD_RESPONSE')`.
-- Move the hand-written interfaces in `lib/api/types.ts` and the per-area modules to schemas in `lib/api/schemas/<area>.ts` (auth, catalogue, orders, learn, teacher, earnings, admin), one area per PR. Shared building blocks live in `schemas/common.ts`: money as a minor-units string, ISO dates, IDs, pagination.
-- Forms validate with the same schemas before sending, and show field errors from zod issues.
+- `zod` is a dependency of `web/`, pinned to the API's version (4.6.7).
+- Every client verb takes a schema as its second argument: `api.get(path, schema, query?, signal?)`, `api.post(path, schema, body?)`. The result is typed from the schema, and a response that does not match rejects with `ApiError('BAD_RESPONSE')` (the zod issues are in `error.info` and logged). The form without a schema stays only for calls that ignore the response body, and for areas not moved yet.
+- Schemas live in `lib/api/schemas/<area>.ts`; types are `z.infer`-ed from them and re-exported from `lib/api/types.ts`, `orders.ts` and `learn.ts`, so components keep their imports. Shared building blocks are in `schemas/common.ts`: minor-units money, ISO dates, IDs, pages, and `openEnum` for values the API may add.
+- Objects strip unknown keys, so the API can add fields without breaking the app.
+
+| Area                                                  | Status                                                               |
+| ----------------------------------------------------- | -------------------------------------------------------------------- |
+| Auth, session, MFA                                    | Done (checked against live API)                                      |
+| Catalogue, reference data, course detail, playback    | Done (checked against live API)                                      |
+| Student enrollments, cart, orders                     | Done (checked against live API)                                      |
+| Player and quiz taking                                | Done (outline, content, completion checked live; quiz by unit tests) |
+| Teacher authoring, roster, earnings, profiles         | Next PR                                                              |
+| Admin                                                 | After teacher                                                        |
+| Forms validating with the same schemas before sending | With each area's screens                                             |
 
 ### 2. Public and student screens
 

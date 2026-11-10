@@ -7,9 +7,9 @@ import { Alert, Button, Input } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
 import { api } from '@/lib/api/client';
 import { errorMessage, fieldErrors, isApiError } from '@/lib/api/errors';
-import type { LoginResult } from '@/lib/api/types';
 import { safeNextPath } from '@/lib/format';
 import { needsMfaSetup, useSession } from '@/lib/session';
+import * as authSchema from '@/lib/api/schemas/auth';
 
 type Step = { kind: 'password' } | { kind: 'mfa'; challengeToken: string };
 
@@ -52,7 +52,10 @@ export function LoginForm() {
 
     setSubmitting(true);
     try {
-      const result = await api.post<LoginResult>('/auth/login', { email: email.trim(), password });
+      const result = await api.post('/auth/login', authSchema.loginResult, {
+        email: email.trim(),
+        password,
+      });
       if (result.mfaRequired) {
         setStep({ kind: 'mfa', challengeToken: result.challengeToken });
         setPassword('');

@@ -7,7 +7,6 @@ import { Alert, Button, Input, Textarea } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
 import { api } from '@/lib/api/client';
 import { errorMessage, fieldErrors, isApiError } from '@/lib/api/errors';
-import type { SubmittedApplication } from '@/lib/api/types';
 import { formatBytes } from '@/lib/format';
 
 /** Mirrors the API's CV upload policy (#19): PDF or Word, at most 5 MB. */
@@ -87,7 +86,7 @@ export function TeacherApplicationForm() {
 
     setSubmitting(true);
     try {
-      await api.postForm<SubmittedApplication>('/teacher-applications', form);
+      await api.postForm('/teacher-applications', form);
       setSubmitted(values.applicantEmail.trim());
     } catch (error) {
       setErrors(fieldErrors(error));

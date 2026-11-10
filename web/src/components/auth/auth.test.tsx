@@ -9,6 +9,7 @@ import { LoginForm } from './LoginForm';
 import { RegisterForm, registrationBody } from './RegisterForm';
 import { ResetPasswordForm } from './ResetPasswordForm';
 import { VerifyEmail } from './VerifyEmail';
+import * as authSchema from '@/lib/api/schemas/auth';
 
 vi.mock('next/navigation', async () => (await import('@/test/mocks')).navigationMock);
 vi.mock('@/lib/api/client', async () => (await import('@/test/mocks')).apiClientMock);
@@ -33,7 +34,7 @@ describe('LoginForm', () => {
     await userEvent.type(screen.getByLabelText(/^Password/), 'correct horse battery');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/courses/abc'));
-    expect(apiMock.post).toHaveBeenCalledWith('/auth/login', {
+    expect(apiMock.post).toHaveBeenCalledWith('/auth/login', authSchema.loginResult, {
       email: 'ayesha@example.com',
       password: 'correct horse battery',
     });

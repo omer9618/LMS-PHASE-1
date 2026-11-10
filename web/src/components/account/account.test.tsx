@@ -10,6 +10,7 @@ import { needsMfaSetup } from '@/lib/session';
 import { apiMock, resetMocks, setSearch } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';
 import { groupSecret, MfaSetup } from './MfaSetup';
+import * as authSchema from '@/lib/api/schemas/auth';
 
 vi.mock('next/navigation', async () => (await import('@/test/mocks')).navigationMock);
 vi.mock('@/lib/api/client', async () => (await import('@/test/mocks')).apiClientMock);
@@ -141,7 +142,9 @@ describe('MFA set-up', () => {
     await userEvent.type(screen.getByLabelText(/^Authentication code/), '123456');
     await userEvent.click(screen.getByRole('button', { name: 'Turn on two-step verification' }));
     expect(await screen.findByRole('heading', { name: 'Save your recovery codes' })).toBeVisible();
-    expect(apiMock.post).toHaveBeenCalledWith('/auth/mfa/enable', { code: '123456' });
+    expect(apiMock.post).toHaveBeenCalledWith('/auth/mfa/enable', authSchema.recoveryCodes, {
+      code: '123456',
+    });
     expect(screen.getByText('aaaa-bbbb-cccc')).toBeVisible();
 
     // Continue only after confirming the codes are saved.
@@ -181,7 +184,13 @@ describe('MFA set-up', () => {
     await userEvent.type(screen.getByLabelText(/^Authentication code/), '654321');
     await userEvent.click(screen.getByRole('button', { name: 'Create new recovery codes' }));
     expect(await screen.findByText('new1-new1-new1')).toBeVisible();
-    expect(apiMock.post).toHaveBeenCalledWith('/auth/mfa/recovery-codes', { code: '654321' });
+    expect(apiMock.post).toHaveBeenCalledWith(
+      '/auth/mfa/recovery-codes',
+      authSchema.recoveryCodes,
+      {
+        code: '654321',
+      },
+    );
   });
 });
 

@@ -12,6 +12,7 @@ import { CartView } from './CartView';
 import { OrderDetail } from './OrderDetail';
 import { OrdersList } from './OrdersList';
 import { ReceiptView } from './ReceiptView';
+import * as ordersSchema from '@/lib/api/schemas/orders';
 
 vi.mock('next/navigation', async () => (await import('@/test/mocks')).navigationMock);
 vi.mock('@/lib/api/client', async () => (await import('@/test/mocks')).apiClientMock);
@@ -95,13 +96,18 @@ beforeEach(() => {
 describe('cart and checkout (#54, #55)', () => {
   it('groups the quote per teacher with subtotals, removes courses, and places the order', async () => {
     window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify([C1, C2, C3]));
-    apiMock.post.mockImplementation(async (path: string, body: { courseIds: string[] }) => {
-      if (path === '/cart/quote') {
-        return { ...quote, items: quote.items.filter((i) => body.courseIds.includes(i.courseId)) };
-      }
-      if (path === '/orders') return order();
-      throw new Error(`unexpected POST ${path}`);
-    });
+    apiMock.post.mockImplementation(
+      async (path: string, _schema: unknown, body: { courseIds: string[] }) => {
+        if (path === '/cart/quote') {
+          return {
+            ...quote,
+            items: quote.items.filter((i) => body.courseIds.includes(i.courseId)),
+          };
+        }
+        if (path === '/orders') return order();
+        throw new Error(`unexpected POST ${path}`);
+      },
+    );
     renderWithSession(<CartView />, STUDENT);
 
     const byAhmed = await screen.findByRole('region', { name: 'Courses by Ms Ahmed' });
@@ -110,12 +116,16 @@ describe('cart and checkout (#54, #55)', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove Optics' }));
     await waitFor(() =>
-      expect(apiMock.post).toHaveBeenLastCalledWith('/cart/quote', { courseIds: [C1, C2] }),
+      expect(apiMock.post).toHaveBeenLastCalledWith('/cart/quote', ordersSchema.cartQuote, {
+        courseIds: [C1, C2],
+      }),
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Place order' }));
     await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}?placed=1`));
-    expect(apiMock.post).toHaveBeenCalledWith('/orders', { courseIds: [C1, C2] });
+    expect(apiMock.post).toHaveBeenCalledWith('/orders', ordersSchema.studentOrder, {
+      courseIds: [C1, C2],
+    });
     expect(window.localStorage.getItem(CART_STORAGE_KEY)).toBe('[]');
   });
 
@@ -210,7 +220,8 @@ describe('order detail (#58, #60, #65, #66)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Submit payment details' }));
 
     await waitFor(() => expect(apiMock.postForm).toHaveBeenCalled());
-    const [path, form] = apiMock.postForm.mock.calls[0]! as [string, FormData];
+    const [path, schema, form] = apiMock.postForm.mock.calls[0]! as [string, unknown, FormData];
+    expect(schema).toBe(ordersSchema.submittedProof);
     expect(path).toBe(`/me/orders/${ORDER_ID}/proofs`);
     expect(form.get('transactionId')).toBe('TX-1');
     expect(form.get('amountClaimedMinor')).toBe('1500000');

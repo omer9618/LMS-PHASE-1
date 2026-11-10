@@ -12,6 +12,7 @@ import {
 import { api } from './api/client';
 import { isApiError } from './api/errors';
 import type { Me } from './api/types';
+import * as authSchema from './api/schemas/auth';
 
 export type SessionStatus = 'loading' | 'signed-in' | 'signed-out';
 
@@ -31,7 +32,7 @@ const SessionContext = createContext<Session | null>(null);
  */
 async function fetchMe(): Promise<Me | null> {
   try {
-    return await api.get<Me>('/auth/me');
+    return await api.get('/auth/me', authSchema.me);
   } catch (error) {
     if (!isApiError(error, 'UNAUTHENTICATED')) console.warn('Could not load the session', error);
     return null;
