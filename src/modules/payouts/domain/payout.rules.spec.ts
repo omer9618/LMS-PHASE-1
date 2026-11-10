@@ -1,9 +1,9 @@
+import { formatAmount } from '../../../common/money';
 import {
   assertCanRaisePayoutConcern,
   assertCanResolvePayoutConcern,
   buildPayoutCoverageEmailLines,
   buildPayoutRecordingPlan,
-  formatPayoutMoney,
   isPayoutDueToAutoAccept,
   computePayoutDisputeDeadline,
   CoveredSaleItem,
@@ -145,7 +145,7 @@ describe('payout rules (#85, #86, #87, #88, #89, #113)', () => {
       new Date('2026-04-09T00:00:00.000Z'),
     );
     expect(covered.map((s) => s.orderItemId)).toEqual(['oi-1']);
-    expect(formatPayoutMoney(160050n, 'PKR')).toBe('PKR 1,600.50');
+    expect(formatAmount(160050n, 'PKR')).toBe('PKR 1,600.50');
     expect(buildPayoutCoverageEmailLines(covered)).toEqual([['Sale: Chem (LMS-1)', 'PKR 800.00']]);
   });
 

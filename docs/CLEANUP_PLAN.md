@@ -219,11 +219,13 @@ payout and verification lists, and the student's orders and dashboard.
 
 ### Phase 2: backend duplicates
 
-- [ ] New `src/common/money.ts`: `currencyExponent`, `formatAmount`. Orders and payouts import it;
+- [x] New `src/common/money.ts`: `currencyExponent`, `formatAmount`. Orders and payouts import it;
       delete `formatPayoutMoney`. Add a test for a 0- and 3-decimal payout email.
-- [ ] New `src/common/schemas.ts`: `uuidParams('courseId', 'lessonId')` and
+- [x] New `src/common/schemas.ts`: `uuidParams('courseId', 'lessonId')` and
       `paging({ max, default })`. Replace the 28 param and 10 paging copies.
-- [ ] Use `z.strictObject` for every query and body schema; leave params as they are.
+- [x] Use `z.strictObject` for every query and body schema; leave params as they are.
+      (Exception: `rosterQuerySchema` stays lenient because the web roster filter sends a `status`
+      the API ignores; that filter is dead and is removed in phase 3.)
 
 ### Phase 3: web consistency
 

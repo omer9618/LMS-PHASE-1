@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paging, uuidParams } from '../../../common/schemas';
 
 /** Empty or whitespace-only text clears the field. */
 const optionalText = (max: number) =>
@@ -38,12 +39,11 @@ export const updateProfileSchema = z.strictObject({
 });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
-export const teacherIdParamsSchema = z.object({ teacherId: z.uuid() });
+export const teacherIdParamsSchema = uuidParams('teacherId');
 export type TeacherIdParams = z.infer<typeof teacherIdParamsSchema>;
 
-export const publicProfileQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(60).default(24),
-  offset: z.coerce.number().int().min(0).max(10_000).default(0),
+export const publicProfileQuerySchema = z.strictObject({
+  ...paging({ max: 60, default: 24, maxOffset: 10_000 }),
 });
 export type PublicProfileQuery = z.infer<typeof publicProfileQuerySchema>;
 

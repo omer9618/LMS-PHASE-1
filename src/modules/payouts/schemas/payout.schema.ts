@@ -1,18 +1,15 @@
 import { z } from 'zod';
+import { uuidParams } from '../../../common/schemas';
 
 const positiveMoneyMinor = z
   .string()
   .regex(/^[1-9]\d{0,17}$/, 'Must be a positive whole number of minor units, sent as a string')
   .transform((value) => BigInt(value));
 
-export const payoutTeacherParamsSchema = z.strictObject({
-  teacherId: z.uuid(),
-});
+export const payoutTeacherParamsSchema = uuidParams('teacherId');
 export type PayoutTeacherParams = z.infer<typeof payoutTeacherParamsSchema>;
 
-export const payoutIdParamsSchema = z.strictObject({
-  payoutId: z.uuid(),
-});
+export const payoutIdParamsSchema = uuidParams('payoutId');
 export type PayoutIdParams = z.infer<typeof payoutIdParamsSchema>;
 
 /**

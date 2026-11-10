@@ -1,10 +1,11 @@
 import { LessonType } from '@prisma/client';
 import { z } from 'zod';
+import { uuidParams } from '../../../common/schemas';
 
-export const courseSectionParamsSchema = z.object({ courseId: z.uuid(), sectionId: z.uuid() });
+export const courseSectionParamsSchema = uuidParams('courseId', 'sectionId');
 export type CourseSectionParams = z.infer<typeof courseSectionParamsSchema>;
 
-export const courseLessonParamsSchema = z.object({ courseId: z.uuid(), lessonId: z.uuid() });
+export const courseLessonParamsSchema = uuidParams('courseId', 'lessonId');
 export type CourseLessonParams = z.infer<typeof courseLessonParamsSchema>;
 
 export const sectionSchema = z.strictObject({ title: z.string().trim().min(1).max(200) });

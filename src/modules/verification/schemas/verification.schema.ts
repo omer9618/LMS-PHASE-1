@@ -1,5 +1,6 @@
 import { MismatchAction, RejectionReason } from '@prisma/client';
 import { z } from 'zod';
+import { paging, uuidParams } from '../../../common/schemas';
 
 const positiveMoneyMinor = z
   .string()
@@ -8,7 +9,7 @@ const positiveMoneyMinor = z
 
 const notes = z.string().trim().max(1000).optional();
 
-export const verificationOrderParamsSchema = z.strictObject({ orderId: z.uuid() });
+export const verificationOrderParamsSchema = uuidParams('orderId');
 export type VerificationOrderParams = z.infer<typeof verificationOrderParamsSchema>;
 
 /**
@@ -33,7 +34,6 @@ export const rejectPaymentSchema = z.strictObject({
 export type RejectPaymentInput = z.infer<typeof rejectPaymentSchema>;
 
 export const queueQuerySchema = z.strictObject({
-  limit: z.coerce.number().int().min(1).max(200).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
+  ...paging({ max: 200, default: 50 }),
 });
 export type QueueQuery = z.infer<typeof queueQuerySchema>;

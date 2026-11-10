@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { uuidParams } from '../../../common/schemas';
 
 const positiveMoneyMinor = z
   .string()
@@ -13,9 +14,7 @@ const signedNonZeroMoneyMinor = z
   )
   .transform((value) => BigInt(value));
 
-export const refundOrderParamsSchema = z.strictObject({
-  orderId: z.uuid(),
-});
+export const refundOrderParamsSchema = uuidParams('orderId');
 export type RefundOrderParams = z.infer<typeof refundOrderParamsSchema>;
 
 /**
@@ -30,9 +29,7 @@ export const recordRefundSchema = z.strictObject({
 });
 export type RecordRefundInput = z.infer<typeof recordRefundSchema>;
 
-export const adminTeacherParamsSchema = z.strictObject({
-  teacherId: z.uuid(),
-});
+export const adminTeacherParamsSchema = uuidParams('teacherId');
 export type AdminTeacherParams = z.infer<typeof adminTeacherParamsSchema>;
 
 /**

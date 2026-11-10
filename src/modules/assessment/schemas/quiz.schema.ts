@@ -1,15 +1,12 @@
 import { RevealAnswers } from '@prisma/client';
 import { z } from 'zod';
 import { QUIZ_LIMITS } from '../domain/quiz.rules';
+import { uuidParams } from '../../../common/schemas';
 
-export const quizParamsSchema = z.object({ courseId: z.uuid(), lessonId: z.uuid() });
+export const quizParamsSchema = uuidParams('courseId', 'lessonId');
 export type QuizParams = z.infer<typeof quizParamsSchema>;
 
-export const questionParamsSchema = z.object({
-  courseId: z.uuid(),
-  lessonId: z.uuid(),
-  questionId: z.uuid(),
-});
+export const questionParamsSchema = uuidParams('courseId', 'lessonId', 'questionId');
 export type QuestionParams = z.infer<typeof questionParamsSchema>;
 
 /** Settings (#68, #73, #74, #76). Cross-field rules (checkpoint needs a passing score) are in quiz.rules. */

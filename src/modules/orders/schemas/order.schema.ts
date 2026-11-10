@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { uuidParams } from '../../../common/schemas';
 
 /** Money arrives as a string of minor units ("150000") and becomes a positive bigint. */
 const positiveMoneyMinor = z
@@ -6,9 +7,7 @@ const positiveMoneyMinor = z
   .regex(/^[1-9]\d{0,17}$/, 'Must be a positive whole number of minor units, sent as a string')
   .transform((value) => BigInt(value));
 
-export const orderParamsSchema = z.strictObject({
-  orderId: z.uuid(),
-});
+export const orderParamsSchema = uuidParams('orderId');
 export type OrderParams = z.infer<typeof orderParamsSchema>;
 
 /** #54: the cart lives on the client; the server validates and totals it. Up to 20 courses. */

@@ -1,18 +1,18 @@
 import { EnrollmentStatus } from '@prisma/client';
 import { z } from 'zod';
+import { paging, uuidParams } from '../../../common/schemas';
 
-export const courseIdParamsSchema = z.object({ courseId: z.uuid() });
+export const courseIdParamsSchema = uuidParams('courseId');
 export type CourseIdParams = z.infer<typeof courseIdParamsSchema>;
 
-export const enrollmentIdParamsSchema = z.object({ enrollmentId: z.uuid() });
+export const enrollmentIdParamsSchema = uuidParams('enrollmentId');
 export type EnrollmentIdParams = z.infer<typeof enrollmentIdParamsSchema>;
 
-export const listEnrollmentsQuerySchema = z.object({
+export const listEnrollmentsQuerySchema = z.strictObject({
   courseId: z.uuid().optional(),
   studentId: z.uuid().optional(),
   status: z.enum(EnrollmentStatus).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
+  ...paging({ max: 100, default: 50 }),
 });
 export type ListEnrollmentsQuery = z.infer<typeof listEnrollmentsQuerySchema>;
 
