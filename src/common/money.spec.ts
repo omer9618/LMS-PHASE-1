@@ -23,3 +23,21 @@ describe('currencyExponent', () => {
     expect(formatAmount(160050n, 'KWD')).toBe('KWD 160.050');
   });
 });
+
+describe('web and API agree on minor-unit exponents', () => {
+  it('gives every possible 3-letter code the same exponent in both', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const web = require('../../web/src/lib/money') as {
+      minorUnitExponent: (currency: string) => number;
+    };
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const mismatches: string[] = [];
+    for (const a of letters)
+      for (const b of letters)
+        for (const c of letters) {
+          const code = `${a}${b}${c}`;
+          if (web.minorUnitExponent(code) !== currencyExponent(code)) mismatches.push(code);
+        }
+    expect(mismatches).toEqual([]);
+  });
+});
