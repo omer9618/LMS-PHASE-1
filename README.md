@@ -7,7 +7,7 @@ Backend for a learning platform where independent teachers publish courses for C
 | Read this                                              | For                                                                |
 | ------------------------------------------------------ | ------------------------------------------------------------------ |
 | [docs/BACKEND_STRUCTURE.md](docs/BACKEND_STRUCTURE.md) | Layer rules, scoping, errors, jobs: **read before writing code**   |
-| [docs/PRISMA_SETUP.md](docs/PRISMA_SETUP.md)           | Schema rules (money, ledger, publish guard) and schema additions   |
+| [docs/DATABASE_RULES.md](docs/DATABASE_RULES.md)       | Schema rules (money, ledger, publish guard) and schema additions   |
 | [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)           | Bunny, SMTP, S3, Turnstile and MFA key setup for production        |
 | [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)     | Security review (#119): findings, fixes and open items             |
 | [docs/backlog/](docs/backlog/)                         | How the GitHub issues were imported; issue-number notes            |
@@ -135,7 +135,7 @@ Staging and production run in Docker on a VPS behind Caddy (automatic TLS), depl
 ```bash
 docker build -t lms-api .                   # the API image
 docker build --target tools -t lms-tools .  # migrations and seed
-node scripts/schema-doc.mjs > docs/DATABASE_SCHEMA.md && npx prettier --write docs/DATABASE_SCHEMA.md  # after a schema change
+npm run db:schema-doc    # after a schema change
 ```
 
 ## Working on it

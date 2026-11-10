@@ -1,6 +1,6 @@
 # Backend structure and conventions
 
-How the NestJS backend is laid out and the rules every module follows. Read this before picking up a ticket. Schema-level rules (money, ledger, migrations) are in [PRISMA_SETUP.md](PRISMA_SETUP.md); this document covers the code.
+How the NestJS backend is laid out and the rules every module follows. Read this before picking up a ticket. Schema-level rules (money, ledger, migrations) are in [DATABASE_RULES.md](DATABASE_RULES.md); this document covers the code.
 
 The layering is a port of our Express ERP backend (routes → controllers → services → DAO), adapted to Nest dependency injection. The rules marked **(lint)** fail CI if broken.
 
@@ -195,7 +195,7 @@ Services never see `Request`, but some cross-cutting code needs the caller's IP 
 - `BigInt` minor units end to end. Never `Number`, never floats.
 - Over JSON it is a string (`"150000"`), via the `BigInt.prototype.toJSON` patch in `app.setup.ts`.
 - When writing to a JSON column (`audit_log.details`), convert with `.toString()` yourself.
-- Ledger and transaction rules are in [PRISMA_SETUP.md §8](PRISMA_SETUP.md).
+- Ledger and transaction rules are in [DATABASE_RULES.md §5](DATABASE_RULES.md).
 
 ## Audit log
 
@@ -243,4 +243,4 @@ When users need to see an audit detail, the service reads it back for records al
 
 - One branch per ticket or step, named `feat/<issue>-<slug>`, `fix/<issue>-<slug>`, `test/<issue>-<slug>` or `chore/<issue>-<slug>`.
 - Commit messages: `feat(courses): add state transition rules (refs #25)`.
-- Schema changes need a migration (`npx prisma migrate dev --name <change>`, then `npx prisma generate`) and an entry in PRISMA_SETUP.md if they depart from Schema v2.0.
+- Schema changes need a migration (`npx prisma migrate dev --name <change>`, then `npx prisma generate`) and an entry in DATABASE_RULES.md if they depart from Schema v2.0.

@@ -1,32 +1,8 @@
-# Prisma setup — LMS Phase 1
+# Database rules — LMS Phase 1
 
-The schema matches **Database Schema v2.0** exactly, plus documented additions (`sessions`, `auth_tokens`, `mfa_recovery_codes`, user name and MFA columns) (see [Additions to Schema v2.0](#additions-to-schema-v20)). Every column name, type, nullability, constraint and index was checked against that document programmatically, not by eye.
+The schema matches **Database Schema v2.0** exactly, plus documented additions (`sessions`, `auth_tokens`, `mfa_recovery_codes`, user name and MFA columns) (see [Additions to Schema v2.0](#additions-to-schema-v20)).
 
-## Verification results
-
-| Check                                                | Result                                                                                                                      |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Tables                                               | 29 of 29, none missing, none extra                                                                                          |
-| Column names                                         | Every column in every table matches the document                                                                            |
-| Timestamps (§2: UTC, timestamptz)                    | All 37 are `TIMESTAMPTZ(3)`. Fixed in `20261023162332_timestamps_to_timestamptz`; `init` had created them without time zone |
-| Documented constraints and indexes (§14)             | All 13 present                                                                                                              |
-| `payment_proofs.transaction_id`                      | Indexed, **not** unique — correct                                                                                           |
-| Composite FK `courses (level_id, board_id) → levels` | Present                                                                                                                     |
-| Undocumented indexes                                 | None                                                                                                                        |
-| Prisma validate                                      | Passes on 7.10.0                                                                                                            |
-
-Column names are snake_case in the database, matching the document. Prisma field names are camelCase with `@map` on every field — that is Prisma's convention and does not change the database.
-
-## 1. Install
-
-```bash
-npm install prisma@7.10.0 --save-dev
-npm install @prisma/client
-```
-
-**Pin the version.** `prisma@latest` currently resolves to an 8.0 release candidate.
-
-## 2. Prisma 7 moved the connection URL
+## 1. Prisma 7 moved the connection URL
 
 `url` is no longer permitted inside `datasource`. It lives in `prisma.config.ts` at the project root:
 
@@ -53,7 +29,7 @@ Most tutorials still show the old syntax. If you copy one, `prisma validate` wil
 DATABASE_URL="postgresql://user:password@localhost:5432/lms?schema=public"
 ```
 
-## 3. The citext extension
+## 2. The citext extension
 
 The document specifies `users.email` as **citext** (case-insensitive text). Prisma expresses this with `@db.Citext`, and the extension must exist before `init` runs.
 
@@ -63,43 +39,7 @@ Databases that already applied `init` (with the extension enabled by hand, as th
 
 `citext` is a trusted extension, so the database owner can create it; no superuser is needed.
 
-## 4. First migration
-
-```bash
-npx prisma migrate dev --name init
-```
-
-On the server:
-
-```bash
-npx prisma migrate deploy
-```
-
-`migrate dev` can reset data and is for development only. `migrate deploy` only applies pending migrations and is what belongs in the deployment pipeline.
-
-## 5. Verify it yourself
-
-```bash
-npx prisma validate
-
-npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script > init.sql
-
-grep -c "^CREATE TABLE" init.sql                              # 29
-grep "courses_level_id_board_id_fkey" init.sql                # composite FK
-grep "payment_proofs_transaction_id" init.sql                 # index, not UNIQUE INDEX
-```
-
-The composite foreign key should read:
-
-```sql
-ALTER TABLE "courses" ADD CONSTRAINT "courses_level_id_board_id_fkey"
-  FOREIGN KEY ("level_id", "board_id") REFERENCES "levels"("id", "board_id")
-  ON DELETE RESTRICT ON UPDATE CASCADE;
-```
-
-It only exists because `Level` carries `@@unique([id, boardId])`. If anyone deletes that as looking redundant, the constraint disappears silently.
-
-## 6. Two things the document specifies that Prisma cannot express
+## 3. Two things the document specifies that Prisma cannot express
 
 Prisma has no syntax for database check constraints. The document states two rules that are currently enforced in application code only:
 
@@ -122,7 +62,7 @@ ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_breakpoint_needs_score"
 
 Prisma will not drop these on later migrations, but it also will not know about them, so `prisma db pull` would not round-trip them. Application-level enforcement is adequate if the check genuinely lives in one place.
 
-## 7. One value the document leaves undefined
+## 4. One value the document leaves undefined
 
 `payment_verifications.rejection_reason` is specified as an enum, but the document does not list its values. The schema uses these, taken from FSD section 4.8:
 
@@ -133,7 +73,7 @@ DUPLICATE_TRANSACTION, OTHER
 
 **Confirm these before migrating.** Changing an enum after data exists requires a migration.
 
-## 8. Working with this schema in code
+## 5. Working with this schema in code
 
 ### Connections must run in UTC
 
@@ -180,20 +120,7 @@ await prisma.$transaction(async (tx) => {
 
 Every query touching courses, enrollments or student records is scoped by owning teacher. Enforcing it in each route handler will eventually be forgotten. Use a Prisma client extension or a repository layer so it is impossible by construction. Prisma's extension API has changed across versions — check current documentation rather than an older tutorial.
 
-## 9. Seeding
-
-Reference data must exist before anything works. `prisma/seed.ts` should insert:
-
-- Boards, and levels per board (levels differ between boards)
-- Subjects
-- Platform settings — video completion threshold, order expiry window, payout dispute window
-- A first admin user
-
-```bash
-npx prisma db seed
-```
-
-## 10. Migration discipline
+## 6. Migration discipline
 
 - Never edit a migration applied anywhere but your own machine.
 - Never change the database by hand. Change the schema, generate a migration.
@@ -205,7 +132,7 @@ npx prisma db seed
 | Added                                                                                               | Migration                                              | Why                                                                                                                                                                                                                                                                                                                                                    |
 | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `sessions`                                                                                          | `20261022175942_add_sessions`                          | #12 requires "logout clears session server-side" and #13 requires "old sessions invalidated on reset". A stateless JWT cannot be revoked. The cookie carries a random 256-bit token; only its SHA-256 hash is stored. Columns: `user_id`, `token_hash` (unique), `created_at`, `expires_at`, `last_seen_at`, `revoked_at`, `ip_address`, `user_agent`. |
-| `citext` extension                                                                                  | `20260907000000_enable_citext`                         | Fresh databases failed on `init` without it (see section 3).                                                                                                                                                                                                                                                                                           |
+| `citext` extension                                                                                  | `20260907000000_enable_citext`                         | Fresh databases failed on `init` without it (see section 2).                                                                                                                                                                                                                                                                                           |
 | `timestamptz` fix                                                                                   | `20261023162332_timestamps_to_timestamptz`             | Not an addition but a correction: the document specifies timestamptz and `init` used `TIMESTAMP(3)`. Existing values were UTC (adapter behaviour), converted with `USING col AT TIME ZONE 'UTC'` so no stored instant moves.                                                                                                                           |
 | `users.full_name`                                                                                   | `20261026122006_add_auth_tokens_and_full_name`         | The document has no name for any user. Registration (#11), teacher search by name (#41) and public teacher profiles (#99) need one. Nullable in the database for rows created before it existed; required by the registration API.                                                                                                                     |
 | `auth_tokens` + enum `AuthTokenPurpose`                                                             | `20261026122006_add_auth_tokens_and_full_name`         | Single-use, expiring tokens for email verification (#11) and password reset (#13). Only the SHA-256 hash is stored; `used_at` makes each token single-use.                                                                                                                                                                                             |

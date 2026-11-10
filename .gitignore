@@ -30,3 +30,6 @@ deploy/**/api.env
 deploy/**/backup.env
 deploy/**/stack.env
 deploy/edge/sites/*.caddy
+
+# Local Claude Code state (worktrees, settings, launch config)
+.claude/

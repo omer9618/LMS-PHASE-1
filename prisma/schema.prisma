@@ -159,7 +159,7 @@ enum CompletionSource {
   QUIZ
 }
 
-// Not in Schema v2.0: single-use account tokens (#11, #13). See docs/PRISMA_SETUP.md.
+// Not in Schema v2.0: single-use account tokens (#11, #13). See docs/DATABASE_RULES.md.
 enum AuthTokenPurpose {
   EMAIL_VERIFICATION
   PASSWORD_RESET
@@ -232,7 +232,7 @@ model UserRole {
 }
 
 // Server-side login sessions (#12). Not part of Schema v2.0: added so logout and
-// password reset (#13) can revoke access immediately. See docs/PRISMA_SETUP.md.
+// password reset (#13) can revoke access immediately. See docs/DATABASE_RULES.md.
 // The cookie holds a random token; only its SHA-256 hash is stored here.
 model Session {
   id            String    @id @default(uuid())
