@@ -249,23 +249,23 @@ payout and verification lists, and the student's orders and dashboard.
 Done after phase 3, on the same rules: every screen touched is checked in the browser at 380px and
 desktop, on the student ground and on the staff (sand, compact) ground.
 
-- [ ] D1: `lib/status.ts`, one tone and label table per domain, matching the design system;
+- [x] D1: `lib/status.ts`, one tone and label table per domain, matching the design system;
       delete the tables in `ui/Data.tsx`, `lib/course-status.ts` and `lib/order-display.ts`.
-- [ ] D2: `components/ui/Icon.tsx` (inline stroke SVGs); replace every glyph and emoji.
-- [ ] D3: money only through `<Money>`; currency in single-currency table headers.
-- [ ] D4: timer chip `radius-sm`, warning tone, mono, clock icon.
-- [ ] D5: recovery codes as a `shadow-md` card; teacher fieldset as an attention fieldset.
-- [ ] D6: header background from `--color-surface` via `color-mix`.
-- [ ] D7: catalogue card hover at `shadow-md`.
-- [ ] D8: one eyebrow style; delete the 12 copies.
-- [ ] D9: sort order in every list's eyebrow.
-- [ ] D10: delete `--space-0`.
-- [ ] Update `ComponentShowcase` so it shows `Icon`, every status tone and `<Money>`, and
-      `docs/UI_PLAN.md` so it points at the design-system rules.
-
-**Rule for new frontend code** (add to `web/README.md`): colours, spacing, radii and shadows come
-from tokens only; statuses through `StatusBadge`; money through `<Money>`; icons through `Icon`;
-tables through `ui/Table`; pages start with `PageHeader` (eyebrow + serif title).
+- [x] D2: `components/ui/Icon.tsx` (inline stroke SVGs); replace every glyph and emoji.
+- [x] D3: money in JSX only through `<Money>` (strings in labels and notes keep `formatMoney`).
+- [x] D4: timer chip `radius-sm`, warning tone, mono, clock icon.
+- [x] D5: recovery codes and the profile fieldsets use `shadow-md` instead of a border.
+- [x] D6: header background from `--color-bg` via `color-mix`.
+- [x] D7: catalogue card hover at `shadow-md`.
+- [x] D8: the five identical eyebrow copies now use the global `.eyebrow` / `.eyebrow-terms dt`.
+      The other copies differ (dark grounds, weights, badges, table headers) and stay as they are.
+- [x] D9: sort order in the eyebrow of the lists whose order the API fixes (enrollments, student
+      orders added; applications, review queue and verification queue already had it).
+- [x] D10: delete `--space-0`.
+- [x] `ComponentShowcase` shows every status tone and every icon.
+- [x] The design-system rules for new screens are in `web/README.md` (Conventions).
+- [ ] Left over: currency in single-currency table headers (D3); `docs/UI_PLAN.md` still describes
+      the old status tables.
 
 ### Phase 4: folders and names (mechanical moves)
 

@@ -99,3 +99,13 @@ Tests sit next to the code as `*.test.ts(x)` (not `*.spec.ts`, which the API's J
 - **Money** is a string of minor units, as in the API. Format with `formatMoney` / `formatPrice`; parse what people type with `parseMajorToMinor`. Never `Number()` or `parseFloat` an amount.
 - **Accessibility:** every control has a label; errors are linked with `aria-describedby` and marked `aria-invalid`; focus is always visible; colour pairs meet WCAG 2.2 AA (checked in `src/styles/tokens.test.ts`).
 - **Dependencies** are pinned exactly. `.npmrc` sets `legacy-peer-deps` because npm 10 crashes resolving vite 8's optional peer chain; every needed peer is listed in `package.json`.
+- **Design system rules (Exam Hall)** for any new screen:
+  - Colours, spacing, radii and shadows come from `src/styles/tokens.css` only, never raw values.
+  - A status is shown with `StatusBadge`; the tone of every status is in `src/lib/status.ts`.
+  - Money is rendered with `<Money>` (mono, two decimals) and sits in a `numeric` table column.
+  - Icons are `<Icon name="…">` (inline stroke SVG). No emoji, glyph arrows or icon fonts.
+  - Tables go through `ui/Table`; a page starts with `PageHeader` (eyebrow, then serif title), and a
+    list says how it is sorted in its eyebrow ("newest first").
+  - Cards are lifted with `--shadow-md`, not borders; `--shadow-lg` is for the one focused panel.
+  - Repeated styles live in `globals.css` (`.stack`, `.cluster`, `.hint`, `.muted`, `.mono`,
+    `.eyebrow`), not in each module.
