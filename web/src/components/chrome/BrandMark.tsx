@@ -23,7 +23,7 @@ export function BrandMark({
       <span aria-hidden="true" className={styles.logo} />
       <span className={styles.brandText}>
         <span className={styles.brandName}>{area ?? PLATFORM_NAME}</span>
-        {!area && <span className={styles.brandTag}>Cambridge &amp; Edexcel courses</span>}
+        {!area && <span className="eyebrow">Cambridge &amp; Edexcel courses</span>}
       </span>
     </Link>
   );

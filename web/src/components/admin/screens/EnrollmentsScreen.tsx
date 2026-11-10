@@ -47,7 +47,7 @@ export function EnrollmentsScreen() {
   return (
     <>
       <PageHeader
-        eyebrow="Access to courses"
+        eyebrow="Access to courses · newest first"
         title="Enrollments"
         description="Who can open which course, and how they got access."
       />

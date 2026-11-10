@@ -86,7 +86,7 @@ export function CourseDetailContent({ course }: { course: CourseDetail }) {
             <strong>{course.teacher.fullName ?? 'a verified teacher'}</strong>
           )}
         </p>
-        <dl className={styles.facts}>
+        <dl className={`${styles.facts} eyebrow-terms`}>
           <div>
             <dt>Pacing</dt>
             <dd>

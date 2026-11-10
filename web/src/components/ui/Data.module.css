@@ -13,14 +13,6 @@
   min-width: 0;
 }
 
-.fact dt {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  letter-spacing: var(--tracking-eyebrow);
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
-
 .fact dd {
   margin: 0;
   overflow-wrap: anywhere;
@@ -48,14 +40,6 @@
   background: var(--color-bg);
   box-shadow: var(--shadow-md);
   min-width: 0;
-}
-
-.statLabel {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  letter-spacing: var(--tracking-eyebrow);
-  text-transform: uppercase;
-  color: var(--color-text-muted);
 }
 
 .statValue {

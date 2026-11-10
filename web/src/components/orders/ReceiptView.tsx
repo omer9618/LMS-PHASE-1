@@ -57,7 +57,7 @@ export function ReceiptView({
           </div>
           <span className="mono muted">No. {r.receiptNumber}</span>
         </header>
-        <dl className={styles.receiptFacts}>
+        <dl className={`${styles.receiptFacts} eyebrow-terms`}>
           <div>
             <dt>Issued</dt>
             <dd>{formatDateTime(r.issuedAt)}</dd>

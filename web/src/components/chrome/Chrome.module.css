@@ -33,14 +33,6 @@
   line-height: 1.375rem;
 }
 
-.brandTag {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  letter-spacing: var(--tracking-eyebrow);
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
-
 .brandDark {
   color: var(--color-text-inverse);
 }

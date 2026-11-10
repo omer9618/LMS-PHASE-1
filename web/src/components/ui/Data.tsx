@@ -19,7 +19,7 @@ export function Facts({
   columns?: 'auto' | 'one';
 }) {
   return (
-    <dl className={cx(styles.facts, columns === 'one' && styles.factsOne)}>
+    <dl className={cx(styles.facts, 'eyebrow-terms', columns === 'one' && styles.factsOne)}>
       {items.map(([label, value], i) => (
         <div key={i} className={styles.fact}>
           <dt>{label}</dt>
@@ -74,7 +74,7 @@ export function StatTile({
 }) {
   return (
     <div className={cx(styles.stat, styles[`stat-${tone}`])}>
-      <dt className={styles.statLabel}>{label}</dt>
+      <dt className="eyebrow">{label}</dt>
       <dd className={styles.statValue}>{value}</dd>
       {note && <dd className={styles.statNote}>{note}</dd>}
       {action && (
