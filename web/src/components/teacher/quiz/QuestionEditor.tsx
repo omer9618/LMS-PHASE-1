@@ -6,7 +6,7 @@ import { Badge, Button, Input, Section, Select, Textarea } from '@/components/ui
 import { type QuestionType, type QuizQuestion } from '@/lib/api/quiz-builder';
 import { questionForm, QUIZ_LIMITS, type QuestionInput } from '@/lib/forms/quiz';
 import { validateForm, type FieldErrors } from '@/lib/zod-form';
-import { ConfirmButton } from '../ConfirmButton';
+import { ConfirmButton } from '@/components/ui';
 import styles from './QuizBuilder.module.css';
 
 interface OptionValue {

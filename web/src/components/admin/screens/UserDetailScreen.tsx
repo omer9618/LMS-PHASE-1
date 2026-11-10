@@ -19,7 +19,8 @@ import type { Role } from '@/lib/api/schemas/auth';
 import { formatDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { MutationStatus, ReasonAction, useMutation } from '../kit';
+import { MutationStatus, ReasonAction } from '@/components/ui';
+import { useMutation } from '@/lib/use-mutation';
 import { formatDateTime } from '@/lib/format';
 import { humanize } from '@/lib/format';
 

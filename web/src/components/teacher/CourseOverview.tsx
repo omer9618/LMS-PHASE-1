@@ -11,7 +11,7 @@ import { canArchive, canSubmit, detailsEditable, detailsLockReason } from '@/lib
 import { formatDate, PACING_LABELS } from '@/lib/format';
 import { formatPrice } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
-import { ConfirmButton } from './ConfirmButton';
+import { ConfirmButton } from '@/components/ui';
 import { CourseDetailsForm } from './CourseDetailsForm';
 import { useCourseWorkspace } from './CourseWorkspace';
 import styles from './Teacher.module.css';

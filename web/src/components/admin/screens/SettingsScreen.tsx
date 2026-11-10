@@ -5,7 +5,8 @@ import { Button, Checkbox, Input, Loadable, PageHeader, Section, Textarea } from
 import { adminApi, type PlatformSetting } from '@/lib/api/admin';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { MutationStatus, useMutation } from '../kit';
+import { MutationStatus } from '@/components/ui';
+import { useMutation } from '@/lib/use-mutation';
 import { formatDateTime } from '@/lib/format';
 import { useMemo } from 'react';
 import { z } from 'zod';
