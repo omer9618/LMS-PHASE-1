@@ -8,7 +8,7 @@ import {
   type PublicTeacherProfile,
   type TeacherProfile,
 } from '@/lib/api/profile';
-import type { Me } from '@/lib/api/types';
+import type { Me } from '@/lib/api/schemas/auth';
 import { courseCard, listing } from '@/test/fixtures';
 import { apiMock, resetMocks } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';

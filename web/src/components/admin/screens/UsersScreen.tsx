@@ -17,10 +17,11 @@ import {
 } from '@/components/ui';
 import { adminApi, type AdminUser, type UserListQuery, type UserStatus } from '@/lib/api/admin';
 import { fieldErrors } from '@/lib/api/errors';
-import type { Role } from '@/lib/api/types';
+import type { Role } from '@/lib/api/schemas/auth';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, useMutation } from '../kit';
+import { MutationStatus, useMutation } from '../kit';
+import { formatDateTime } from '@/lib/format';
 import { staffForm } from '@/lib/forms/admin';
 import { useZodForm } from '@/lib/use-zod-form';
 

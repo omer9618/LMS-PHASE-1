@@ -16,11 +16,13 @@ import {
   Textarea,
 } from '@/components/ui';
 import { adminFinanceApi, type AdminOrder } from '@/lib/api/admin-finance';
-import { formatBps, todayIso } from '@/lib/admin/format';
+import { formatBps } from '@/lib/money';
+import { todayIso } from '@/lib/format';
 import { minorToMajorInput, minorUnitExponent } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, useMutation } from '../kit';
+import { MutationStatus, useMutation } from '../kit';
+import { formatDateTime } from '@/lib/format';
 import { DecisionPanel, OrderLookup, ProofList } from './VerificationScreen';
 import { humanize } from '@/lib/format';
 import { refundForm } from '@/lib/forms/admin';

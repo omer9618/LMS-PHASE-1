@@ -9,7 +9,9 @@ import * as schema from './schemas/admin';
 import type { ApplicationStatus, ContextRole, UserStatus } from './schemas/admin';
 import { paged } from './schemas/common';
 import { outline, teacherProfile } from './schemas/teacher';
-import type { CourseStatus, EnrollmentStatus, NamedRef, Role } from './types';
+import type { CourseStatus, EnrollmentStatus } from '@/lib/api/schemas/enrollment';
+import type { NamedRef } from '@/lib/api/schemas/common';
+import type { Role } from '@/lib/api/schemas/auth';
 
 export type {
   AdminCourse,

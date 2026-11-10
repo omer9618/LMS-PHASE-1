@@ -13,7 +13,8 @@ import {
 } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { moveItem, teacherApi } from '@/lib/api/teacher';
-import type { AuthoringLesson, AuthoringSection, LessonType, Outline } from '@/lib/api/types';
+import type { AuthoringLesson, AuthoringSection, Outline } from '@/lib/api/schemas/teacher';
+import type { LessonType } from '@/lib/api/schemas/catalogue';
 import { contentEditable } from '@/lib/course-status';
 import { formatDuration } from '@/lib/format';
 import { useApi } from '@/lib/use-api';

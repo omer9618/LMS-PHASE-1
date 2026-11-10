@@ -7,7 +7,7 @@ import { Button, Input, Loadable, PageHeader, Pager, Table } from '@/components/
 import { adminApi, type AuditEntry, type AuditQuery } from '@/lib/api/admin';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime } from '../kit';
+import { formatDateTime } from '@/lib/format';
 
 const LIMIT = 50;
 

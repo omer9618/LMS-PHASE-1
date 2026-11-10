@@ -25,12 +25,14 @@ import {
   type Payout,
   type TeacherSale,
 } from '@/lib/api/admin-finance';
-import { formatAgeHours, formatBps, parseSignedMajorToMinor, todayIso } from '@/lib/admin/format';
+import { formatBps, parseSignedMajorToMinor } from '@/lib/money';
+import { formatAgeHours, todayIso } from '@/lib/format';
 import { formatDate } from '@/lib/format';
 import { formatMoney, minorToMajorInput, minorUnitExponent } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, useMutation } from '../kit';
+import { MutationStatus, useMutation } from '../kit';
+import { formatDateTime } from '@/lib/format';
 import { humanize } from '@/lib/format';
 import { adjustmentForm, payoutForm } from '@/lib/forms/admin';
 import { useZodForm } from '@/lib/use-zod-form';

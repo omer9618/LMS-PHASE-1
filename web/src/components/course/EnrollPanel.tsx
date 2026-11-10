@@ -5,7 +5,7 @@ import { BuyButtons } from '@/components/orders/BuyButtons';
 import { Alert, Button, ButtonLink } from '@/components/ui';
 import { enrollmentApi } from '@/lib/api/enrollment';
 import { errorMessage } from '@/lib/api/errors';
-import type { CourseDetail } from '@/lib/api/types';
+import type { CourseDetail } from '@/lib/api/schemas/catalogue';
 import { formatPrice } from '@/lib/money';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';

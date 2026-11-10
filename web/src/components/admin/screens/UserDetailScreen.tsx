@@ -15,11 +15,12 @@ import {
   Table,
 } from '@/components/ui';
 import { adminApi, type AdminCourse, type AdminEnrollment } from '@/lib/api/admin';
-import type { Role } from '@/lib/api/types';
+import type { Role } from '@/lib/api/schemas/auth';
 import { formatDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, ReasonAction, useMutation } from '../kit';
+import { MutationStatus, ReasonAction, useMutation } from '../kit';
+import { formatDateTime } from '@/lib/format';
 import { humanize } from '@/lib/format';
 
 const ROLES: Role[] = ['STUDENT', 'TEACHER', 'ADMIN'];

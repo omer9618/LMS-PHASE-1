@@ -5,7 +5,7 @@ import { Alert, Button } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
 import { formatMoney } from '@/lib/money';
-import { formatDateTime } from '@/lib/order-display';
+import { formatDateTime } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import styles from './Orders.module.css';
 

@@ -31,12 +31,13 @@ import {
   type RejectionReason,
   type VerificationQueueEntry,
 } from '@/lib/api/admin-finance';
-import { formatAgeHours, formatAgeMinutes, todayIso } from '@/lib/admin/format';
+import { formatAgeHours, formatAgeMinutes, todayIso } from '@/lib/format';
 import { absMinor, checkReceived, MISMATCH_LABELS } from '@/lib/admin/verification';
 import { formatMoney, minorToMajorInput, minorUnitExponent, parseMajorToMinor } from '@/lib/money';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, useMutation } from '../kit';
+import { MutationStatus, useMutation } from '../kit';
+import { formatDateTime } from '@/lib/format';
 import { humanize } from '@/lib/format';
 import { confirmPaymentForm, rejectPaymentForm } from '@/lib/forms/admin';
 import { firstError, validateForm } from '@/lib/zod-form';

@@ -1,7 +1,9 @@
 import { api } from './client';
 import { paged } from './schemas/common';
 import * as schema from './schemas/teacher';
-import type { CourseStatus, LessonType, Outline, Pacing } from './types';
+import type { CourseStatus } from '@/lib/api/schemas/enrollment';
+import type { LessonType, Pacing } from '@/lib/api/schemas/catalogue';
+import type { Outline } from '@/lib/api/schemas/teacher';
 
 /** Course details a teacher sets (#24, #33). Board, level and subject change together. */
 export interface CourseDetailsInput {
@@ -101,14 +103,6 @@ export function moveItem<T>(items: readonly T[], index: number, step: -1 | 1): T
   const [item] = next.splice(index, 1);
   next.splice(target, 0, item as T);
   return next;
-}
-
-/** Percent typed by a person ("12.5") → basis points (1250), string maths; null if invalid. */
-export function percentToBps(input: string): number | null {
-  const match = /^(\d{1,3})(?:\.(\d{0,2}))?$/.exec(input.trim());
-  if (!match) return null;
-  const bps = Number(`${match[1]}${(match[2] ?? '').padEnd(2, '0')}`);
-  return bps <= 10_000 ? bps : null;
 }
 
 /** What the submit checklist (#34) needs: a free-preview video lesson with a video attached. */

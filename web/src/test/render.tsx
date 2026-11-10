@@ -1,7 +1,7 @@
 import { render, type RenderResult } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { ApiError } from '@/lib/api/errors';
-import type { Me } from '@/lib/api/types';
+import type { Me } from '@/lib/api/schemas/auth';
 import { SessionProvider } from '@/lib/session';
 import { apiMock } from './mocks';
 

@@ -1,5 +1,5 @@
 import type { BadgeTone } from '@/components/ui';
-import type { CourseStatus } from './api/types';
+import type { CourseStatus } from './api/schemas/enrollment';
 
 /** Mirrors the API's course rules (src/modules/courses/domain/course.rules.ts). */
 export const COURSE_STATUS: Record<CourseStatus, { label: string; tone: BadgeTone }> = {

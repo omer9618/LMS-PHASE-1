@@ -15,7 +15,8 @@ import {
   type Column,
 } from '@/components/ui';
 import { teacherApi } from '@/lib/api/teacher';
-import type { CourseStatus, TeacherCourse } from '@/lib/api/types';
+import type { CourseStatus } from '@/lib/api/schemas/enrollment';
+import type { TeacherCourse } from '@/lib/api/schemas/teacher';
 import { COURSE_STATUS } from '@/lib/course-status';
 import { formatDate } from '@/lib/format';
 import { formatPrice } from '@/lib/money';

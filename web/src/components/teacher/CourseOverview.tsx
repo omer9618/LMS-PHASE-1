@@ -6,7 +6,7 @@ import { useState, type FormEvent } from 'react';
 import { Alert, Button, Checkbox, Input } from '@/components/ui';
 import { errorMessage, isApiError } from '@/lib/api/errors';
 import { submitChecklist, teacherApi } from '@/lib/api/teacher';
-import type { TeacherCourse } from '@/lib/api/types';
+import type { TeacherCourse } from '@/lib/api/schemas/teacher';
 import { canArchive, canSubmit, detailsEditable, detailsLockReason } from '@/lib/course-status';
 import { formatDate, PACING_LABELS } from '@/lib/format';
 import { formatPrice } from '@/lib/money';

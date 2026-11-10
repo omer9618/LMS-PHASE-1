@@ -6,7 +6,7 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 import { Alert, Badge, Button, PageHeader } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { teacherApi } from '@/lib/api/teacher';
-import type { TeacherCourse } from '@/lib/api/types';
+import type { TeacherCourse } from '@/lib/api/schemas/teacher';
 import { COURSE_STATUS } from '@/lib/course-status';
 import { useApi } from '@/lib/use-api';
 import styles from './Teacher.module.css';

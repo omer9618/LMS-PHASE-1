@@ -1,4 +1,4 @@
-import type { CatalogueListing, CourseCard, CourseDetail } from '@/lib/api/types';
+import type { CatalogueListing, CourseCard, CourseDetail } from '@/lib/api/schemas/catalogue';
 
 export const SUBJECT_ID = '11111111-1111-4111-8111-111111111111';
 export const BOARD_ID = '22222222-2222-4222-8222-222222222222';

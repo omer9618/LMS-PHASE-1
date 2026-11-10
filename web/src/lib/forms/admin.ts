@@ -1,9 +1,5 @@
 import { z } from 'zod';
-import {
-  parsePositiveMajorToMinor,
-  parseSignedMajorToMinor,
-  percentToBps,
-} from '@/lib/admin/format';
+import { parsePositiveMajorToMinor, parseSignedMajorToMinor, percentToBps } from '@/lib/money';
 import { checkReceived } from '@/lib/admin/verification';
 import { optionalText } from './fields';
 

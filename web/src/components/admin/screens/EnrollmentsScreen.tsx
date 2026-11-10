@@ -17,7 +17,7 @@ import {
 } from '@/components/ui';
 import { adminApi, type AdminEnrollment } from '@/lib/api/admin';
 import { fieldErrors } from '@/lib/api/errors';
-import type { EnrollmentStatus } from '@/lib/api/types';
+import type { EnrollmentStatus } from '@/lib/api/schemas/enrollment';
 import { formatDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';

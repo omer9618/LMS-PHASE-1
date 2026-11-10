@@ -12,7 +12,8 @@ import {
 } from '@/lib/admin/profile-lines';
 import { useApi } from '@/lib/use-api';
 import styles from '../Admin.module.css';
-import { formatDateTime, MutationStatus, ReasonAction, useMutation, type Mutation } from '../kit';
+import { MutationStatus, ReasonAction, useMutation, type Mutation } from '../kit';
+import { formatDateTime } from '@/lib/format';
 
 /** #100: an admin edits or unpublishes any teacher's public profile. Every change is audited. */
 export function ProfileModerationScreen({ teacherId }: { teacherId: string }) {

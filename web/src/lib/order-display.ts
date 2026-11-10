@@ -1,6 +1,7 @@
 import type { BadgeTone } from '@/components/ui';
 import type { CartQuote, OrderStatus } from './api/orders';
 import { proofForm } from './forms/orders';
+import { formatDateTime } from './format';
 import { formatMoney } from './money';
 import { validateForm } from './zod-form';
 
@@ -15,7 +16,7 @@ const ISO_INSTANT = /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g;
 export function humaniseGuidance(text: string): string {
   return text
     .replace(MINOR_AMOUNT, (_, currency: string, minor: string) => formatMoney(minor, currency))
-    .replace(ISO_INSTANT, (iso) => formatDateTime(iso) ?? iso);
+    .replace(ISO_INSTANT, (iso) => formatDateTime(iso) || iso);
 }
 
 /** Pure helpers for the purchase screens (#54–#62). Money stays in string minor units. */
@@ -53,22 +54,6 @@ export const STATUS_TONES: Record<OrderStatus, BadgeTone> = {
   LAPSED: 'neutral',
   REFUNDED: 'neutral',
 };
-
-const DATE_TIME = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZoneName: 'short',
-});
-
-/** "3 Nov 2026, 14:05 GMT+5" in the viewer's time zone. */
-export function formatDateTime(iso: string | null): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? null : DATE_TIME.format(date);
-}
 
 /** "in 1 day 3 h", "in 45 min", or "passed". For the payment deadline. */
 export function timeUntil(iso: string, nowMs: number): string {

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Alert, Badge, Button } from '@/components/ui';
 import { catalogueApi } from '@/lib/api/catalogue';
 import { errorMessage } from '@/lib/api/errors';
-import type { CourseDetail, OutlineLesson } from '@/lib/api/types';
+import type { CourseDetail, OutlineLesson } from '@/lib/api/schemas/catalogue';
 import { formatDuration, PACING_HINTS, PACING_LABELS } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { DemoPlayer } from './DemoPlayer';

@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui';
 import type { PaymentInstructions as Instructions } from '@/lib/api/orders';
 import { formatMoney } from '@/lib/money';
-import { formatDateTime, timeUntil } from '@/lib/order-display';
+import { timeUntil } from '@/lib/order-display';
+import { formatDateTime } from '@/lib/format';
 import styles from './Orders.module.css';
 
 /**

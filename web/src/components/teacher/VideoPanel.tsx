@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { Alert, Badge, Button, Input } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { teacherApi } from '@/lib/api/teacher';
-import type { AuthoringLesson } from '@/lib/api/types';
+import type { AuthoringLesson } from '@/lib/api/schemas/teacher';
 import { formatBytes, formatDuration } from '@/lib/format';
 import { tusUpload, TusError } from '@/lib/tus';
 import styles from './Outline.module.css';

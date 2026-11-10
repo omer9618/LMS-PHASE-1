@@ -6,6 +6,10 @@ import {
   minorUnitExponent,
   parseMajorToMinor,
   splitMinor,
+  formatBps,
+  parsePositiveMajorToMinor,
+  parseSignedMajorToMinor,
+  percentToBps,
 } from './money';
 
 describe('formatMoney', () => {
@@ -105,5 +109,37 @@ describe('minorToMajorInput', () => {
     for (const minor of ['0', '1', '99', '150050', '9007199254740993']) {
       expect(parseMajorToMinor(minorToMajorInput(minor))).toBe(minor);
     }
+  });
+});
+
+describe('admin amount helpers', () => {
+  it('converts a commission percentage to basis points without floats', () => {
+    expect(percentToBps('20')).toBe(2000);
+    expect(percentToBps('12.5')).toBe(1250);
+    expect(percentToBps('0.01')).toBe(1);
+    expect(percentToBps('100')).toBe(10000);
+    expect(percentToBps('100.01')).toBeNull();
+    expect(percentToBps('1.234')).toBeNull();
+    expect(percentToBps('-5')).toBeNull();
+    expect(percentToBps('abc')).toBeNull();
+  });
+
+  it('formats basis points as a percentage', () => {
+    expect(formatBps(2000)).toBe('20%');
+    expect(formatBps(1250)).toBe('12.5%');
+    expect(formatBps(5)).toBe('0.05%');
+    expect(formatBps(null)).toBe('—');
+  });
+
+  it('parses signed and positive amounts in the currency exponent, refusing zero', () => {
+    expect(parseSignedMajorToMinor('-1500', 'PKR')).toBe('-150000');
+    expect(parseSignedMajorToMinor('250.5', 'PKR')).toBe('25050');
+    expect(parseSignedMajorToMinor('0', 'PKR')).toBeNull();
+    expect(parseSignedMajorToMinor('-0.00', 'PKR')).toBeNull();
+    expect(parseSignedMajorToMinor('1.5', 'JPY')).toBeNull();
+    expect(parsePositiveMajorToMinor('1,500.25', 'PKR')).toBe('150025');
+    expect(parsePositiveMajorToMinor('-1', 'PKR')).toBeNull();
+    expect(parsePositiveMajorToMinor('0', 'PKR')).toBeNull();
+    expect(parsePositiveMajorToMinor('12345678901234567.89', 'PKR')).toBe('1234567890123456789');
   });
 });

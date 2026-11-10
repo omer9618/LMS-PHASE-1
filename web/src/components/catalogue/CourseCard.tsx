@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Badge } from '@/components/ui';
-import type { CourseCard as CourseCardData } from '@/lib/api/types';
+import type { CourseCard as CourseCardData } from '@/lib/api/schemas/catalogue';
 import { PACING_LABELS } from '@/lib/format';
 import { formatPrice } from '@/lib/money';
 import styles from './Catalogue.module.css';

@@ -145,17 +145,3 @@ export function ReasonAction({
     </form>
   );
 }
-
-/** "2 Nov 2026, 14:05" in the viewer's time zone. */
-export function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-}

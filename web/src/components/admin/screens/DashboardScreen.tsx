@@ -4,7 +4,7 @@ import { Loadable, PageHeader, Section, StatGrid, StatTile } from '@/components/
 import { adminApi } from '@/lib/api/admin';
 import { adminFinanceApi } from '@/lib/api/admin-finance';
 import { useApi } from '@/lib/use-api';
-import { formatDateTime } from '../kit';
+import { formatDateTime } from '@/lib/format';
 
 /** 3070 → "51h 10m". */
 export function formatWait(minutes: number | null): string {

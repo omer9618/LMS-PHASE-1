@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { Button, Checkbox, Input, Select } from '@/components/ui';
-import type { Board, CatalogueSubject, Level, Pacing } from '@/lib/api/types';
+import type { Board, CatalogueSubject, Level, Pacing } from '@/lib/api/schemas/catalogue';
 import { PACINGS, SORTS, type CatalogueFilters, type Sort } from '@/lib/catalogue-url';
 import { PACING_LABELS } from '@/lib/format';
 import { minorToMajorInput, parseMajorToMinor } from '@/lib/money';

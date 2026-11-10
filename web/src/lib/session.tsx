@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { api } from './api/client';
 import { isApiError } from './api/errors';
-import type { Me } from './api/types';
+import type { Me } from './api/schemas/auth';
 import * as authSchema from './api/schemas/auth';
 import { ignored } from './api/schemas/common';
 

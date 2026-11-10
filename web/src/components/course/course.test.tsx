@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api/errors';
-import type { CourseDetail } from '@/lib/api/types';
+import type { CourseDetail } from '@/lib/api/schemas/catalogue';
 import { COURSE_ID, courseDetail } from '@/test/fixtures';
 import { apiMock, resetMocks } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';

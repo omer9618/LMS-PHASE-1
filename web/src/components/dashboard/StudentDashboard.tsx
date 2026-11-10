@@ -11,7 +11,7 @@ import {
   type BadgeTone,
 } from '@/components/ui';
 import { enrollmentApi } from '@/lib/api/enrollment';
-import type { AccessState, DashboardEntry } from '@/lib/api/types';
+import type { AccessState, DashboardEntry } from '@/lib/api/schemas/enrollment';
 import { formatDate } from '@/lib/format';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';

@@ -5,7 +5,8 @@ import { TeacherApplicationForm, checkCv } from '@/components/apply/TeacherAppli
 import { DEV_CAPTCHA_TOKEN } from '@/components/Captcha';
 import { StudentDashboard, sortEntries } from '@/components/dashboard/StudentDashboard';
 import { ApiError } from '@/lib/api/errors';
-import type { DashboardEntry, Me } from '@/lib/api/types';
+import type { DashboardEntry } from '@/lib/api/schemas/enrollment';
+import type { Me } from '@/lib/api/schemas/auth';
 import { needsMfaSetup } from '@/lib/session';
 import { apiMock, resetMocks, setSearch } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';
