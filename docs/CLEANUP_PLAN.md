@@ -237,8 +237,8 @@ payout and verification lists, and the student's orders and dashboard.
       `ConfirmButton` are in `components/ui`. `ConfirmButton` is kept: it asks a yes/no question,
       `ReasonAction` collects a written reason, so they are not duplicates.
 - [~] Move the remaining hand-rolled busy/error components to `useMutation`. Only the photo panel
-      in `ProfileEditor` is done; the others map field errors or special error codes, so each one
-      needs its own small change (deliberately left: each maps field errors or special codes, so moving them adds risk for little gain).
+  in `ProfileEditor` is done; the others map field errors or special error codes, so each one
+  needs its own small change (deliberately left: each maps field errors or special codes, so moving them adds risk for little gain).
 - [x] Dates in `lib/format.ts`, money and percent in `lib/money.ts`; `lib/admin/format.ts` and
       `lib/api/types.ts` are gone.
 - [x] `.cluster` and `.hint` in `globals.css`; 14 repeated rules removed. The mono eyebrow copies
