@@ -1,8 +1,8 @@
-# LMS Phase 1
+# Paperlane (LMS Phase 1)
 
-Backend for a learning platform where independent teachers publish courses for Cambridge and Edexcel students, students buy them by bank transfer, and admins verify payments and pay teachers out.
+**Paperlane** is a learning platform where independent teachers publish courses for Cambridge and Edexcel students, students buy them by bank transfer, and admins verify payments and pay teachers out.
 
-**Stack:** NestJS 11 · PostgreSQL · Prisma 7 (pg driver adapter) · Zod · Jest. HTTP-only cookie sessions. Background jobs with `@nestjs/schedule`. Video on Bunny Stream, files on S3-compatible storage, email over SMTP.
+**Stack:** NestJS 11 API (this folder) · Next.js 16 web app (`web/`) · PostgreSQL · Prisma 7 (pg driver adapter) · Zod · Jest and Vitest. HTTP-only cookie sessions. Background jobs with `@nestjs/schedule`. Video on Bunny Stream, files on S3-compatible storage, email over SMTP.
 
 | Read this                                              | For                                                                |
 | ------------------------------------------------------ | ------------------------------------------------------------------ |
@@ -58,7 +58,19 @@ The app validates every environment variable at startup and refuses to start if 
 | `teacher.a@lms.local` | TEACHER | `TeacherPassword123!` |
 | `teacher.b@lms.local` | TEACHER | `TeacherPassword123!` |
 
-Override them with `SEED_ADMIN_PASSWORD` and `SEED_TEACHER_PASSWORD`. In production the seed requires `SEED_ADMIN_PASSWORD` and creates no teachers. Register a student with `POST /auth/register`.
+Override them with `SEED_ADMIN_PASSWORD` and `SEED_TEACHER_PASSWORD`. In production the seed requires `SEED_ADMIN_PASSWORD` and creates no teachers. Register a student with `POST /auth/register`, or at `/register` on the website.
+
+### Run the website
+
+The web app (`web/`) needs the API above running on :3000. In a second terminal:
+
+```bash
+cd web
+npm ci
+npm run dev             # http://localhost:3001
+```
+
+Open http://localhost:3001. Details, pages and conventions are in [web/README.md](web/README.md).
 
 **Admins sign in with MFA.** The dev admin's authenticator secret is `JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP`; add it to any authenticator app as a manual entry. `POST /auth/login` returns `{ mfaRequired, challengeToken }`; send both with the 6-digit code to `POST /auth/login/mfa`.
 
@@ -95,7 +107,6 @@ curl -b cookies.txt http://localhost:3000/auth/me
 
 - **M2:** cart and orders with frozen price snapshots (#54â€“#62), payment verification and amount mismatches (#63â€“#67), quiz checkpoint gating (#77).
 - **M3:** teacher ledger, refunds and payouts (#78â€“#89), progress and sequential unlock (#90â€“#97), teacher profiles (#98â€“#101), admin dashboards and finance reports (#102â€“#106), remaining email templates (#111â€“#113), test and hardening tickets (#114â€“#119).
-- **Web app:** Next.js in `/web` (decided), covering the UI tickets (#7, #45, #53, #75, #101, #102, #109, #114) and the screens for everything above.
 - **Deployment:** VPS + Docker + GitHub Actions (decided) for staging and production (#5, #6, #120â€“#123).
 
 ### Blocked on information from the client or the team
