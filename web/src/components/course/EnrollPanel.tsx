@@ -8,7 +8,7 @@ import { useMutation } from '@/lib/use-mutation';
 import type { CourseDetail } from '@/lib/api/schemas/catalogue';
 import { formatPrice } from '@/lib/money';
 import { useSession } from '@/lib/session';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from './Course.module.css';
 
 /** Price and the way in: free enrollment (#47) for free courses; cart and checkout (#54) for paid ones. */
@@ -18,9 +18,11 @@ export function EnrollPanel({ course }: { course: CourseDetail }) {
   const [enrolled, setEnrolled] = useState(false);
 
   // Students see whether they already have this course (GET /me/enrollments).
-  const enrollments = useApi(user ? `enrollments:${user.id}` : null, (signal) =>
-    enrollmentApi.mine(signal),
-  );
+  const enrollments = useQuery({
+    queryKey: ['enrollments', user?.id],
+    queryFn: ({ signal }) => enrollmentApi.mine(signal),
+    enabled: user !== null,
+  });
   const alreadyEnrolled =
     enrollments.status === 'success' &&
     enrollments.data.some((e) => e.course.id === course.id && e.access === 'ACTIVE');
@@ -41,7 +43,16 @@ export function EnrollPanel({ course }: { course: CourseDetail }) {
         {formatPrice(course)}
       </p>
 
-      {!course.isEnrollmentOpen ? (
+      {user !== null && user.id === course.teacher.id ? (
+        <Alert tone="info" title="You teach this course">
+          <ButtonLink
+            href={`/teacher/courses/${encodeURIComponent(course.id)}`}
+            variant="secondary"
+          >
+            Manage course
+          </ButtonLink>
+        </Alert>
+      ) : !course.isEnrollmentOpen ? (
         <Alert tone="warning">Enrollment for this course is closed at the moment.</Alert>
       ) : alreadyEnrolled || enrolled ? (
         <Alert tone="success" title="You are enrolled">

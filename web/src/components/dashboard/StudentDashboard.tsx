@@ -14,7 +14,7 @@ import { enrollmentApi } from '@/lib/api/enrollment';
 import type { AccessState, DashboardEntry } from '@/lib/api/schemas/enrollment';
 import { formatDate } from '@/lib/format';
 import { useSession } from '@/lib/session';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from './Dashboard.module.css';
 
 const ACCESS: Record<AccessState, { label: string; tone: BadgeTone }> = {
@@ -42,9 +42,11 @@ export function sortEntries(entries: DashboardEntry[]): DashboardEntry[] {
 /** #52: the student's courses with completion. */
 export function StudentDashboard() {
   const { status, user } = useSession();
-  const enrollments = useApi(user ? `dashboard:${user.id}` : null, (signal) =>
-    enrollmentApi.mine(signal),
-  );
+  const enrollments = useQuery({
+    queryKey: ['enrollments', user?.id],
+    queryFn: ({ signal }) => enrollmentApi.mine(signal),
+    enabled: user !== null,
+  });
 
   if (status === 'loading') return <p role="status">Loading…</p>;
   if (!user) {
@@ -144,7 +146,8 @@ function EnrollmentCard({ entry }: { entry: DashboardEntry }) {
           {entry.totalLessons !== undefined && (
             <span className="muted">
               {' '}
-              ({entry.completedLessons ?? 0} of {entry.totalLessons} lessons)
+              ({entry.completedLessons ?? 0} of {entry.totalLessons} lesson
+              {entry.totalLessons === 1 ? '' : 's'})
             </span>
           )}
         </span>

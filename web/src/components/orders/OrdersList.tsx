@@ -7,13 +7,17 @@ import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
 import { statusTone } from '@/lib/status';
 import { formatDateTime } from '@/lib/format';
 import { useSession } from '@/lib/session';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from './Orders.module.css';
 
 /** #60: the student's orders, newest first as the API returns them. */
 export function OrdersList({ client = defaultOrders }: { client?: OrdersApi }) {
   const { status, user } = useSession();
-  const list = useApi(user ? `orders:${user.id}` : null, () => client.list());
+  const list = useQuery({
+    queryKey: ['orders', user?.id],
+    queryFn: () => client.list(),
+    enabled: user !== null,
+  });
 
   if (status === 'signed-out') {
     return (
@@ -22,7 +26,7 @@ export function OrdersList({ client = defaultOrders }: { client?: OrdersApi }) {
       </Alert>
     );
   }
-  if (status === 'loading' || list.status === 'loading') {
+  if (status === 'loading' || list.status === 'pending') {
     return (
       <p className="muted" role="status">
         Loading orders…

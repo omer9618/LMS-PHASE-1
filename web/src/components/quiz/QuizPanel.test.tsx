@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError } from '@/lib/api/errors';
+import { RequestError } from '@/lib/api/errors';
 import type { AttemptView, LearnApi, QuizOverview } from '@/lib/api/learn';
 import { QuizPanel } from './QuizPanel';
 
@@ -185,7 +185,9 @@ describe('QuizPanel (#75)', () => {
     const client = fakeClient({
       saveAnswers: vi
         .fn()
-        .mockRejectedValue(new ApiError('QUIZ_ATTEMPT_CLOSED', 'Time is up', { status: 409 })),
+        .mockRejectedValue(
+          new RequestError('QUIZ_ATTEMPT_CLOSED', { message: 'Time is up', status: 409 }),
+        ),
       getAttempt: vi.fn().mockResolvedValue({ ...submitted, timedOut: true }),
     });
     render(<QuizPanel courseId="c" lessonId="lesson" viewer="STUDENT" client={client} />);

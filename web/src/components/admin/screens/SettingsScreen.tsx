@@ -3,7 +3,7 @@
 import { type FormEvent } from 'react';
 import { Button, Checkbox, Input, Loadable, PageHeader, Section, Textarea } from '@/components/ui';
 import { adminApi, type PlatformSetting } from '@/lib/api/admin';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
 import { MutationStatus } from '@/components/ui';
 import { useMutation } from '@/lib/use-mutation';
@@ -15,7 +15,10 @@ import { useZodForm } from '@/lib/use-zod-form';
 
 /** #8: values admins change without a deploy. Each change is audited by the API. */
 export function SettingsScreen() {
-  const settings = useApi('admin-settings', (signal) => adminApi.listSettings(signal));
+  const settings = useQuery({
+    queryKey: ['admin-settings'],
+    queryFn: ({ signal }) => adminApi.listSettings(signal),
+  });
   return (
     <>
       <PageHeader
@@ -27,7 +30,11 @@ export function SettingsScreen() {
         {(rows) => (
           <div className={styles.grid}>
             {rows.map((setting) => (
-              <SettingForm key={setting.key} setting={setting} onSaved={settings.reload} />
+              <SettingForm
+                key={setting.key}
+                setting={setting}
+                onSaved={() => void settings.refetch()}
+              />
             ))}
           </div>
         )}

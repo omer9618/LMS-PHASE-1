@@ -15,7 +15,7 @@ import {
   type TeacherProfile,
 } from '@/lib/api/profile';
 import { formatDate } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from './Teacher.module.css';
 import { profileForm } from '@/lib/forms/profile';
 import { validateForm } from '@/lib/zod-form';
@@ -65,15 +65,18 @@ function toFormValues(draft: Draft) {
 
 /** #98: the teacher edits, illustrates and publishes their public profile. */
 export function ProfileEditor() {
-  const loaded = useApi('my-profile', (signal) => profileApi.get(signal));
+  const loaded = useQuery({
+    queryKey: ['my-profile'],
+    queryFn: ({ signal }) => profileApi.get(signal),
+  });
   const [changed, setChanged] = useState<TeacherProfile | null>(null);
 
-  if (loaded.status === 'loading') return <p role="status">Loading your profile…</p>;
+  if (loaded.status === 'pending') return <p role="status">Loading your profile…</p>;
   if (loaded.status === 'error') {
     return (
       <Alert tone="danger" title="Could not load your profile">
         <p>{errorMessage(loaded.error)}</p>
-        <Button size="sm" variant="secondary" onClick={loaded.reload}>
+        <Button size="sm" variant="secondary" onClick={() => void loaded.refetch()}>
           Try again
         </Button>
       </Alert>

@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '@/lib/api/errors';
+import { RequestError } from '@/lib/api/errors';
 import type { LearnApi, LearnerLesson, LearnerOutline } from '@/lib/api/learn';
 import { CoursePlayer } from './CoursePlayer';
 
@@ -126,11 +126,12 @@ describe('CoursePlayer (#53)', () => {
 
   it('sends people without an enrollment to the course page', async () => {
     const client = fakeClient({
-      outline: vi
-        .fn()
-        .mockRejectedValue(
-          new ApiError('ENROLLMENT_REQUIRED', 'Enrol in this course to access it', { status: 403 }),
-        ),
+      outline: vi.fn().mockRejectedValue(
+        new RequestError('ENROLLMENT_REQUIRED', {
+          message: 'Enrol in this course to access it',
+          status: 403,
+        }),
+      ),
     });
     render(<CoursePlayer courseId="c" client={client} />);
     expect(await screen.findByText('Enrol in this course to access it')).toBeInTheDocument();

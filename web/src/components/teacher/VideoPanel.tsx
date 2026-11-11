@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { Alert, Badge, Button, Input } from '@/components/ui';
-import { errorMessage } from '@/lib/api/errors';
+import { errorMessage, RequestAbortedError } from '@/lib/api/errors';
 import { teacherApi } from '@/lib/api/teacher';
 import type { AuthoringLesson } from '@/lib/api/schemas/teacher';
 import { formatBytes, formatDuration } from '@/lib/format';
@@ -67,7 +67,10 @@ export function VideoPanel({
       await teacherApi.refreshVideo(courseId, lesson.id).catch(() => undefined);
       await onChanged();
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (
+        error instanceof RequestAbortedError ||
+        (error instanceof DOMException && error.name === 'AbortError')
+      ) {
         setUpload({ kind: 'error', message: 'Upload cancelled.' });
       } else {
         setUpload({

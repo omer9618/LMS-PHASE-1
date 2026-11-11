@@ -10,7 +10,7 @@ import {
   linksToLines,
   locationsToLines,
 } from '@/lib/profile-lines';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
 import { MutationStatus, ReasonAction } from '@/components/ui';
 import { useMutation, type Mutation } from '@/lib/use-mutation';
@@ -18,9 +18,10 @@ import { formatDateTime } from '@/lib/format';
 
 /** #100: an admin edits or unpublishes any teacher's public profile. Every change is audited. */
 export function ProfileModerationScreen({ teacherId }: { teacherId: string }) {
-  const profile = useApi(`admin-profile:${teacherId}`, (signal) =>
-    adminApi.getTeacherProfile(teacherId, signal),
-  );
+  const profile = useQuery({
+    queryKey: ['admin-profile', teacherId],
+    queryFn: ({ signal }) => adminApi.getTeacherProfile(teacherId, signal),
+  });
   const mutation = useMutation();
   return (
     <Loadable state={profile} what="the profile">
@@ -70,7 +71,7 @@ export function ProfileModerationScreen({ teacherId }: { teacherId: string }) {
                       () => adminApi.unpublishTeacherProfile(teacherId, reason),
                       'Profile unpublished.',
                     );
-                    if (ok) profile.reload();
+                    if (ok) void profile.refetch();
                     return ok;
                   }}
                 />
@@ -84,7 +85,7 @@ export function ProfileModerationScreen({ teacherId }: { teacherId: string }) {
                       () => adminApi.removeTeacherPhoto(teacherId, reason),
                       'Photo removed.',
                     );
-                    if (ok) profile.reload();
+                    if (ok) void profile.refetch();
                     return ok;
                   }}
                 />
@@ -100,7 +101,7 @@ export function ProfileModerationScreen({ teacherId }: { teacherId: string }) {
             profile={p}
             teacherId={teacherId}
             mutation={mutation}
-            onSaved={profile.reload}
+            onSaved={() => void profile.refetch()}
           />
         </>
       )}

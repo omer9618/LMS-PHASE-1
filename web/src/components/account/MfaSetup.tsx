@@ -11,7 +11,7 @@ import { errorMessage } from '@/lib/api/errors';
 import { useMutation } from '@/lib/use-mutation';
 import { safeNextPath } from '@/lib/format';
 import { useSession } from '@/lib/session';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import mfa from './Mfa.module.css';
 import * as authSchema from '@/lib/api/schemas/auth';
 import { mfaCodeForm } from '@/lib/forms/auth';
@@ -31,7 +31,11 @@ type Setup = authSchema.MfaSetup;
 export function MfaSetup() {
   const next = safeNextPath(useSearchParams().get('next'), '/courses');
   const { status: sessionStatus, user, refresh } = useSession();
-  const mfaStatus = useApi(user ? `mfa:${user.id}` : null, (signal) => authApi.mfaStatus(signal));
+  const mfaStatus = useQuery({
+    queryKey: ['mfa', user?.id],
+    queryFn: ({ signal }) => authApi.mfaStatus(signal),
+    enabled: user !== null,
+  });
   const [setup, setSetup] = useState<Setup | null>(null);
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const starting = useMutation();
@@ -52,7 +56,7 @@ export function MfaSetup() {
     return <RecoveryCodes codes={recoveryCodes} next={next} />;
   }
 
-  if (mfaStatus.status === 'loading') return <p role="status">Loading…</p>;
+  if (mfaStatus.status === 'pending') return <p role="status">Loading…</p>;
   if (mfaStatus.status === 'error') {
     return <Alert tone="danger">{errorMessage(mfaStatus.error)}</Alert>;
   }

@@ -19,7 +19,7 @@ import { adminApi, type AdminEnrollment } from '@/lib/api/admin';
 import { fieldErrors } from '@/lib/api/errors';
 import type { EnrollmentStatus } from '@/lib/api/schemas/enrollment';
 import { formatDate } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
 import { MutationStatus, ReasonAction } from '@/components/ui';
 import { useMutation } from '@/lib/use-mutation';
@@ -39,9 +39,10 @@ export function EnrollmentsScreen() {
   };
   const [draft, setDraft] = useState(initial);
   const [query, setQuery] = useState({ ...initial, offset: 0 });
-  const enrollments = useApi(`admin-enrollments:${JSON.stringify(query)}`, (signal) =>
-    adminApi.listEnrollments({ ...query, limit: LIMIT }, signal),
-  );
+  const enrollments = useQuery({
+    queryKey: ['admin-enrollments', query],
+    queryFn: ({ signal }) => adminApi.listEnrollments({ ...query, limit: LIMIT }, signal),
+  });
   const mutation = useMutation();
 
   return (
@@ -139,7 +140,7 @@ export function EnrollmentsScreen() {
                             () => adminApi.revokeEnrollment(e.id, reason),
                             `Access to ${e.course.title} revoked.`,
                           );
-                          if (ok) enrollments.reload();
+                          if (ok) void enrollments.refetch();
                           return ok;
                         }}
                       />
@@ -156,7 +157,7 @@ export function EnrollmentsScreen() {
           </>
         )}
       </Loadable>
-      <GrantForm onGranted={enrollments.reload} initialCourseId={initial.courseId} />
+      <GrantForm onGranted={() => void enrollments.refetch()} initialCourseId={initial.courseId} />
     </>
   );
 }

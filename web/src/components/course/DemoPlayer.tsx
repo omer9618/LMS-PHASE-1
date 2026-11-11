@@ -3,7 +3,7 @@
 import { Alert } from '@/components/ui';
 import { catalogueApi } from '@/lib/api/catalogue';
 import { errorMessage } from '@/lib/api/errors';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from './Course.module.css';
 
 /**
@@ -17,13 +17,14 @@ export function DemoPlayer({
   courseId: string;
   lesson: { id: string; title: string };
 }) {
-  const playback = useApi(`playback:${courseId}:${lesson.id}`, (signal) =>
-    catalogueApi.demoPlayback(courseId, lesson.id, signal),
-  );
+  const playback = useQuery({
+    queryKey: ['playback', courseId, lesson.id],
+    queryFn: ({ signal }) => catalogueApi.demoPlayback(courseId, lesson.id, signal),
+  });
 
   return (
     <div className={styles.player}>
-      {playback.status === 'loading' && (
+      {playback.status === 'pending' && (
         <div className={styles.playerFrame}>
           <p className={styles.playerMessage}>Loading the preview…</p>
         </div>

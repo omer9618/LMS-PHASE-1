@@ -27,6 +27,16 @@ describe('SiteHeader', () => {
     );
   });
 
+  it('does not send people back to a sign-in or sign-up page', async () => {
+    setPathname('/register');
+    renderWithSession(<SiteHeader />);
+    expect(await screen.findByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login');
+    expect(screen.getByRole('link', { name: 'Create account' })).toHaveAttribute(
+      'href',
+      '/register',
+    );
+  });
+
   it('links to each role’s area', async () => {
     renderWithSession(<SiteHeader />, { ...STUDENT, roles: ['STUDENT', 'TEACHER'] });
     expect(await screen.findByRole('link', { name: 'My learning' })).toHaveAttribute(

@@ -20,7 +20,7 @@ import {
 } from '@/lib/api/admin-finance';
 import { formatDate } from '@/lib/format';
 import { formatMoney } from '@/lib/money';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 
 /** Teachers shown in one run. Each needs a statement request, so the list is capped. */
 const MAX_TEACHERS = 50;
@@ -118,20 +118,23 @@ const COLUMNS: Array<Column<RunRow>> = [
  * has no single "all balances" route, so this loads the teachers and their statements together.
  */
 export function PayoutRunScreen() {
-  const run = useApi('payout-run', async (signal) => {
-    const teachers = await adminApi.listUsers(
-      { role: 'TEACHER', status: 'ACTIVE', limit: MAX_TEACHERS },
-      signal,
-    );
-    const [statements, concerns] = await Promise.all([
-      Promise.all(teachers.items.map((t) => adminFinanceApi.getTeacherStatement(t.id, signal))),
-      adminFinanceApi.listOpenConcerns(signal),
-    ]);
-    return {
-      rows: sortRun(statements.map(toRunRow)),
-      total: teachers.total,
-      openConcerns: concerns.count,
-    };
+  const run = useQuery({
+    queryKey: ['payout-run'],
+    queryFn: async ({ signal }) => {
+      const teachers = await adminApi.listUsers(
+        { role: 'TEACHER', status: 'ACTIVE', limit: MAX_TEACHERS },
+        signal,
+      );
+      const [statements, concerns] = await Promise.all([
+        Promise.all(teachers.items.map((t) => adminFinanceApi.getTeacherStatement(t.id, signal))),
+        adminFinanceApi.listOpenConcerns(signal),
+      ]);
+      return {
+        rows: sortRun(statements.map(toRunRow)),
+        total: teachers.total,
+        openConcerns: concerns.count,
+      };
+    },
   });
 
   return (

@@ -1,9 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { ApiError } from '@/lib/api/errors';
+import { RequestError } from '@/lib/api/errors';
 import { useMutation } from './use-mutation';
 
-const validation = new ApiError('VALIDATION_FAILED', 'Check the form', {
+const validation = new RequestError('VALIDATION_FAILED', {
+  message: 'Check the form',
   info: { issues: [{ path: 'email', message: 'Not an email' }] },
 });
 

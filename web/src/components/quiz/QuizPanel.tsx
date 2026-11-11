@@ -1,16 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Alert, Badge, Button } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { useMutation } from '@/lib/use-mutation';
-import {
-  learn,
-  type AttemptSummary,
-  type AttemptView,
-  type LearnApi,
-  type QuizOverview,
-} from '@/lib/api/learn';
+import { learn, type AttemptSummary, type AttemptView, type LearnApi } from '@/lib/api/learn';
 import { describeTimeLimit } from '@/lib/quiz-timer';
 import { QuizAttempt } from './QuizAttempt';
 import { QuizResult } from './QuizResult';
@@ -36,32 +31,18 @@ export function QuizPanel({
   onAttemptClosed,
   client = learn,
 }: QuizPanelProps) {
-  const [overview, setOverview] = useState<QuizOverview | null>(null);
   const [mode, setMode] = useState<Mode>({ kind: 'overview' });
-  const [error, setError] = useState<string | null>(null);
   const opening = useMutation();
   const busy = opening.pending;
-
-  const loadOverview = useCallback(async () => {
-    try {
-      setOverview(await client.quizOverview(courseId, lessonId));
-      setError(null);
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  }, [client, courseId, lessonId]);
-
   // The player mounts one panel per lesson (keyed by lesson id), so state starts fresh.
-  useEffect(() => {
-    let cancelled = false;
-    client.quizOverview(courseId, lessonId).then(
-      (o) => !cancelled && setOverview(o),
-      (e) => !cancelled && setError(errorMessage(e)),
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [client, courseId, lessonId]);
+  const loaded = useQuery({
+    queryKey: ['quiz-overview', courseId, lessonId],
+    queryFn: () => client.quizOverview(courseId, lessonId),
+    staleTime: 0,
+  });
+  const overview = loaded.data ?? null;
+  const error = loaded.status === 'error' ? errorMessage(loaded.error) : null;
+  const loadOverview = () => loaded.refetch();
 
   async function start() {
     await opening.run(async () => {
@@ -138,7 +119,8 @@ export function QuizPanel({
         <div>
           <dt>Questions</dt>
           <dd>
-            {overview.questionCount} ({overview.totalMarks} marks)
+            {overview.questionCount} ({overview.totalMarks} mark
+            {overview.totalMarks === 1 ? '' : 's'})
           </dd>
         </div>
         <div>

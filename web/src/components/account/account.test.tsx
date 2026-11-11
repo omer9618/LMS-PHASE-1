@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TeacherApplicationForm, checkCv } from '@/components/onboarding/TeacherApplicationForm';
 import { DEV_CAPTCHA_TOKEN } from '@/components/forms/Captcha';
 import { StudentDashboard, sortEntries } from '@/components/dashboard/StudentDashboard';
-import { ApiError } from '@/lib/api/errors';
+import { RequestError } from '@/lib/api/errors';
 import type { DashboardEntry } from '@/lib/api/schemas/enrollment';
 import type { Me } from '@/lib/api/schemas/auth';
 import { needsMfaSetup } from '@/lib/session';
@@ -80,7 +80,9 @@ describe('TeacherApplicationForm', () => {
   });
 
   it('explains a failed captcha', async () => {
-    apiMock.postForm.mockRejectedValue(new ApiError('CAPTCHA_FAILED', 'Captcha failed'));
+    apiMock.postForm.mockRejectedValue(
+      new RequestError('CAPTCHA_FAILED', { message: 'Captcha failed' }),
+    );
     renderWithSession(<TeacherApplicationForm />);
     await fillIn();
     await userEvent.click(screen.getByRole('button', { name: 'Send application' }));
@@ -89,7 +91,10 @@ describe('TeacherApplicationForm', () => {
 
   it('puts an API field error on the CV', async () => {
     apiMock.postForm.mockRejectedValue(
-      new ApiError('VALIDATION_FAILED', 'A CV file is required', { info: { field: 'cv' } }),
+      new RequestError('VALIDATION_FAILED', {
+        message: 'A CV file is required',
+        info: { field: 'cv' },
+      }),
     );
     renderWithSession(<TeacherApplicationForm />);
     await fillIn();
@@ -157,7 +162,7 @@ describe('MFA set-up', () => {
   it('shows a wrong code', async () => {
     apiMock.post.mockImplementation(async (path: string) => {
       if (path === '/auth/mfa/setup') return { secret: 'ABCD', otpauthUri: 'otpauth://x' };
-      throw new ApiError('INVALID_MFA_CODE', 'That code is not valid');
+      throw new RequestError('INVALID_MFA_CODE', { message: 'That code is not valid' });
     });
     renderWithSession(<MfaSetup />, ADMIN, () => ({
       enabled: false,

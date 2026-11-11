@@ -7,7 +7,7 @@ import { catalogueApi } from '@/lib/api/catalogue';
 import { errorMessage } from '@/lib/api/errors';
 import type { CourseDetail, OutlineLesson } from '@/lib/api/schemas/catalogue';
 import { formatDuration, PACING_HINTS, PACING_LABELS } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import { DemoPlayer } from './DemoPlayer';
 import { EnrollPanel } from './EnrollPanel';
 import styles from './Course.module.css';
@@ -21,9 +21,12 @@ const LESSON_TYPE_LABELS: Record<string, string> = {
 
 /** Course detail (#43): syllabus coverage, pricing, teacher, the demo (#34) and enrollment. */
 export function CourseDetailView({ courseId }: { courseId: string }) {
-  const course = useApi(`course:${courseId}`, (signal) => catalogueApi.course(courseId, signal));
+  const course = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: ({ signal }) => catalogueApi.course(courseId, signal),
+  });
 
-  if (course.status === 'loading') {
+  if (course.status === 'pending') {
     return (
       <div className="page" aria-busy="true">
         <p role="status">Loading the course…</p>

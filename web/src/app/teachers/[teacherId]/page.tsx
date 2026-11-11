@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { PublicProfile, profileDescription } from '@/components/teachers/PublicProfile';
-import { isApiError } from '@/lib/api/errors';
+import { isRequestError } from '@/lib/api/errors';
 import type { PublicTeacherProfile } from '@/lib/api/profile';
 import { serverApi } from '@/lib/api/server';
 import { publicTeacherProfile } from '@/lib/api/schemas/teacher';
@@ -19,7 +19,8 @@ const loadProfile = cache(async (teacherId: string): Promise<PublicTeacherProfil
   try {
     return await serverApi.get(`/teachers/${teacherId}`, publicTeacherProfile, { limit: 60 });
   } catch (error) {
-    if (isApiError(error, 'NOT_FOUND') || isApiError(error, 'VALIDATION_FAILED')) notFound();
+    if (isRequestError(error, 'NOT_FOUND') || isRequestError(error, 'VALIDATION_FAILED'))
+      notFound();
     throw error;
   }
 });

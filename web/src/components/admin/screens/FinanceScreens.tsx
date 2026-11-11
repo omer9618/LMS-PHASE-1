@@ -29,7 +29,7 @@ import { formatBps, parseSignedMajorToMinor } from '@/lib/money';
 import { formatAgeHours, todayIso } from '@/lib/format';
 import { formatDate } from '@/lib/format';
 import { formatMoney, minorToMajorInput, minorUnitExponent } from '@/lib/money';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
 import { MutationStatus } from '@/components/ui';
 import { useMutation } from '@/lib/use-mutation';
@@ -56,9 +56,10 @@ export function FinanceSummaryScreen() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [query, setQuery] = useState<{ from?: string; to?: string }>({});
-  const summary = useApi(`finance:${JSON.stringify(query)}`, (signal) =>
-    adminFinanceApi.getFinancialSummary(query, signal),
-  );
+  const summary = useQuery({
+    queryKey: ['finance', query],
+    queryFn: ({ signal }) => adminFinanceApi.getFinancialSummary(query, signal),
+  });
   return (
     <>
       <PageHeader
@@ -94,7 +95,7 @@ export function FinanceSummaryScreen() {
                   <StatTile
                     label="Confirmed sales"
                     value={formatMoney(c.confirmedSalesGrossMinor, c.currency)}
-                    note={`${c.confirmedSalesCount} sales`}
+                    note={`${c.confirmedSalesCount} sale${c.confirmedSalesCount === 1 ? '' : 's'}`}
                   />
                   <StatTile
                     label="Commission kept"
@@ -108,7 +109,7 @@ export function FinanceSummaryScreen() {
                   <StatTile
                     label="Paid out"
                     value={formatMoney(c.payoutsMinor, c.currency)}
-                    note={`${c.payoutsCount} payouts · ${c.refundsCount} refunds`}
+                    note={`${c.payoutsCount} payout${c.payoutsCount === 1 ? '' : 's'} · ${c.refundsCount} refund${c.refundsCount === 1 ? '' : 's'}`}
                   />
                 </StatGrid>
                 <Table<[keyof CurrencyFinancialSummary, string]>
@@ -138,7 +139,10 @@ export function FinanceSummaryScreen() {
 // ── #106 Open payout concerns with ageing ──
 
 export function ConcernsScreen() {
-  const concerns = useApi('concerns', (signal) => adminFinanceApi.listOpenConcerns(signal));
+  const concerns = useQuery({
+    queryKey: ['concerns'],
+    queryFn: ({ signal }) => adminFinanceApi.listOpenConcerns(signal),
+  });
   return (
     <>
       <PageHeader
@@ -205,9 +209,10 @@ export function ConcernsScreen() {
 // ── #105 Per-teacher statement, #83 adjustments, #85 record payout ──
 
 export function TeacherStatementScreen({ teacherId }: { teacherId: string }) {
-  const statement = useApi(`statement:${teacherId}`, (signal) =>
-    adminFinanceApi.getTeacherStatement(teacherId, signal),
-  );
+  const statement = useQuery({
+    queryKey: ['statement', teacherId],
+    queryFn: ({ signal }) => adminFinanceApi.getTeacherStatement(teacherId, signal),
+  });
   return (
     <Loadable state={statement} what="the statement">
       {(s) => (
@@ -229,9 +234,9 @@ export function TeacherStatementScreen({ teacherId }: { teacherId: string }) {
             <RecordPayoutForm
               teacherId={teacherId}
               balances={s.balances}
-              onRecorded={statement.reload}
+              onRecorded={() => void statement.refetch()}
             />
-            <AdjustmentForm teacherId={teacherId} onRecorded={statement.reload} />
+            <AdjustmentForm teacherId={teacherId} onRecorded={() => void statement.refetch()} />
           </div>
           <Section title={`Payouts (${s.payouts.count})`}>
             <Table<Payout>
@@ -272,7 +277,9 @@ export function TeacherStatementScreen({ teacherId }: { teacherId: string }) {
           </Section>
           <SalesTable title="Confirmed sales" items={s.sales.confirmed.items} />
           <SalesTable title="Pending sales (not yet verified)" items={s.sales.pending.items} />
-          <Section title={`Ledger (${s.ledger.count} entries)`}>
+          <Section
+            title={`Ledger (${s.ledger.count} ${s.ledger.count === 1 ? 'entry' : 'entries'})`}
+          >
             <LedgerTable entries={s.ledger.items} />
           </Section>
         </>
@@ -510,9 +517,10 @@ function AdjustmentForm({ teacherId, onRecorded }: { teacherId: string; onRecord
 // ── #86–#89 Payout detail and concern resolution ──
 
 export function PayoutDetailScreen({ payoutId }: { payoutId: string }) {
-  const detail = useApi(`payout:${payoutId}`, (signal) =>
-    adminFinanceApi.getPayout(payoutId, signal),
-  );
+  const detail = useQuery({
+    queryKey: ['payout', payoutId],
+    queryFn: ({ signal }) => adminFinanceApi.getPayout(payoutId, signal),
+  });
   return (
     <Loadable state={detail} what="the payout">
       {({ payout, coveredSales }) => {
@@ -574,7 +582,7 @@ export function PayoutDetailScreen({ payoutId }: { payoutId: string }) {
                 <ResolveConcernForm
                   payoutId={payout.id}
                   currency={currency}
-                  onResolved={detail.reload}
+                  onResolved={() => void detail.refetch()}
                 />
               )}
             </Section>

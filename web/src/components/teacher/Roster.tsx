@@ -16,7 +16,7 @@ import { teacherApi } from '@/lib/api/teacher';
 import type { EnrollmentSource, EnrollmentStatus } from '@/lib/api/schemas/enrollment';
 import type { RosterEntry } from '@/lib/api/schemas/teacher';
 import { formatDate } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import { useCourseWorkspace } from './CourseWorkspace';
 import styles from './Teacher.module.css';
 
@@ -68,17 +68,19 @@ export function Roster() {
   const { course } = useCourseWorkspace();
   const [status, setStatus] = useState<EnrollmentStatus | ''>('');
   const [page, setPage] = useState(1);
-  const roster = useApi(`roster:${course.id}:${status}:${page}`, (signal) =>
-    teacherApi.roster(
-      course.id,
-      {
-        limit: ROSTER_PAGE_SIZE,
-        offset: (page - 1) * ROSTER_PAGE_SIZE,
-        status: status || undefined,
-      },
-      signal,
-    ),
-  );
+  const roster = useQuery({
+    queryKey: ['roster', course.id, status, page],
+    queryFn: ({ signal }) =>
+      teacherApi.roster(
+        course.id,
+        {
+          limit: ROSTER_PAGE_SIZE,
+          offset: (page - 1) * ROSTER_PAGE_SIZE,
+          status: status || undefined,
+        },
+        signal,
+      ),
+  });
   return (
     <div className="stack">
       <p className="muted">View only. To grant or remove access, contact an administrator.</p>
@@ -98,11 +100,11 @@ export function Roster() {
           </option>
         ))}
       </Select>
-      {roster.status === 'loading' && <p role="status">Loading students…</p>}
+      {roster.status === 'pending' && <p role="status">Loading students…</p>}
       {roster.status === 'error' && (
         <Alert tone="danger" title="Could not load the students">
           <p>{errorMessage(roster.error)}</p>
-          <Button size="sm" variant="secondary" onClick={roster.reload}>
+          <Button size="sm" variant="secondary" onClick={() => void roster.refetch()}>
             Try again
           </Button>
         </Alert>

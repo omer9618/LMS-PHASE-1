@@ -32,7 +32,7 @@ import { errorMessage } from '@/lib/api/errors';
 import { useMutation } from '@/lib/use-mutation';
 import { formatDate } from '@/lib/format';
 import { formatMoney } from '@/lib/money';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from './Teacher.module.css';
 
 /** 1250 → "12.5%". Integer maths on basis points. */
@@ -101,7 +101,10 @@ const ledgerColumns: Array<Column<LedgerEntry>> = [
 
 /** #84: balance, pending vs confirmed sales, statement and payouts (#85–#88). */
 export function Earnings() {
-  const dashboard = useApi('earnings', (signal) => earningsApi.dashboard(signal));
+  const dashboard = useQuery({
+    queryKey: ['earnings'],
+    queryFn: ({ signal }) => earningsApi.dashboard(signal),
+  });
 
   return (
     <div className="stack">
@@ -186,7 +189,7 @@ export function Earnings() {
                             <PayoutCard
                               payout={p}
                               currency={payoutCurrency(p.id, data.ledgerEntries, onlyCurrency)}
-                              onChanged={dashboard.reload}
+                              onChanged={() => void dashboard.refetch()}
                             />
                           </li>
                         ))}
@@ -315,8 +318,11 @@ function PayoutCard({
 }
 
 function PayoutDetails({ payout, onChanged }: { payout: PayoutSummary; onChanged: () => void }) {
-  const detail = useApi(`payout:${payout.id}`, (signal) => earningsApi.payout(payout.id, signal));
-  if (detail.status === 'loading') return <p role="status">Loading…</p>;
+  const detail = useQuery({
+    queryKey: ['payout', payout.id],
+    queryFn: ({ signal }) => earningsApi.payout(payout.id, signal),
+  });
+  if (detail.status === 'pending') return <p role="status">Loading…</p>;
   if (detail.status === 'error') return <Alert tone="danger">{errorMessage(detail.error)}</Alert>;
   const { coveredSales, payout: full } = detail.data;
   return (
@@ -351,7 +357,7 @@ function PayoutDetails({ payout, onChanged }: { payout: PayoutSummary; onChanged
         <ConcernForm
           payoutId={payout.id}
           onRaised={() => {
-            detail.reload();
+            void detail.refetch();
             onChanged();
           }}
         />

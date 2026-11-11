@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '@/lib/api/errors';
+import { RequestError } from '@/lib/api/errors';
 import {
   checkLinkUrl,
   checkPhoto,
@@ -127,7 +127,9 @@ describe('ProfileEditor', () => {
   });
 
   it('explains that publishing needs a bio', async () => {
-    apiMock.post.mockRejectedValue(new ApiError('PROFILE_INCOMPLETE', 'Needs more detail'));
+    apiMock.post.mockRejectedValue(
+      new RequestError('PROFILE_INCOMPLETE', { message: 'Needs more detail' }),
+    );
     renderEditor(profile());
     await userEvent.click(await screen.findByRole('button', { name: 'Publish profile' }));
     expect(await screen.findByText(/Add a bio and save it before publishing/)).toBeVisible();

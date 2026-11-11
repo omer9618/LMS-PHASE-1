@@ -13,7 +13,7 @@ import {
 import { humaniseGuidance } from '@/lib/order-display';
 import { statusTone } from '@/lib/status';
 import { formatDateTime } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import { PaymentInstructions } from './PaymentInstructions';
 import { ProofForm } from './ProofForm';
 import styles from './Orders.module.css';
@@ -35,10 +35,10 @@ export function OrderDetail({
   justPlaced = false,
   client = defaultOrders,
 }: OrderDetailProps) {
-  const loaded = useApi(`order:${orderId}`, () => client.get(orderId));
+  const loaded = useQuery({ queryKey: ['order', orderId], queryFn: () => client.get(orderId) });
   const [latest, setLatest] = useState<SubmittedProof | null>(null);
 
-  if (loaded.status === 'loading') {
+  if (loaded.status === 'pending') {
     return (
       <p className="muted" role="status">
         Loading order…

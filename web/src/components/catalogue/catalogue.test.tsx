@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '@/lib/api/errors';
+import { RequestError } from '@/lib/api/errors';
 import { BOARD_ID, courseCard, LEVEL_ID, listing, SUBJECT_ID } from '@/test/fixtures';
 import { apiMock, resetMocks, router, setSearch } from '@/test/mocks';
 import { renderWithSession } from '@/test/render';
@@ -184,7 +184,8 @@ describe('CatalogueBrowser', () => {
     let calls = 0;
     catalogue = () => {
       calls += 1;
-      if (calls === 1) throw new ApiError('INTERNAL', 'Internal error', { status: 500 });
+      if (calls === 1)
+        throw new RequestError('INTERNAL', { message: 'Internal error', status: 500 });
       return listing([courseCard()]);
     };
     renderCatalogue();

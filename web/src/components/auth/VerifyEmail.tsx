@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, ButtonLink } from '@/components/ui';
 import styles from '@/components/forms/Form.module.css';
 import { api } from '@/lib/api/client';
-import { errorMessage, isApiError } from '@/lib/api/errors';
+import { errorMessage, isRequestError } from '@/lib/api/errors';
 import { useSession } from '@/lib/session';
 import { ResendVerificationButton } from './ResendVerificationButton';
 import { ignored } from '@/lib/api/schemas/common';
@@ -35,7 +35,7 @@ export function VerifyEmail() {
         await refresh();
       })
       .catch((error: unknown) => {
-        if (isApiError(error, 'INVALID_TOKEN') || isApiError(error, 'VALIDATION_FAILED')) {
+        if (isRequestError(error, 'INVALID_TOKEN') || isRequestError(error, 'VALIDATION_FAILED')) {
           setState({ kind: 'invalid' });
         } else {
           setState({ kind: 'error', message: errorMessage(error) });

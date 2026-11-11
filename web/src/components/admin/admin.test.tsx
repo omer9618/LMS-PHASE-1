@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AdminDashboard, MeWithContext } from '@/lib/api/admin';
-import { ApiError } from '@/lib/api/errors';
+import { RequestError } from '@/lib/api/errors';
 import { SessionProvider } from '@/lib/session';
 import { apiMock, resetMocks, router, setPathname } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';
@@ -211,7 +211,8 @@ describe('DecisionPanel (#64–#66)', () => {
 
   it('rejects with a reason, requiring notes for Other, and shows API errors', async () => {
     apiMock.post.mockRejectedValueOnce(
-      new ApiError('VERIFICATION_REFUSED', 'This order is not waiting for verification', {
+      new RequestError('VERIFICATION_REFUSED', {
+        message: 'This order is not waiting for verification',
         status: 422,
       }),
     );

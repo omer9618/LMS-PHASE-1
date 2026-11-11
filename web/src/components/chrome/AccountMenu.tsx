@@ -14,6 +14,8 @@ const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Admin',
 };
 
+const AUTH_PAGES = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'];
+
 /** The right side of the header: who is signed in, with sign-out; or sign-in links. */
 export function AccountMenu() {
   const { status, user, signOut } = useSession();
@@ -24,8 +26,11 @@ export function AccountMenu() {
   if (status === 'loading') return <div className={styles.account} aria-hidden="true" />;
 
   if (!user) {
+    // Come back here after signing in, unless "here" is itself a sign-in or sign-up page.
     const next =
-      pathname && !pathname.startsWith('/login') ? `?next=${encodeURIComponent(pathname)}` : '';
+      pathname && !AUTH_PAGES.some((page) => pathname.startsWith(page))
+        ? `?next=${encodeURIComponent(pathname)}`
+        : '';
     return (
       <div className={styles.account}>
         <Link href={`/login${next}`}>Sign in</Link>

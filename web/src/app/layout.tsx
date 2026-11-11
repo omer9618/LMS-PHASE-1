@@ -3,6 +3,7 @@ import { JetBrains_Mono, Source_Sans_3, Source_Serif_4 } from 'next/font/google'
 import type { ReactNode } from 'react';
 import { SiteFooter } from '@/components/chrome/SiteFooter';
 import { SiteHeader } from '@/components/chrome/SiteHeader';
+import { QueryProvider } from '@/lib/query';
 import { SessionProvider } from '@/lib/session';
 import '@/styles/globals.css';
 
@@ -33,16 +34,18 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={`${sans.variable} ${serif.variable} ${mono.variable}`}
     >
       <body>
-        <SessionProvider>
-          <a className="skip-link" href="#main">
-            Skip to content
-          </a>
-          <SiteHeader />
-          <main id="main" tabIndex={-1}>
-            {children}
-          </main>
-          <SiteFooter />
-        </SessionProvider>
+        <QueryProvider>
+          <SessionProvider>
+            <a className="skip-link" href="#main">
+              Skip to content
+            </a>
+            <SiteHeader />
+            <main id="main" tabIndex={-1}>
+              {children}
+            </main>
+            <SiteFooter />
+          </SessionProvider>
+        </QueryProvider>
       </body>
     </html>
   );

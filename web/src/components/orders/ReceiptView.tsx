@@ -5,7 +5,7 @@ import { Alert, Button, Icon, Money } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
 import { formatDateTime } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from './Orders.module.css';
 
 /** #62: the receipt of a confirmed order, printable (or saved as PDF from the print dialog). */
@@ -16,7 +16,10 @@ export function ReceiptView({
   orderId: string;
   client?: OrdersApi;
 }) {
-  const receipt = useApi(`receipt:${orderId}`, () => client.receipt(orderId));
+  const receipt = useQuery({
+    queryKey: ['receipt', orderId],
+    queryFn: () => client.receipt(orderId),
+  });
   const back = (
     <p className={styles.noPrint}>
       <Link href={`/orders/${encodeURIComponent(orderId)}`}>
@@ -25,7 +28,7 @@ export function ReceiptView({
     </p>
   );
 
-  if (receipt.status === 'loading') {
+  if (receipt.status === 'pending') {
     return (
       <p className="muted" role="status">
         Loading receipt…

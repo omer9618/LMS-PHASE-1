@@ -6,7 +6,7 @@ import { Captcha } from '@/components/forms/Captcha';
 import { Alert, Button, Input, Textarea } from '@/components/ui/index';
 import styles from '@/components/forms/Form.module.css';
 import { api } from '@/lib/api/client';
-import { isApiError } from '@/lib/api/errors';
+import { isRequestError } from '@/lib/api/errors';
 import { applicationFormData, teacherApplicationForm } from '@/lib/forms/apply';
 import { CV_ACCEPT, CV_MAX_BYTES } from '@/lib/forms/fields';
 import { formatBytes } from '@/lib/format';
@@ -45,9 +45,9 @@ export function TeacherApplicationForm() {
   const [formError, setFormError] = useState<string | null>(null);
   const send = useMutation();
   const shown = { ...errors, ...send.fieldErrors };
-  const serverMessage = isApiError(send.failure, 'CAPTCHA_FAILED')
+  const serverMessage = isRequestError(send.failure, 'CAPTCHA_FAILED')
     ? 'The human check failed. Please try it again.'
-    : isApiError(send.failure, 'UPLOAD_REJECTED')
+    : isRequestError(send.failure, 'UPLOAD_REJECTED')
       ? `Your CV was not accepted: ${send.error}`
       : send.error;
   const [submitted, setSubmitted] = useState<string | null>(null);

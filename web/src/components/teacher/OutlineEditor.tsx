@@ -18,7 +18,7 @@ import type { AuthoringLesson, AuthoringSection, Outline } from '@/lib/api/schem
 import type { LessonType } from '@/lib/api/schemas/catalogue';
 import { contentEditable } from '@/lib/course-status';
 import { formatDuration } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import { useCourseWorkspace } from './CourseWorkspace';
 import { ResourcesPanel } from './ResourcesPanel';
 import { VideoPanel } from './VideoPanel';
@@ -50,20 +50,21 @@ export interface OutlineActions {
  */
 export function OutlineEditor() {
   const { course } = useCourseWorkspace();
-  const loaded = useApi(`outline:${course.id}`, (signal) =>
-    teacherApi.getOutline(course.id, signal),
-  );
+  const loaded = useQuery({
+    queryKey: ['outline', course.id],
+    queryFn: ({ signal }) => teacherApi.getOutline(course.id, signal),
+  });
   const [changed, setChanged] = useState<Outline | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState<string | null>(null);
   const editable = contentEditable(course.status);
 
-  if (loaded.status === 'loading') return <p role="status">Loading the content…</p>;
+  if (loaded.status === 'pending') return <p role="status">Loading the content…</p>;
   if (loaded.status === 'error') {
     return (
       <Alert tone="danger" title="Could not load the content">
         <p>{errorMessage(loaded.error)}</p>
-        <Button size="sm" variant="secondary" onClick={loaded.reload}>
+        <Button size="sm" variant="secondary" onClick={() => void loaded.refetch()}>
           Try again
         </Button>
       </Alert>
@@ -179,7 +180,7 @@ function SectionCard({
                 if (
                   section.lessons.length === 0 ||
                   window.confirm(
-                    `Delete “${section.title}” and its ${section.lessons.length} lessons?`,
+                    `Delete “${section.title}” and its ${section.lessons.length} lesson${section.lessons.length === 1 ? '' : 's'}?`,
                   )
                 ) {
                   void run(

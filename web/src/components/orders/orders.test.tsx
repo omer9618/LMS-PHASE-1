@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '@/lib/api/errors';
+import { RequestError } from '@/lib/api/errors';
 import type { CartQuote, StudentOrder } from '@/lib/api/orders';
 import { CART_STORAGE_KEY } from '@/lib/cart';
 import { COURSE_ID, courseDetail } from '@/test/fixtures';
@@ -132,7 +132,8 @@ describe('cart and checkout (#54, #55)', () => {
   it('offers to remove a course the API refuses', async () => {
     window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify([C1, C2]));
     apiMock.post.mockRejectedValueOnce(
-      new ApiError('ORDER_REFUSED', 'You already have access to Waves', {
+      new RequestError('ORDER_REFUSED', {
+        message: 'You already have access to Waves',
         status: 409,
         info: { courseId: C2, reason: 'ALREADY_ENROLLED' },
       }),
@@ -335,11 +336,10 @@ describe('orders list and receipt (#60, #62)', () => {
 
   it('explains a receipt is not issued before confirmation', async () => {
     renderWithSession(<ReceiptView orderId={ORDER_ID} />, STUDENT, () => {
-      throw new ApiError(
-        'ORDER_REFUSED',
-        'A receipt is issued only once the payment is confirmed',
-        { status: 409 },
-      );
+      throw new RequestError('ORDER_REFUSED', {
+        message: 'A receipt is issued only once the payment is confirmed',
+        status: 409,
+      });
     });
     expect(await screen.findByText(/issued once your payment is confirmed/)).toBeVisible();
   });

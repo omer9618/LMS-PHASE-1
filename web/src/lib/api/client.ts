@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import { ApiError } from './errors';
+import { ErrorCode, RequestAbortedError, RequestError } from './errors';
 
 export type QueryValue = string | number | boolean | null | undefined;
 
@@ -26,7 +26,7 @@ export type Schema = z.ZodType;
 /**
  * Every verb takes the zod schema of its response (from `./schemas`) as the second argument. The
  * result is typed from the schema, and a response that does not match rejects with
- * `ApiError('BAD_RESPONSE')` instead of rendering missing data. There is no unchecked form: a
+ * `RequestError(BAD_RESPONSE)` instead of rendering missing data. There is no unchecked form: a
  * call whose body nobody reads passes `ignored`, which says so.
  */
 export interface ApiClient {
@@ -76,7 +76,7 @@ function isEnvelope(
 
 /**
  * Typed fetch for the API envelope. Resolves with `data` of `{ success: true, data }`; rejects
- * with an `ApiError` for `{ success: false, error }`, network failures and non-envelope answers.
+ * with a `RequestError` for `{ success: false, error }`, network failures and non-envelope answers.
  * Cookies ride along automatically: the API is same-origin through the `/api` rewrite.
  */
 export function createApiClient(options: ApiClientOptions = {}): ApiClient {
@@ -102,8 +102,10 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         signal: opts.signal,
       });
     } catch (cause) {
-      if (cause instanceof DOMException && cause.name === 'AbortError') throw cause;
-      throw new ApiError('NETWORK_ERROR', 'The request could not be sent');
+      if (opts.signal?.aborted || (cause as { name?: unknown } | null)?.name === 'AbortError') {
+        throw new RequestAbortedError();
+      }
+      throw new RequestError(ErrorCode.NETWORK_ERROR);
     }
 
     const requestId = response.headers.get('x-request-id');
@@ -115,7 +117,8 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     }
 
     if (!isEnvelope(payload)) {
-      throw new ApiError('BAD_RESPONSE', `Unexpected response (HTTP ${response.status})`, {
+      throw new RequestError(ErrorCode.BAD_RESPONSE, {
+        message: `Unexpected response (HTTP ${response.status})`,
         status: response.status,
         requestId,
       });
@@ -125,19 +128,27 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       if (parsed.success) return parsed.data;
       // The API and the app disagree about a shape: fail loudly, with the details for debugging.
       console.error(`Unexpected response shape from ${method} ${path}`, parsed.error.issues);
-      throw new ApiError('BAD_RESPONSE', 'The server sent something this page cannot show', {
+      throw new RequestError(ErrorCode.BAD_RESPONSE, {
+        message: 'The server sent something this page cannot show',
         info: parsed.error.issues,
         status: response.status,
         requestId,
       });
     }
 
-    const error = (payload.error ?? {}) as { name?: unknown; message?: unknown; info?: unknown };
-    throw new ApiError(
-      typeof error.name === 'string' ? error.name : 'BAD_RESPONSE',
-      typeof error.message === 'string' ? error.message : 'Request failed',
-      { info: error.info, status: response.status, requestId },
-    );
+    const error = (payload.error ?? {}) as {
+      name?: unknown;
+      message?: unknown;
+      info?: unknown;
+      extended?: unknown;
+    };
+    throw new RequestError(typeof error.name === 'string' ? error.name : ErrorCode.BAD_RESPONSE, {
+      message: typeof error.message === 'string' ? error.message : undefined,
+      info: error.info,
+      extended: error.extended,
+      status: response.status,
+      requestId,
+    });
   }
 
   // `request` is untyped inside; the ApiClient interface types each verb from its schema.

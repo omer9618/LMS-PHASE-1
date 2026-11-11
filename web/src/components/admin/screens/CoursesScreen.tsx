@@ -27,7 +27,7 @@ import type { Pacing } from '@/lib/api/schemas/catalogue';
 import { formatBps } from '@/lib/money';
 import { formatDate, PACING_LABELS } from '@/lib/format';
 import { minorToMajorInput, minorUnitExponent } from '@/lib/money';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
 import { MutationStatus, ReasonAction } from '@/components/ui';
 import { useMutation, type Mutation } from '@/lib/use-mutation';
@@ -43,9 +43,11 @@ const STATUSES: CourseStatus[] = ['PENDING_APPROVAL', 'PUBLISHED', 'DRAFT', 'REJ
 export function CoursesScreen() {
   const [status, setStatus] = useState<CourseStatus>('PENDING_APPROVAL');
   const [offset, setOffset] = useState(0);
-  const courses = useApi(`admin-courses:${status}:${offset}`, (signal) =>
-    adminApi.listCoursesForReview({ status, limit: LIMIT, offset }, signal),
-  );
+  const courses = useQuery({
+    queryKey: ['admin-courses', status, offset],
+    queryFn: ({ signal }) =>
+      adminApi.listCoursesForReview({ status, limit: LIMIT, offset }, signal),
+  });
   return (
     <>
       <PageHeader
@@ -122,16 +124,18 @@ export function CoursesScreen() {
 
 /** #28–#33: one course: decide, price, unpublish or archive, edit details, see the outline. */
 export function CourseDetailScreen({ courseId }: { courseId: string }) {
-  const course = useApi(`admin-course:${courseId}`, (signal) =>
-    adminApi.getCourse(courseId, signal),
-  );
-  const outline = useApi(`admin-outline:${courseId}`, (signal) =>
-    adminApi.getCourseOutline(courseId, signal),
-  );
+  const course = useQuery({
+    queryKey: ['admin-course', courseId],
+    queryFn: ({ signal }) => adminApi.getCourse(courseId, signal),
+  });
+  const outline = useQuery({
+    queryKey: ['admin-outline', courseId],
+    queryFn: ({ signal }) => adminApi.getCourseOutline(courseId, signal),
+  });
   const mutation = useMutation();
   const act = async (action: () => Promise<unknown>, success: string) => {
     const ok = await mutation.run(action, success);
-    if (ok) course.reload();
+    if (ok) void course.refetch();
     return ok;
   };
 
@@ -236,7 +240,7 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                   />
                   {c.description && <p>{c.description}</p>}
                 </Section>
-                <DetailsForm course={c} mutation={mutation} onSaved={course.reload} />
+                <DetailsForm course={c} mutation={mutation} onSaved={() => void course.refetch()} />
               </>
             }
             aside={
@@ -308,7 +312,11 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                   </div>
                 </Section>
                 {(c.status === 'PENDING_APPROVAL' || c.status === 'PUBLISHED') && (
-                  <PricingForm course={c} mutation={mutation} onSaved={course.reload} />
+                  <PricingForm
+                    course={c}
+                    mutation={mutation}
+                    onSaved={() => void course.refetch()}
+                  />
                 )}
               </>
             }

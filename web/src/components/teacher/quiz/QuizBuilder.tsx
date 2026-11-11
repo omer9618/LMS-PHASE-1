@@ -13,12 +13,12 @@ import {
   SplitLayout,
   Icon,
 } from '@/components/ui';
-import { errorMessage, isApiError } from '@/lib/api/errors';
+import { errorMessage, isRequestError } from '@/lib/api/errors';
 import { quizBuilderApi, type QuizQuestion, type TeacherQuiz } from '@/lib/api/quiz-builder';
 import { type QuestionInput } from '@/lib/forms/quiz';
 import { moveItem } from '@/lib/api/teacher';
 import { contentEditable } from '@/lib/course-status';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import { useCourseWorkspace } from '../CourseWorkspace';
 import { QuestionEditor } from './QuestionEditor';
 import { QuizSettings } from './QuizSettings';
@@ -35,14 +35,17 @@ type Selection = string | 'new' | null;
 export function QuizBuilder({ lessonId }: { lessonId: string }) {
   const { course } = useCourseWorkspace();
   const editable = contentEditable(course.status);
-  const loaded = useApi(`quiz:${course.id}:${lessonId}`, async (signal) => {
-    try {
-      return await quizBuilderApi.get(course.id, lessonId, signal);
-    } catch (error) {
-      // A quiz lesson without a quiz yet: show the "create" form rather than an error.
-      if (isApiError(error, 'NOT_FOUND')) return null;
-      throw error;
-    }
+  const loaded = useQuery({
+    queryKey: ['quiz', course.id, lessonId],
+    queryFn: async ({ signal }) => {
+      try {
+        return await quizBuilderApi.get(course.id, lessonId, signal);
+      } catch (error) {
+        // A quiz lesson without a quiz yet: show the "create" form rather than an error.
+        if (isRequestError(error, 'NOT_FOUND')) return null;
+        throw error;
+      }
+    },
   });
   // The newest quiz after a change made here.
   const [changed, setChanged] = useState<TeacherQuiz | null | undefined>(undefined);

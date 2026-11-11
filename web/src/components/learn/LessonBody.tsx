@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Alert, Button } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
-import type { LearnApi, LessonContent } from '@/lib/api/learn';
+import type { LearnApi } from '@/lib/api/learn';
+import { useMutation } from '@/lib/use-mutation';
 import { MathText } from './MathText';
 import styles from './Player.module.css';
 
@@ -21,42 +23,32 @@ function formatSize(bytes: number | null): string | null {
 
 /** #53: a lesson's text (with notation) and its downloadable files. */
 export function LessonBody({ courseId, lessonId, client }: LessonBodyProps) {
-  const [content, setContent] = useState<LessonContent | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const loaded = useQuery({
+    queryKey: ['lesson-content', courseId, lessonId],
+    queryFn: () => client.content(courseId, lessonId),
+  });
+  const download = useMutation();
   const [downloading, setDownloading] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Mounted once per lesson (keyed by lesson id), so there is no previous lesson to clear.
-    let cancelled = false;
-    client.content(courseId, lessonId).then(
-      (c) => !cancelled && setContent(c),
-      (e) => !cancelled && setError(errorMessage(e)),
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [client, courseId, lessonId]);
-
-  async function download(resourceId: string) {
+  async function open(resourceId: string) {
     setDownloading(resourceId);
-    try {
+    await download.run(async () => {
       const { url } = await client.resourceDownload(courseId, lessonId, resourceId);
       window.location.assign(url);
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setDownloading(null);
-    }
+    });
+    setDownloading(null);
   }
 
-  if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!content) return <p className={styles.muted}>Loading…</p>;
+  if (loaded.status === 'error') return <Alert tone="danger">{errorMessage(loaded.error)}</Alert>;
+  if (loaded.status === 'pending') return <p className={styles.muted}>Loading…</p>;
+  const content = loaded.data;
   return (
     <div className={styles.body}>
       {content.bodyText && <MathText text={content.bodyText} block className={styles.prose} />}
       {content.resources.length > 0 && (
         <section aria-labelledby={`files-${lessonId}`}>
           <h3 id={`files-${lessonId}`}>Files</h3>
+          {download.error && <Alert tone="danger">{download.error}</Alert>}
           <ul className={styles.files}>
             {content.resources.map((r) => (
               <li key={r.id}>
@@ -69,7 +61,7 @@ export function LessonBody({ courseId, lessonId, client }: LessonBodyProps) {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => download(r.id)}
+                  onClick={() => void open(r.id)}
                   loading={downloading === r.id}
                   loadingText="Preparing…"
                 >

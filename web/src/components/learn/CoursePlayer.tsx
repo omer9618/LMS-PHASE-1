@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, ButtonLink, Icon } from '@/components/ui';
 import { QuizPanel } from '@/components/quiz/QuizPanel';
-import { ApiError, errorMessage } from '@/lib/api/errors';
+import { RequestError, errorMessage } from '@/lib/api/errors';
 import { learn, type LearnApi, type LearnerLesson, type LearnerOutline } from '@/lib/api/learn';
 import { flattenLessons, pickLesson } from '@/lib/learn-outline';
 import { LessonBody } from './LessonBody';
@@ -253,7 +253,7 @@ function PlayerError({
   courseId: string;
   pathname: string;
 }) {
-  const name = error instanceof ApiError ? error.name : null;
+  const name = error instanceof RequestError ? error.name : null;
   if (name === 'UNAUTHENTICATED') {
     return (
       <Alert tone="info" title="Sign in to continue">

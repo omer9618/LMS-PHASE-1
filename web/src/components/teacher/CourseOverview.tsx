@@ -4,14 +4,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { Alert, Button, Checkbox, Input, Icon } from '@/components/ui';
-import { errorMessage, isApiError } from '@/lib/api/errors';
+import { errorMessage, isRequestError } from '@/lib/api/errors';
 import { useMutation } from '@/lib/use-mutation';
 import { submitChecklist, teacherApi } from '@/lib/api/teacher';
 import type { TeacherCourse } from '@/lib/api/schemas/teacher';
 import { canArchive, canSubmit, detailsEditable, detailsLockReason } from '@/lib/course-status';
 import { formatDate, PACING_LABELS } from '@/lib/format';
 import { formatPrice } from '@/lib/money';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import { ConfirmButton } from '@/components/ui';
 import { CourseDetailsForm } from './CourseDetailsForm';
 import { useCourseWorkspace } from './CourseWorkspace';
@@ -29,7 +29,7 @@ export const MISSING_LABELS: Record<string, string> = {
 
 /** The server's checklist errors from a refused submission, as sentences. */
 export function submissionProblems(error: unknown): string[] {
-  if (!isApiError(error)) return [errorMessage(error)];
+  if (!isRequestError(error)) return [errorMessage(error)];
   const info = error.info as { missing?: unknown } | undefined;
   const missing = Array.isArray(info?.missing) ? info.missing.map(String) : [];
   if (missing.length > 0) return missing.map((code) => MISSING_LABELS[code] ?? code);
@@ -153,9 +153,10 @@ function SubmitPanel({
   course: TeacherCourse;
   setCourse: (c: TeacherCourse) => void;
 }) {
-  const outline = useApi(`outline-check:${course.id}`, (signal) =>
-    teacherApi.getOutline(course.id, signal),
-  );
+  const outline = useQuery({
+    queryKey: ['outline-check', course.id],
+    queryFn: ({ signal }) => teacherApi.getOutline(course.id, signal),
+  });
   const [proposal, setProposal] = useState('');
   const [proposalError, setProposalError] = useState<string | undefined>();
   const [problems, setProblems] = useState<string[]>([]);

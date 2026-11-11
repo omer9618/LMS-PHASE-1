@@ -17,7 +17,7 @@ import {
 import { adminApi, type AdminCourse, type AdminEnrollment } from '@/lib/api/admin';
 import type { Role } from '@/lib/api/schemas/auth';
 import { formatDate } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
 import { MutationStatus, ReasonAction } from '@/components/ui';
 import { useMutation } from '@/lib/use-mutation';
@@ -28,15 +28,16 @@ const ROLES: Role[] = ['STUDENT', 'TEACHER', 'ADMIN'];
 
 /** #103: one account with its enrollments, courses taught and every account action. */
 export function UserDetailScreen({ userId }: { userId: string }) {
-  const overview = useApi(`admin-user:${userId}`, (signal) =>
-    adminApi.getUserOverview(userId, signal),
-  );
+  const overview = useQuery({
+    queryKey: ['admin-user', userId],
+    queryFn: ({ signal }) => adminApi.getUserOverview(userId, signal),
+  });
   const mutation = useMutation();
   const [role, setRole] = useState<Role>('TEACHER');
 
   const act = async (action: () => Promise<unknown>, success: string) => {
     const ok = await mutation.run(action, success);
-    if (ok) overview.reload();
+    if (ok) void overview.refetch();
     return ok;
   };
 
