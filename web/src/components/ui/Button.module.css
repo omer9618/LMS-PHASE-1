@@ -85,7 +85,7 @@
   color: var(--color-primary-hover);
 }
 
-/* Destructive actions are outlined, never a filled red block (Exam Hall Button rules). */
+/* Destructive actions are outlined, never a filled red block (Paperlane Button rules). */
 .danger {
   background: transparent;
   border-color: var(--color-danger);
