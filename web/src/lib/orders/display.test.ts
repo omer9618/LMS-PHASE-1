@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { addToCart, CART_MAX_ITEMS, parseCart, removeFromCart } from './cart';
-import { validateProofForm } from './forms/orders';
-import { groupByTeacher, humaniseGuidance, timeUntil } from './order-display';
+import { validateProofForm } from '../forms/orders';
+import { groupByTeacher, humaniseGuidance, timeUntil } from './display';
 
 describe('humaniseGuidance', () => {
   it('reformats minor units and ISO instants in the API guidance', () => {

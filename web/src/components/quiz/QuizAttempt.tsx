@@ -5,7 +5,7 @@ import { Alert, Button } from '@/components/ui';
 import { MathText } from '@/components/learn/MathText';
 import { errorMessage, isRequestError } from '@/lib/api/errors';
 import type { AnswerInput, AttemptQuestion, AttemptView, LearnApi } from '@/lib/api/learn';
-import { isPlainDecimal } from '@/lib/quiz-answers';
+import { isPlainDecimal } from '@/lib/quiz/answers';
 import { QuizTimer } from './QuizTimer';
 import styles from './Quiz.module.css';
 

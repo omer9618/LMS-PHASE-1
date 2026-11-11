@@ -17,7 +17,7 @@ import {
 import { teacherApi } from '@/lib/api/teacher';
 import type { CourseStatus } from '@/lib/api/schemas/enrollment';
 import type { TeacherCourse } from '@/lib/api/schemas/teacher';
-import { COURSE_STATUS } from '@/lib/course-status';
+import { COURSE_STATUS } from '@/lib/teacher/course-status';
 import { formatDate } from '@/lib/format';
 import { formatPrice } from '@/lib/money';
 import { useQuery } from '@tanstack/react-query';

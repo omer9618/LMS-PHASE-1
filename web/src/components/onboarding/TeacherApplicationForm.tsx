@@ -2,16 +2,16 @@
 
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { Captcha } from '@/components/forms/Captcha';
+import { Captcha } from '@/components/ui/Captcha';
 import { Alert, Button, Input, Textarea } from '@/components/ui/index';
-import styles from '@/components/forms/Form.module.css';
+import styles from '@/components/ui/Form.module.css';
 import { api } from '@/lib/api/client';
 import { isRequestError } from '@/lib/api/errors';
 import { applicationFormData, teacherApplicationForm } from '@/lib/forms/apply';
 import { CV_ACCEPT, CV_MAX_BYTES } from '@/lib/forms/fields';
 import { formatBytes } from '@/lib/format';
 import { useMutation } from '@/lib/use-mutation';
-import { validateForm } from '@/lib/zod-form';
+import { validateForm } from '@/lib/forms/validate';
 import * as authSchema from '@/lib/api/schemas/auth';
 
 export { CV_ACCEPT, CV_MAX_BYTES } from '@/lib/forms/fields';

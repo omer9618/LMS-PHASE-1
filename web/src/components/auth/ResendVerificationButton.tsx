@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button, type ButtonProps } from '@/components/ui';
 import { authApi } from '@/lib/api/auth';
 import { useMutation } from '@/lib/use-mutation';
-import styles from '@/components/forms/Form.module.css';
+import styles from '@/components/ui/Form.module.css';
 
 /** POST /auth/verify-email/resend for the signed-in user, with its outcome announced. */
 export function ResendVerificationButton(props: Pick<ButtonProps, 'variant' | 'size'>) {

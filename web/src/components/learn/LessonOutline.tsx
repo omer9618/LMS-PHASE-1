@@ -3,7 +3,7 @@
 import { Icon } from '@/components/ui';
 import type { LearnerOutline } from '@/lib/api/learn';
 import { formatDuration } from '@/lib/format';
-import { lessonStatusLabel, lessonTypeLabel } from '@/lib/learn-outline';
+import { lessonStatusLabel, lessonTypeLabel } from '@/lib/learn/outline';
 import styles from './Player.module.css';
 
 export interface LessonOutlineProps {

@@ -1,4 +1,4 @@
-import { validateForm } from '@/lib/zod-form';
+import { validateForm } from '@/lib/forms/validate';
 import { z } from 'zod';
 import { email, fullName, newPassword, optionalEmail, optionalName, optionalText } from './fields';
 

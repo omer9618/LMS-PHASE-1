@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, ButtonLink } from '@/components/ui';
-import styles from '@/components/forms/Form.module.css';
+import styles from '@/components/ui/Form.module.css';
 import { api } from '@/lib/api/client';
 import { errorMessage, isRequestError } from '@/lib/api/errors';
 import { useSession } from '@/lib/session';

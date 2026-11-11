@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
-import { PublicProfile, profileDescription } from '@/components/teachers/PublicProfile';
+import { PublicProfile, profileDescription } from '@/components/teacher-profile/PublicProfile';
 import { isRequestError } from '@/lib/api/errors';
 import type { PublicTeacherProfile } from '@/lib/api/profile';
 import { serverApi } from '@/lib/api/server';

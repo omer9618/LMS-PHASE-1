@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useCart } from '@/lib/cart';
+import { useCart } from '@/lib/orders/cart';
 import { useSession } from '@/lib/session';
 
 /** Header links for buying (#54, #60): the cart (with its count) and, signed in, my orders. */

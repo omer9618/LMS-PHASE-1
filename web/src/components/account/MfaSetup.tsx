@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import QRCode from 'qrcode';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Alert, Button, ButtonLink, Checkbox, Input } from '@/components/ui';
-import styles from '@/components/forms/Form.module.css';
+import styles from '@/components/ui/Form.module.css';
 import { authApi } from '@/lib/api/auth';
 import { errorMessage } from '@/lib/api/errors';
 import { useMutation } from '@/lib/use-mutation';
@@ -15,7 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import mfa from './Mfa.module.css';
 import * as authSchema from '@/lib/api/schemas/auth';
 import { mfaCodeForm } from '@/lib/forms/auth';
-import { validateForm } from '@/lib/zod-form';
+import { validateForm } from '@/lib/forms/validate';
 
 /** "JBSWY3DPEHPK3PXP" → "JBSW Y3DP EHPK 3PXP": easier to type into an authenticator app. */
 export function groupSecret(secret: string): string {

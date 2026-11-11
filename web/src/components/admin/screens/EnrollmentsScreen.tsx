@@ -25,7 +25,7 @@ import { MutationStatus, ReasonAction } from '@/components/ui';
 import { useMutation } from '@/lib/use-mutation';
 import { humanize } from '@/lib/format';
 import { grantForm } from '@/lib/forms/admin';
-import { useZodForm } from '@/lib/use-zod-form';
+import { useZodForm } from '@/lib/forms/use-zod-form';
 
 const LIMIT = 50;
 

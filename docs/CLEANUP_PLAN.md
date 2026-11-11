@@ -280,6 +280,14 @@ desktop, on the student ground and on the staff (sand, compact) ground.
 - [x] `components/teacher/PublicProfile.*` → `components/teachers/` (student-facing).
 - [x] Fold `lib/admin/*` into `lib/` (`access`, `verification`, `profile-lines`).
 - [x] Update `docs/BACKEND_STRUCTURE.md`, `web/README.md` and `docs/UI_PLAN.md`.
+- [x] Naming pass (after the TanStack work). `components/teachers/` → `components/teacher-profile/`
+      (it sat one letter from `teacher/`); `components/forms/` is gone (`Captcha` and `Form.module.css`
+      are in `components/ui/`); `lib/zod-form.ts` and `lib/use-zod-form.ts` → `lib/forms/validate.ts`
+      and `lib/forms/use-zod-form.ts`. The flat `lib/` is grouped by area again (this replaces the
+      earlier "fold `lib/admin/` into `lib/`"): `lib/quiz/` (answers, timer), `lib/learn/` (outline,
+      player-events, math-text), `lib/orders/` (display, cart), `lib/admin/` (access, verification,
+      profile-lines), `lib/teacher/` (course-status). Helpers used across areas stay at the top
+      (`format`, `money`, `status`, `session`, `query`, `use-mutation`, `catalogue-url`, `route-params`, `tus`).
 
 ## Target layout
 
@@ -293,17 +301,17 @@ src/
 web/src/
   components/
     chrome/             header, nav, banners, footer, staff bar
-    forms/              Captcha, form styles
-    ui/                 primitives + MutationStatus, ReasonAction, Pager
-    teachers/           public teacher page
+    ui/                 primitives + MutationStatus, ReasonAction, Pager, Captcha, form styles
+    teacher-profile/    public teacher page
     teacher/            the teacher's own screens
     admin/              admin shell and screens
     …                   auth, onboarding, catalogue, course, learn, quiz, orders, dashboard, account, home
   lib/
     api/                client, schemas/, one module per backend area
-    forms/              every form schema
+    forms/              every form schema, validate.ts, use-zod-form.ts
+    quiz/ learn/ orders/ admin/ teacher/   pure logic for one area, with its tests
     format.ts money.ts  one home for each kind of helper
-    query.tsx use-mutation.ts use-zod-form.ts
+    query.tsx use-mutation.ts
 ```
 
 ## Risk and verification

@@ -24,7 +24,7 @@ import { MutationStatus } from '@/components/ui';
 import { useMutation } from '@/lib/use-mutation';
 import { formatDateTime } from '@/lib/format';
 import { staffForm } from '@/lib/forms/admin';
-import { useZodForm } from '@/lib/use-zod-form';
+import { useZodForm } from '@/lib/forms/use-zod-form';
 
 const LIMIT = 50;
 

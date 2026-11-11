@@ -8,7 +8,7 @@ import { moveItem, submitChecklist } from '@/lib/api/teacher';
 import { percentToBps } from '@/lib/money';
 import type { AuthoringLesson, Outline, TeacherCourse } from '@/lib/api/schemas/teacher';
 import type { Me } from '@/lib/api/schemas/auth';
-import { contentEditable, detailsEditable } from '@/lib/course-status';
+import { contentEditable, detailsEditable } from '@/lib/teacher/course-status';
 import { formatBytes } from '@/lib/format';
 import { apiMock, resetMocks, router, setPathname } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';

@@ -1,4 +1,4 @@
-import { validateForm } from '@/lib/zod-form';
+import { validateForm } from '@/lib/forms/validate';
 import { z } from 'zod';
 import { minorUnitExponent, parseMajorToMinor } from '@/lib/money';
 

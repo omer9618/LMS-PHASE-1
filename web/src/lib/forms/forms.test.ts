@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateForm } from '@/lib/zod-form';
+import { validateForm } from '@/lib/forms/validate';
 import { teacherApplicationForm } from './apply';
 import {
   forgotPasswordForm,

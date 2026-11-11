@@ -2,7 +2,7 @@
 
 import { useState, type ChangeEvent } from 'react';
 import type { z } from 'zod';
-import { validateForm, type FieldErrors } from './zod-form';
+import { validateForm, type FieldErrors } from './validate';
 
 /**
  * Form state for a zod-validated form: the values (as text boxes hold them), the errors by field,

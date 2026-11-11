@@ -1,4 +1,4 @@
-import type { LearnerLesson, LearnerOutline } from './api/learn';
+import type { LearnerLesson, LearnerOutline } from '../api/learn';
 
 /** Every lesson in course order (section order, then lesson order). */
 export function flattenLessons(outline: LearnerOutline): LearnerLesson[] {

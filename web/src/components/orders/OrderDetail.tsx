@@ -10,7 +10,7 @@ import {
   type StudentOrder,
   type SubmittedProof,
 } from '@/lib/api/orders';
-import { humaniseGuidance } from '@/lib/order-display';
+import { humaniseGuidance } from '@/lib/orders/display';
 import { statusTone } from '@/lib/status';
 import { formatDateTime } from '@/lib/format';
 import { useQuery } from '@tanstack/react-query';

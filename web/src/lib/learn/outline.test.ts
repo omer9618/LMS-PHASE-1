@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { LearnerLesson, LearnerOutline } from './api/learn';
-import { flattenLessons, lessonStatusLabel, lessonTypeLabel, pickLesson } from './learn-outline';
+import type { LearnerLesson, LearnerOutline } from '../api/learn';
+import { flattenLessons, lessonStatusLabel, lessonTypeLabel, pickLesson } from './outline';
 
 function lesson(id: string, overrides: Partial<LearnerLesson> = {}): LearnerLesson {
   return {

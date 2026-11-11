@@ -17,7 +17,7 @@ import { errorMessage, isRequestError } from '@/lib/api/errors';
 import { quizBuilderApi, type QuizQuestion, type TeacherQuiz } from '@/lib/api/quiz-builder';
 import { type QuestionInput } from '@/lib/forms/quiz';
 import { moveItem } from '@/lib/api/teacher';
-import { contentEditable } from '@/lib/course-status';
+import { contentEditable } from '@/lib/teacher/course-status';
 import { useQuery } from '@tanstack/react-query';
 import { useCourseWorkspace } from '../CourseWorkspace';
 import { QuestionEditor } from './QuestionEditor';

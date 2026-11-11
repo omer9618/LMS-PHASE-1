@@ -34,7 +34,7 @@ import { useMutation, type Mutation } from '@/lib/use-mutation';
 import { formatDateTime } from '@/lib/format';
 import { humanize } from '@/lib/format';
 import { pricingForm } from '@/lib/forms/admin';
-import { useZodForm } from '@/lib/use-zod-form';
+import { useZodForm } from '@/lib/forms/use-zod-form';
 
 const LIMIT = 50;
 const STATUSES: CourseStatus[] = ['PENDING_APPROVAL', 'PUBLISHED', 'DRAFT', 'REJECTED', 'ARCHIVED'];
