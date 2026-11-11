@@ -1,5 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { VideoProvider as VideoProviderName } from '@prisma/client';
+import { AppException } from '../../../common/errors/app.exception';
+import { ErrorCode } from '../../../common/errors/error-codes';
 import { VIDEO_PROVIDERS, VideoProvider } from '../adapters/video-provider';
 
 /**
@@ -20,7 +22,11 @@ export class VideoProviderRegistry {
 
   forAsset(name: VideoProviderName): VideoProvider {
     const provider = this.byName.get(name);
-    if (!provider) throw new Error(`No video provider adapter registered for ${name}`);
+    if (!provider) {
+      throw new AppException(ErrorCode.NOT_FOUND, undefined, undefined, {
+        message: `No video provider adapter registered for ${name}`,
+      });
+    }
     return provider;
   }
 }

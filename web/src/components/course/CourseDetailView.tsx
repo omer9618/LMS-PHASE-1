@@ -2,12 +2,9 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Alert, Badge, Button, Icon } from '@/components/ui';
-import { catalogueApi } from '@/lib/api/catalogue';
-import { errorMessage } from '@/lib/api/errors';
+import { Badge, Button, Icon } from '@/components/ui';
 import type { CourseDetail, OutlineLesson } from '@/lib/api/schemas/catalogue';
 import { formatDuration, PACING_HINTS, PACING_LABELS } from '@/lib/format';
-import { useQuery } from '@tanstack/react-query';
 import { DemoPlayer } from './DemoPlayer';
 import { EnrollPanel } from './EnrollPanel';
 import styles from './Course.module.css';
@@ -20,38 +17,6 @@ const LESSON_TYPE_LABELS: Record<string, string> = {
 };
 
 /** Course detail (#43): syllabus coverage, pricing, teacher, the demo (#34) and enrollment. */
-export function CourseDetailView({ courseId }: { courseId: string }) {
-  const course = useQuery({
-    queryKey: ['course', courseId],
-    queryFn: ({ signal }) => catalogueApi.course(courseId, signal),
-  });
-
-  if (course.status === 'pending') {
-    return (
-      <div className="page" aria-busy="true">
-        <p role="status">Loading the course…</p>
-      </div>
-    );
-  }
-  if (course.status === 'error') {
-    const notFound = course.error.name === 'NOT_FOUND';
-    return (
-      <div className="page stack">
-        <h1>{notFound ? 'Course not found' : 'Could not load the course'}</h1>
-        <Alert tone={notFound ? 'warning' : 'danger'}>
-          {notFound
-            ? 'This course does not exist or is not available any more.'
-            : errorMessage(course.error)}
-        </Alert>
-        <p>
-          <Link href="/courses">Browse all courses</Link>
-        </p>
-      </div>
-    );
-  }
-  return <CourseDetailContent course={course.data} />;
-}
-
 export function CourseDetailContent({ course }: { course: CourseDetail }) {
   const demoIds = new Set(course.demoLessonIds);
   const lessons = course.outline.flatMap((s) => s.lessons);

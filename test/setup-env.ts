@@ -18,6 +18,8 @@ process.env.EMAIL_TRANSPORT = 'memory';
 // Suites log in many times from one IP; test/rate-limit.e2e-spec.ts re-enables limiting.
 process.env.RATE_LIMIT_ENABLED = 'false';
 process.env.CAPTCHA_PROVIDER = 'disabled';
+// The README's manual-testing setup turns this on in .env; production-like tests need real MFA.
+process.env.DEV_SKIP_MFA = 'false';
 process.env.JOBS_ENABLED = 'false';
 process.env.STORAGE_DRIVER = 'local';
 process.env.STORAGE_LOCAL_DIR = join(tmpdir(), 'lms-e2e-storage');

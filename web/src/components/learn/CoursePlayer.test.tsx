@@ -91,11 +91,35 @@ describe('CoursePlayer (#53)', () => {
       '33',
     );
     expect(await screen.findByText('sheet.pdf')).toBeInTheDocument();
-    expect(document.querySelector('.katex')).not.toBeNull();
+    await waitFor(() => expect(document.querySelector('.katex')).not.toBeNull());
 
     await userEvent.click(screen.getByRole('button', { name: 'Mark as complete' }));
     await waitFor(() => expect(client.complete).toHaveBeenCalledWith('c', 'b'));
     expect(client.outline).toHaveBeenCalledTimes(2);
+  });
+
+  it('puts the lesson on screen into the address, so a reload or shared link keeps the place', async () => {
+    render(<CoursePlayer courseId="c" client={fakeClient()} />);
+    expect(await screen.findByRole('heading', { name: 'Lesson b' })).toBeInTheDocument();
+    // No ?lesson= in the link: the "continue here" lesson (b) is written into it.
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith('/learn/c?lesson=b', { scroll: false }),
+    );
+  });
+
+  it('leaves the address alone when it already names the lesson', async () => {
+    lessonParam = 'a';
+    render(<CoursePlayer courseId="c" client={fakeClient()} />);
+    expect(await screen.findByRole('heading', { name: 'Lesson a' })).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('replaces a stale ?lesson= with a lesson that exists', async () => {
+    lessonParam = 'gone';
+    render(<CoursePlayer courseId="c" client={fakeClient()} />);
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith('/learn/c?lesson=b', { scroll: false }),
+    );
   });
 
   it('explains a locked lesson and links to the blocking one', async () => {

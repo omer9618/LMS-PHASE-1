@@ -78,6 +78,7 @@ const MATRIX: Record<string, Entry> = {
   'POST /auth/verify-email': PUBLIC('emailed single-use token'),
   'POST /auth/password-reset/request': PUBLIC('always answers the same, rate-limited'),
   'POST /auth/password-reset/confirm': PUBLIC('emailed single-use token'),
+  'GET /auth/session': PUBLIC('answers 200 for everyone: the user, or null for a visitor'),
   'GET /auth/me': SESSION,
   'POST /auth/context': SESSION,
   'POST /auth/verify-email/resend': SESSION,
@@ -86,6 +87,11 @@ const MATRIX: Record<string, Entry> = {
   'POST /auth/mfa/enable': SESSION,
   'POST /auth/mfa/disable': SESSION,
   'POST /auth/mfa/recovery-codes': SESSION,
+  'POST /account/password': SESSION,
+  'PATCH /account/profile': SESSION,
+  'GET /account/sessions': SESSION,
+  'POST /account/sessions/sign-out-others': SESSION,
+  'DELETE /account/sessions/:sessionId': SESSION,
 
   // ── Admin ─────────────────────────────────────────────────────────
   'GET /admin/dashboard': ADMIN,
@@ -131,6 +137,7 @@ const MATRIX: Record<string, Entry> = {
   'POST /admin/teachers/:teacherId/ledger/adjustments': ADMIN,
   'POST /admin/teachers/:teacherId/payouts': ADMIN,
   'GET /admin/teachers/:teacherId/payouts': ADMIN,
+  'GET /admin/payouts/run': ADMIN,
   'GET /admin/payouts/:payoutId': ADMIN,
   'POST /admin/payouts/:payoutId/concerns/resolve': ADMIN,
   'GET /admin/enrollments': ADMIN,

@@ -15,21 +15,7 @@ const refundSelect = {
   authorisedBy: { select: { id: true, email: true, fullName: true } },
 } satisfies Prisma.RefundSelect;
 
-const refundWithOrderSelect = {
-  ...refundSelect,
-  order: {
-    select: {
-      id: true,
-      paymentReference: true,
-      currency: true,
-    },
-  },
-} satisfies Prisma.RefundSelect;
-
 export type RefundRecord = Prisma.RefundGetPayload<{ select: typeof refundSelect }>;
-export type RefundWithOrderRecord = Prisma.RefundGetPayload<{
-  select: typeof refundWithOrderSelect;
-}>;
 
 export interface CreateRefundData {
   orderId: string;
@@ -63,15 +49,24 @@ export class RefundDao {
     });
   }
 
-  /** #104: Admin financial summary — refunds filtered by createdAt range. */
-  getRefundsBy(
-    where: Prisma.RefundWhereInput,
-    tx?: TransactionClient,
-  ): Promise<RefundWithOrderRecord[]> {
-    return (tx ?? this.prisma).refund.findMany({
-      where,
-      select: refundWithOrderSelect,
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    });
+  /** Refunds recorded inside the period, per currency of their order. */
+  async getTotalsByCurrency(
+    from: Date | null,
+    to: Date | null,
+  ): Promise<Array<{ currency: string; count: number; amountMinor: bigint }>> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ currency: string; count: number; amount: string }>
+    >`
+      SELECT o.currency::text AS currency, count(*)::int AS count, SUM(r.amount_minor)::text AS amount
+        FROM refunds r
+        JOIN orders o ON o.id = r.order_id
+       WHERE (${from}::timestamptz IS NULL OR r.created_at >= ${from}::timestamptz)
+         AND (${to}::timestamptz IS NULL OR r.created_at <= ${to}::timestamptz)
+       GROUP BY o.currency`;
+    return rows.map((row) => ({
+      currency: row.currency,
+      count: row.count,
+      amountMinor: BigInt(row.amount),
+    }));
   }
 }

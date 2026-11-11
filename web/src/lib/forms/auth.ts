@@ -46,6 +46,24 @@ export const registrationForm = z
 
 export const forgotPasswordForm = z.object({ email });
 
+/** Signed in: the current password, then a new one, typed twice. */
+export const changePasswordForm = z
+  .object({
+    currentPassword: z.string().min(1, 'Enter your current password'),
+    newPassword,
+    confirm: z.string(),
+  })
+  .refine((v) => v.confirm === v.newPassword, {
+    path: ['confirm'],
+    message: 'The passwords do not match',
+  })
+  .refine((v) => v.newPassword !== v.currentPassword, {
+    path: ['newPassword'],
+    message: 'Choose a password you are not already using',
+  });
+
+export const accountNameForm = z.object({ fullName });
+
 export const resetPasswordForm = z
   .object({ password: newPassword, confirm: z.string() })
   .refine((v) => v.confirm === v.password, {

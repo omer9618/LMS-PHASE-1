@@ -28,6 +28,7 @@ The browser only talks to the web app's origin. `next.config.ts` rewrites `/api/
 | Variable                         | Default                 | Read when                                                                                                                                                                  |
 | -------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `API_URL`                        | `http://localhost:3000` | `next dev`, `next build` and `next start` load `next.config.ts`                                                                                                            |
+| `SITE_URL`                       | unset                   | Request time. The public address (`https://<domain>`, no trailing slash). `/sitemap.xml` needs it to write absolute links, and `robots.txt` names the sitemap with it; unset, the sitemap is empty |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | unset                   | Build time. Set it in production (with the API's `CAPTCHA_PROVIDER=turnstile`); unset, public forms send a placeholder token that only the API's disabled verifier accepts |
 
 Behind the proxy every request reaches the API from the web server, so set the API's `TRUST_PROXY_HOPS` to the number of proxies in front of it (1 for the web app alone; 2 with a reverse proxy in front of the web app too). Otherwise per-IP rate limits see one IP for everybody.

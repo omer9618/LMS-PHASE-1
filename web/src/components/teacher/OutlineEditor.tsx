@@ -230,7 +230,9 @@ function SectionCard({
           ))}
         </ol>
       )}
-      {editable && <AddLessonForm sectionId={section.id} actions={actions} />}
+      {editable && (
+        <AddLessonForm sectionId={section.id} sectionTitle={section.title} actions={actions} />
+      )}
     </section>
   );
 }
@@ -499,7 +501,15 @@ function AddSectionForm({ actions }: { actions: OutlineActions }) {
   );
 }
 
-function AddLessonForm({ sectionId, actions }: { sectionId: string; actions: OutlineActions }) {
+function AddLessonForm({
+  sectionId,
+  sectionTitle,
+  actions,
+}: {
+  sectionId: string;
+  sectionTitle: string;
+  actions: OutlineActions;
+}) {
   const [title, setTitle] = useState('');
   const [type, setType] = useState<LessonType>('VIDEO');
   const [error, setError] = useState<string | undefined>();
@@ -507,7 +517,8 @@ function AddLessonForm({ sectionId, actions }: { sectionId: string; actions: Out
     <form
       className={styles.addForm}
       noValidate
-      aria-label="Add a lesson"
+      // One form per section, so each needs its own name.
+      aria-label={`Add a lesson to ${sectionTitle}`}
       onSubmit={async (e) => {
         e.preventDefault();
         if (!title.trim()) {

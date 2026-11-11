@@ -20,6 +20,9 @@
 
 .th,
 .td {
+  /* The page default is `anywhere`, which lets a table squeeze a column until words break in
+     half. `break-word` only breaks a word that cannot fit in its column at all. */
+  overflow-wrap: break-word;
   padding: var(--table-cell-padding-y) var(--table-cell-padding-x);
   border-top: 1px solid var(--color-border-row);
   text-align: left;

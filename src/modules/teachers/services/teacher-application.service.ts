@@ -3,6 +3,7 @@ import { ApplicationStatus, Prisma, Role } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { adminScope } from '../../../common/auth/scope';
+import { containsText } from '../../../common/like';
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
 import { TransactionService } from '../../../prisma/transaction.service';
@@ -90,9 +91,9 @@ export class TeacherApplicationService {
       status: query.status,
       OR: query.q
         ? [
-            { applicantName: { contains: query.q, mode: 'insensitive' } },
-            { applicantEmail: { contains: query.q, mode: 'insensitive' } },
-            { subjects: { contains: query.q, mode: 'insensitive' } },
+            { applicantName: containsText(query.q) },
+            { applicantEmail: containsText(query.q) },
+            { subjects: containsText(query.q) },
           ]
         : undefined,
     };

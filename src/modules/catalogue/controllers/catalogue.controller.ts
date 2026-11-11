@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { Public } from '../../../common/decorators/public.decorator';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
-import { RateLimit } from '../../../common/rate-limit/rate-limits';
+import { SearchRateLimit } from '../../../common/rate-limit/rate-limits';
 import {
   CatalogueCourseParams,
   catalogueCourseParamsSchema,
@@ -16,8 +16,8 @@ import { CatalogueListing, CatalogueService, CourseDetail } from '../services/ca
 export class CatalogueController {
   constructor(private readonly catalogueService: CatalogueService) {}
 
-  /** Listing, search (#41) and filters (#42). Rate limited as a search endpoint (#17). */
-  @RateLimit('SEARCH')
+  /** Listing, search (#41) and filters (#42). Only requests with a search term count against the search limit (#17). */
+  @SearchRateLimit()
   @Get('courses')
   list(
     @Query(new ZodValidationPipe(catalogueQuerySchema)) query: CatalogueQuery,

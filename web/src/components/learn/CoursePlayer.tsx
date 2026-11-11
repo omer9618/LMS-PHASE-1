@@ -56,6 +56,17 @@ export function CoursePlayer({ courseId, client = learn }: CoursePlayerProps) {
   const selected = outline ? pickLesson(outline, search.get('lesson')) : null;
   const position = selected ? lessons.findIndex((l) => l.id === selected.id) : -1;
 
+  // The address always names the lesson on screen, so a reload or a shared link comes back to
+  // it. This also covers a link with no lesson, a stale one, and the lesson that "continue here"
+  // picked, which would otherwise move on by itself when a lesson is marked complete.
+  const requestedLesson = search.get('lesson');
+  const selectedId = selected?.id ?? null;
+  useEffect(() => {
+    if (selectedId && requestedLesson !== selectedId) {
+      router.replace(`${pathname}?lesson=${encodeURIComponent(selectedId)}`, { scroll: false });
+    }
+  }, [selectedId, requestedLesson, pathname, router]);
+
   const select = useCallback(
     (lessonId: string) => {
       setActionError(null);

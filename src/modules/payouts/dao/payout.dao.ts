@@ -105,6 +105,20 @@ export interface CreatePayoutData {
  * payouts & payout_disputes (#85-#89). Every read is teacher-scoped (#14);
  * every write takes the owning teacher's scope or runs in an admin/job transaction.
  */
+/** One active teacher in the payout run. */
+export interface PayoutRunTeacherRow {
+  id: string;
+  fullName: string | null;
+  email: string;
+}
+
+export interface PayoutRunFacts {
+  /** Each teacher's most recent payout. */
+  lastPayout: Map<string, { transferDate: Date | null; status: PayoutStatus }>;
+  /** Teachers with a payout in dispute. */
+  disputed: Set<string>;
+}
+
 @Injectable()
 export class PayoutDao {
   constructor(private readonly prisma: PrismaService) {}
@@ -234,5 +248,107 @@ export class PayoutDao {
       select: openPayoutDisputeSelect,
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
+  }
+
+  // ── The payout run: one read model over the ledger, users and payouts ──
+
+  /**
+   * Active teachers, most owed first (largest positive balance in any currency, then name), one
+   * page. Ranked in the database so the run never has to load every teacher's history.
+   */
+  getPayoutRunPage(limit: number, offset: number): Promise<PayoutRunTeacherRow[]> {
+    return this.prisma.$queryRaw<PayoutRunTeacherRow[]>`
+      WITH owed AS (
+        SELECT teacher_id, currency, SUM(amount_minor) AS balance
+          FROM teacher_ledger
+         GROUP BY teacher_id, currency
+      ), ranked AS (
+        SELECT teacher_id, MAX(balance) FILTER (WHERE balance > 0) AS top_owed
+          FROM owed
+         GROUP BY teacher_id
+      )
+      SELECT u.id, u.full_name AS "fullName", u.email::text AS email
+        FROM users u
+        JOIN user_roles r ON r.user_id = u.id AND r.role = 'TEACHER'::"Role"
+        LEFT JOIN ranked ON ranked.teacher_id = u.id
+       WHERE u.status = 'ACTIVE'::"UserStatus"
+       ORDER BY COALESCE(ranked.top_owed, 0) DESC, u.full_name ASC NULLS LAST, u.id ASC
+       LIMIT ${limit} OFFSET ${offset}`;
+  }
+
+  countPayoutRunTeachers(): Promise<number> {
+    return this.prisma.user.count({
+      where: { status: 'ACTIVE', roles: { some: { role: 'TEACHER' } } },
+    });
+  }
+
+  /** What is owed across all active teachers, per currency: only positive balances count. */
+  async getPayoutRunTotals(): Promise<Array<{ currency: string; minor: bigint }>> {
+    const rows = await this.prisma.$queryRaw<Array<{ currency: string; minor: string }>>`
+      WITH owed AS (
+        SELECT teacher_id, currency, SUM(amount_minor) AS balance
+          FROM teacher_ledger
+         GROUP BY teacher_id, currency
+      )
+      SELECT owed.currency, SUM(owed.balance)::text AS minor
+        FROM owed
+        JOIN users u ON u.id = owed.teacher_id AND u.status = 'ACTIVE'::"UserStatus"
+        JOIN user_roles r ON r.user_id = u.id AND r.role = 'TEACHER'::"Role"
+       WHERE owed.balance > 0
+       GROUP BY owed.currency
+       ORDER BY owed.currency`;
+    return rows.map((row) => ({ currency: row.currency, minor: BigInt(row.minor) }));
+  }
+
+  /** The latest payout and any payout in dispute, for the teachers on one page of the run. */
+  async getPayoutRunFacts(teacherIds: string[]): Promise<PayoutRunFacts> {
+    const facts: PayoutRunFacts = { lastPayout: new Map(), disputed: new Set() };
+    if (teacherIds.length === 0) return facts;
+    const ids = Prisma.join(teacherIds);
+    const [latest, disputed] = await Promise.all([
+      this.prisma.$queryRaw<
+        Array<{ teacher_id: string; transfer_date: Date | null; status: PayoutStatus }>
+      >`
+        SELECT DISTINCT ON (teacher_id) teacher_id, transfer_date, status
+          FROM payouts
+         WHERE teacher_id IN (${ids})
+         ORDER BY teacher_id, recorded_at DESC, id ASC`,
+      this.prisma.$queryRaw<Array<{ teacher_id: string }>>`
+        SELECT DISTINCT teacher_id
+          FROM payouts
+         WHERE teacher_id IN (${ids}) AND status = 'DISPUTED'::"PayoutStatus"`,
+    ]);
+    for (const row of latest) {
+      facts.lastPayout.set(row.teacher_id, { transferDate: row.transfer_date, status: row.status });
+    }
+    for (const row of disputed) facts.disputed.add(row.teacher_id);
+    return facts;
+  }
+  /**
+   * Payouts recorded inside the period, per currency. A payout has no currency of its own: it is
+   * the currency of its ledger entry, or PKR when it has none.
+   */
+  async getTotalsByCurrency(
+    from: Date | null,
+    to: Date | null,
+  ): Promise<Array<{ currency: string; count: number; amountMinor: bigint }>> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ currency: string; count: number; amount: string }>
+    >`
+      SELECT COALESCE(l.currency, 'PKR')::text AS currency,
+             count(*)::int AS count,
+             SUM(p.amount_minor)::text AS amount
+        FROM payouts p
+        LEFT JOIN LATERAL (
+          SELECT currency FROM teacher_ledger WHERE payout_id = p.id ORDER BY created_at ASC, id ASC LIMIT 1
+        ) l ON true
+       WHERE (${from}::timestamptz IS NULL OR p.recorded_at >= ${from}::timestamptz)
+         AND (${to}::timestamptz IS NULL OR p.recorded_at <= ${to}::timestamptz)
+       GROUP BY COALESCE(l.currency, 'PKR')`;
+    return rows.map((row) => ({
+      currency: row.currency,
+      count: row.count,
+      amountMinor: BigInt(row.amount),
+    }));
   }
 }

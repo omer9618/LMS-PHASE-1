@@ -356,6 +356,59 @@ describe('Payment verification (#63-#67, #48, #80, #112)', () => {
     expect(ids.indexOf(o1.id)).toBeLessThan(ids.indexOf(o2.id));
   });
 
+  it('cuts the queue into pages in the database: oldest first, a true total, a resubmitted order at the back', async () => {
+    // The queue is global: start this check from an empty one.
+    await prisma.order.updateMany({
+      where: { status: 'PROOF_SUBMITTED' },
+      data: { status: 'LAPSED' },
+    });
+    const course = await h.paidCourse(teacherA, 'Queue paging');
+    const placed: Array<{ id: string; cookie: string }> = [];
+    for (const hoursAgo of [5, 4, 3, 2]) {
+      const student = await h.newStudent();
+      const order = await h.placeOrder(student.cookie, [course]);
+      await h.submitProof(student.cookie, order.id, `PAGE-${order.id}`);
+      await prisma.paymentProof.updateMany({
+        where: { orderId: order.id },
+        data: { submittedAt: new Date(Date.now() - hoursAgo * 3_600_000) },
+      });
+      placed.push({ id: order.id, cookie: student.cookie });
+    }
+    const [o1, o2, o3, o4] = placed.map((p) => p.id);
+    const page = async (limit: number, offset: number) =>
+      (
+        await http()
+          .get(`/admin/verification/queue?limit=${limit}&offset=${offset}`)
+          .set('Cookie', admin)
+          .expect(200)
+      ).body.data;
+    const idsOf = (data: { items: Array<{ orderId: string }> }) => data.items.map((e) => e.orderId);
+
+    const first = await page(2, 0);
+    expect(idsOf(first)).toEqual([o1, o2]);
+    expect(first).toMatchObject({ total: 4, limit: 2, offset: 0 });
+    expect(first.items[0].waitingMinutes).toBeGreaterThanOrEqual(5 * 60 - 1);
+    expect(idsOf(await page(2, 2))).toEqual([o3, o4]);
+    expect(await page(2, 4)).toMatchObject({ items: [], total: 4 });
+
+    // A rejected order that is sent again starts waiting from its new proof: back of the queue.
+    await reject(o1, { rejectionReason: 'INVALID_TRANSACTION_ID', notes: 'Not found' }).expect(200);
+    expect(idsOf(await page(10, 0))).toEqual([o2, o3, o4]);
+    await h.submitProof(placed[0].cookie, o1, `AGAIN-${o1}`);
+    const again = await page(10, 0);
+    expect(idsOf(again)).toEqual([o2, o3, o4, o1]);
+    expect(again.total).toBe(4);
+    expect(again.items[3].waitingMinutes).toBeLessThan(5);
+
+    // The metrics agree with the queue.
+    const metrics = (
+      await http().get('/admin/verification/metrics').set('Cookie', admin).expect(200)
+    ).body.data;
+    expect(metrics.queueSize).toBe(4);
+    expect(metrics.oldestWaitingMinutes).toBeGreaterThanOrEqual(4 * 60 - 1);
+    expect(metrics.oldestWaitingMinutes).toBeLessThan(4 * 60 + 5);
+  });
+
   it('reports metrics against the turnaround setting (#67)', async () => {
     const course = await h.paidCourse(teacherA, 'Metrics');
     const student = await h.newStudent();

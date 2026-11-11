@@ -1,10 +1,10 @@
 import { ApplicationStatus } from '@prisma/client';
 import { z } from 'zod';
-import { paging, uuidParams } from '../../../common/schemas';
+import { displayText, paging, uuidParams } from '../../../common/schemas';
 
 /** Multipart text fields of the public application form (#18). The CV is the `cv` file part. */
 export const submitApplicationSchema = z.strictObject({
-  applicantName: z.string().trim().min(2).max(120),
+  applicantName: displayText(2, 120),
   applicantEmail: z.email().max(254),
   applicantPhone: z
     .string()
@@ -37,7 +37,7 @@ export const reviewApplicationSchema = z.strictObject({
 export type ReviewApplicationInput = z.infer<typeof reviewApplicationSchema>;
 
 export const createTeacherFromApplicationSchema = z.strictObject({
-  fullName: z.string().trim().min(2).max(120).optional(),
+  fullName: displayText(2, 120).optional(),
 });
 export type CreateTeacherFromApplicationInput = z.infer<typeof createTeacherFromApplicationSchema>;
 

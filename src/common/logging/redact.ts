@@ -1,5 +1,6 @@
-// #119: one-time codes too (MFA `code`, recovery codes, OTPs), not only passwords and tokens.
-const SENSITIVE_KEY = /password|token|secret|cookie|authorization|^code$|recoverycode|^otp$/i;
+// #119: one-time codes too. Personal data too: contact details, names and bank references.
+const SENSITIVE_KEY =
+  /password|token|secret|cookie|authorization|^code$|recoverycode|^otp$|email|phone|name$|iban|accountnumber|bankreference|transactionid/i;
 const MAX_DEPTH = 6;
 
 /** Deep copy of `value` with sensitive keys replaced, for logging request bodies. */

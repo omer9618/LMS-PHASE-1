@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -7,6 +7,8 @@ import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import {
   PayoutIdParams,
   payoutIdParamsSchema,
+  PayoutRunQuery,
+  payoutRunQuerySchema,
   PayoutTeacherParams,
   payoutTeacherParamsSchema,
   RaisePayoutConcernInput,
@@ -19,6 +21,7 @@ import {
 import {
   PayoutDetailView,
   PayoutRecord,
+  PayoutRun,
   PayoutService,
   RaisePayoutConcernResult,
   RecordedPayoutResult,
@@ -46,6 +49,15 @@ export class AdminPayoutsController {
     @Param(new ZodValidationPipe(payoutTeacherParamsSchema)) params: PayoutTeacherParams,
   ): Promise<PayoutRecord[]> {
     return this.payoutService.listTeacherPayoutsForAdmin(admin, params.teacherId);
+  }
+
+  /** The payout run. Declared before `payouts/:payoutId` so "run" is not read as an id. */
+  @Get('payouts/run')
+  getPayoutRun(
+    @CurrentUser() admin: AuthUser,
+    @Query(new ZodValidationPipe(payoutRunQuerySchema)) query: PayoutRunQuery,
+  ): Promise<PayoutRun> {
+    return this.payoutService.getPayoutRun(admin, query);
   }
 
   @Get('payouts/:payoutId')

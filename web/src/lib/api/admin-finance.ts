@@ -23,6 +23,8 @@ export type {
   OpenConcern,
   OpenConcernsSummary,
   PaymentDecisionResult,
+  PayoutRun,
+  PayoutRunRow,
   QueueMetrics,
   RejectionReason,
   TeacherSale,
@@ -84,6 +86,10 @@ const resolvePayoutConcern = (
 const listOpenConcerns = (signal?: AbortSignal) =>
   api.get('/admin/payout-concerns', schema.openConcernsSummary, undefined, signal);
 
+/** The payout run: every active teacher, most owed first, one page at a time. */
+const getPayoutRun = (query: { limit: number; offset: number }, signal?: AbortSignal) =>
+  api.get('/admin/payouts/run', schema.payoutRun, clean(query), signal);
+
 // ── Finance ──
 
 const getFinancialSummary = (query: { from?: string; to?: string }, signal?: AbortSignal) =>
@@ -105,6 +111,7 @@ export const adminFinanceApi = {
   recordPayout,
   resolvePayoutConcern,
   listOpenConcerns,
+  getPayoutRun,
   getFinancialSummary,
   getTeacherStatement,
 };

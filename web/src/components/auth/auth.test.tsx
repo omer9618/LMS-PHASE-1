@@ -41,6 +41,15 @@ describe('LoginForm', () => {
     });
   });
 
+  it('lands staff in their own area when no page asked for sign-in', async () => {
+    apiMock.post.mockResolvedValue({ user: STUDENT });
+    renderWithSession(<LoginForm />, { ...STUDENT, roles: ['TEACHER'] });
+    await userEvent.type(screen.getByLabelText(/^Email/), 'teacher@example.com');
+    await userEvent.type(screen.getByLabelText(/^Password/), 'correct horse battery');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/teacher/courses'));
+  });
+
   it('ignores an off-site ?next=', async () => {
     setSearch('next=https://evil.example');
     apiMock.post.mockResolvedValue({ user: STUDENT });

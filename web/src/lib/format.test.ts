@@ -20,12 +20,29 @@ describe('safeNextPath', () => {
     expect(safeNextPath('/courses/abc?x=1')).toBe('/courses/abc?x=1');
   });
 
-  it.each([null, '', 'https://evil.example', '//evil.example', '/\\evil.example', 'courses'])(
-    'falls back for %j',
-    (raw) => {
-      expect(safeNextPath(raw)).toBe('/courses');
-    },
-  );
+  it.each([
+    null,
+    '',
+    'https://evil.example',
+    '//evil.example',
+    '/\\evil.example',
+    'courses',
+    // Browsers delete tabs and newlines inside a URL, so these would become "//evil.example".
+    '/\t/evil.example',
+    '/\n/evil.example',
+    '/\r/evil.example',
+    '/ /evil.example',
+    '/\u0000/evil.example',
+    '/\u007f/evil.example',
+    '/foo\\bar',
+  ])('falls back for %j', (raw) => {
+    expect(safeNextPath(raw)).toBe('/courses');
+  });
+
+  it('keeps a path with an encoded query as given, and honours a custom fallback', () => {
+    expect(safeNextPath('/search?q=a%20b#top')).toBe('/search?q=a%20b#top');
+    expect(safeNextPath('https://evil.example', '/dashboard')).toBe('/dashboard');
+  });
 });
 
 describe('ages and dates', () => {

@@ -250,6 +250,27 @@ export class OrderDao {
   }
 
   /**
+   * #59, #63: proofs on any order matching any of the transaction IDs (case-insensitive), in one
+   * query. The queue asks once for a whole page; each order then drops its own proofs.
+   */
+  getProofsByTransactionIds(
+    transactionIds: readonly string[],
+    tx?: TransactionClient,
+  ): Promise<PaymentProofWithOrderRecord[]> {
+    const unique = [...new Set(transactionIds.map((t) => t.trim()).filter(Boolean))];
+    if (unique.length === 0) return Promise.resolve([]);
+    return (tx ?? this.prisma).paymentProof.findMany({
+      where: {
+        OR: unique.map((txId) => ({
+          transactionId: { equals: txId, mode: 'insensitive' as const },
+        })),
+      },
+      select: paymentProofWithOrderSelect,
+      orderBy: { submittedAt: 'asc' },
+    });
+  }
+
+  /**
    * #81 / #84: teacher-scoped order line items with parent order status/currency/timestamps,
    * so the ledger module can separate pending (unverified) sales from confirmed sales.
    */
@@ -263,5 +284,41 @@ export class OrderDao {
       select: teacherOrderItemSelect,
       orderBy: [{ order: { createdAt: 'desc' } }, { id: 'asc' }],
     });
+  }
+  /** Confirmed sales per currency, verified inside the period (`null` leaves a side open). */
+  async getVerifiedSalesTotals(
+    from: Date | null,
+    to: Date | null,
+  ): Promise<
+    Array<{
+      currency: string;
+      count: number;
+      grossMinor: bigint;
+      commissionMinor: bigint;
+      netTeacherMinor: bigint;
+    }>
+  > {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ currency: string; count: number; gross: string; commission: string; net: string }>
+    >`
+      SELECT o.currency::text AS currency,
+             count(*)::int AS count,
+             SUM(oi.price_minor)::text AS gross,
+             SUM(oi.commission_minor)::text AS commission,
+             SUM(oi.net_teacher_minor)::text AS net
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+       WHERE o.status = 'VERIFIED'::"OrderStatus"
+         AND o.verified_at IS NOT NULL
+         AND (${from}::timestamptz IS NULL OR o.verified_at >= ${from}::timestamptz)
+         AND (${to}::timestamptz IS NULL OR o.verified_at <= ${to}::timestamptz)
+       GROUP BY o.currency`;
+    return rows.map((row) => ({
+      currency: row.currency,
+      count: row.count,
+      grossMinor: BigInt(row.gross),
+      commissionMinor: BigInt(row.commission),
+      netTeacherMinor: BigInt(row.net),
+    }));
   }
 }

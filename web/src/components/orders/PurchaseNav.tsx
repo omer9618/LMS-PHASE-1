@@ -10,6 +10,8 @@ export function PurchaseNav() {
   const { user } = useSession();
   const { ids } = useCart();
   const pathname = usePathname() ?? '';
+  // An admin-only account does not buy courses, so it gets no shopping links.
+  if (user && user.roles.includes('ADMIN') && !user.roles.includes('STUDENT')) return null;
   const current = (href: string) => (pathname.startsWith(href) ? 'page' : undefined);
   return (
     <>

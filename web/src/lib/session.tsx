@@ -20,7 +20,7 @@ export type SessionStatus = 'loading' | 'signed-in' | 'signed-out';
 export interface Session {
   status: SessionStatus;
   user: Me | null;
-  /** Re-reads GET /auth/me: call after anything that starts, ends or changes the session. */
+  /** Re-reads GET /auth/session: call after anything that starts, ends or changes the session. */
   refresh(): Promise<Me | null>;
   signOut(): Promise<void>;
 }
@@ -33,7 +33,7 @@ const SessionContext = createContext<Session | null>(null);
  */
 async function fetchMe(): Promise<Me | null> {
   try {
-    return await api.get('/auth/me', authSchema.me);
+    return (await api.get('/auth/session', authSchema.session)).user;
   } catch (error) {
     if (!isRequestError(error, 'UNAUTHENTICATED'))
       console.warn('Could not load the session', error);
@@ -43,7 +43,7 @@ async function fetchMe(): Promise<Me | null> {
 
 /**
  * Who is signed in, for the whole app. The session itself is the API's HTTP-only cookie; this only
- * mirrors GET /auth/me so the UI can show the user.
+ * mirrors GET /auth/session so the UI can show the user.
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Me | null>(null);

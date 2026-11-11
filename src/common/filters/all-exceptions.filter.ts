@@ -40,7 +40,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       method: req.method,
       path: req.originalUrl,
       userId: (req as Request & { user?: { id: string } }).user?.id,
-      body: redact(req.body),
+      // 4xx: field names only, so personal data in a rejected form is never logged.
+      body: body.status >= 500 ? redact(req.body) : fieldNames(req.body),
     };
     if (body.status >= 500) this.logger.error(logContext, body.message);
     else this.logger.warn(logContext, body.message);
@@ -51,6 +52,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
       error: { name: body.name, message: body.message, info: body.info, extended: body.extended },
     });
   }
+}
+
+function fieldNames(body: unknown): string[] | undefined {
+  return body !== null && typeof body === 'object' && !Array.isArray(body)
+    ? Object.keys(body)
+    : undefined;
 }
 
 function fromCode(code: ErrorCode, info?: unknown, message?: string): ErrorBody {
@@ -106,6 +113,10 @@ function fromPrismaError(error: Prisma.PrismaClientKnownRequestError): ErrorBody
     default:
       if (driverCause(error)?.originalCode === '23514') {
         return fromCode(ErrorCode.CONSTRAINT_VIOLATION, info, message);
+      }
+      // 22021: text the database cannot store (a NUL byte). The input is wrong, not the server.
+      if (driverCause(error)?.originalCode === '22021') {
+        return fromCode(ErrorCode.VALIDATION_FAILED);
       }
       return fromCode(ErrorCode.INTERNAL);
   }

@@ -1,8 +1,7 @@
-import katex from 'katex';
-import 'katex/contrib/mhchem';
-import 'katex/dist/katex.min.css';
-import { Fragment, useMemo } from 'react';
-import { splitMath } from '@/lib/learn/math-text';
+'use client';
+
+import { Fragment, lazy, Suspense, useMemo } from 'react';
+import { splitMath, type MathSegment } from '@/lib/learn/math-text';
 import styles from './MathText.module.css';
 
 export interface MathTextProps {
@@ -12,17 +11,20 @@ export interface MathTextProps {
   className?: string;
 }
 
-function renderMath(value: string, display: boolean): string {
-  // KaTeX escapes everything it outputs; trust: false refuses \href, \url and similar.
-  return katex.renderToString(value, {
-    displayMode: display,
-    throwOnError: false,
-    trust: false,
-    strict: 'ignore',
-    maxSize: 20,
-    maxExpand: 200,
-    output: 'htmlAndMathml',
-  });
+/** The typesetter, fetched the first time a text with maths is shown (it is the biggest script). */
+const MathRenderer = lazy(() => import('./MathRenderer'));
+
+/** The text as written, LaTeX source included: what shows while the typesetter loads. */
+function Source({ segments }: { segments: MathSegment[] }) {
+  return (
+    <>
+      {segments.map((segment, index) => (
+        <Fragment key={index}>
+          {segment.kind === 'text' ? segment.value : <code>{segment.value}</code>}
+        </Fragment>
+      ))}
+    </>
+  );
 }
 
 /**
@@ -30,25 +32,23 @@ function renderMath(value: string, display: boolean): string {
  * Chemistry works too (`$\ce{H2O}$`, mhchem). Display maths scrolls sideways on narrow screens
  * instead of overflowing, so questions stay legible at 380px. Bad LaTeX shows as red source text,
  * never as a crash.
+ *
+ * Text without maths is shown as it is and never loads KaTeX.
  */
 export function MathText({ text, block = false, className }: MathTextProps) {
   const segments = useMemo(() => splitMath(text), [text]);
+  const hasMath = segments.some((segment) => segment.kind === 'math');
   const Wrapper = block ? 'div' : 'span';
   return (
     <Wrapper
       className={[block ? styles.block : styles.inline, className].filter(Boolean).join(' ')}
     >
-      {segments.map((segment, index) =>
-        segment.kind === 'text' ? (
-          <Fragment key={index}>{segment.value}</Fragment>
-        ) : (
-          <span
-            key={index}
-            className={segment.display ? styles.display : styles.math}
-            // Output of KaTeX, which escapes its input (see renderMath).
-            dangerouslySetInnerHTML={{ __html: renderMath(segment.value, segment.display) }}
-          />
-        ),
+      {hasMath ? (
+        <Suspense fallback={<Source segments={segments} />}>
+          <MathRenderer segments={segments} />
+        </Suspense>
+      ) : (
+        <Source segments={segments} />
       )}
     </Wrapper>
   );

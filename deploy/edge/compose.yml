@@ -9,7 +9,11 @@ name: lms-edge
 
 services:
   caddy:
-    image: caddy:2
+    # Pinned to a minor version: patch releases (security fixes) still arrive, but a new minor
+    # is a deliberate upgrade. The API trusts two proxy hops (TRUST_PROXY_HOPS=2) and relies on
+    # Caddy replacing any X-Forwarded-For a client sends, which it does by default since 2.5.
+    # After bumping, check that behaviour (docs/SECURITY_REVIEW.md) before relying on it.
+    image: caddy:2.11
     restart: unless-stopped
     ports:
       - '80:80'

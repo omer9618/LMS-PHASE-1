@@ -351,18 +351,67 @@ export function computeDerivedBalances(
   return Array.from(byCurrency.values()).sort((a, b) => a.currency.localeCompare(b.currency));
 }
 
+/** One row of `SELECT currency, type, SUM(amount), COUNT(*) ... GROUP BY currency, type`. */
+export interface LedgerBalanceGroup {
+  currency: string;
+  type: LedgerBalanceEntry['type'];
+  sumMinor: bigint;
+  count: number;
+}
+
 /**
- * #79 (FR-8.2): Computes the derived balance for a single requested currency (0n if no entries exist).
+ * #79 (FR-8.2): The same balances as computeDerivedBalances, from entries the database has already
+ * summed per currency and type. Used where a teacher's ledger is too long to load just to add up.
  */
-export function computeCurrencyBalance(
-  entries: readonly LedgerBalanceEntry[],
+export function balancesFromGroups(
+  groups: readonly LedgerBalanceGroup[],
+): DerivedCurrencyBalance[] {
+  const byCurrency = new Map<string, DerivedCurrencyBalance>();
+  for (const group of groups) {
+    assertLedgerCurrency(group.currency);
+    let summary = byCurrency.get(group.currency);
+    if (!summary) {
+      summary = {
+        currency: group.currency,
+        balanceMinor: 0n,
+        earningsMinor: 0n,
+        refundsMinor: 0n,
+        payoutsMinor: 0n,
+        adjustmentsMinor: 0n,
+        entryCount: 0,
+      };
+      byCurrency.set(group.currency, summary);
+    }
+    summary.balanceMinor += group.sumMinor;
+    summary.entryCount += group.count;
+    switch (group.type) {
+      case 'EARNING':
+        summary.earningsMinor += group.sumMinor;
+        break;
+      case 'REFUND':
+        summary.refundsMinor += group.sumMinor;
+        break;
+      case 'PAYOUT':
+        summary.payoutsMinor += group.sumMinor;
+        break;
+      case 'ADJUSTMENT':
+        summary.adjustmentsMinor += group.sumMinor;
+        break;
+    }
+  }
+  return Array.from(byCurrency.values()).sort((a, b) => a.currency.localeCompare(b.currency));
+}
+
+/**
+ * #79 (FR-8.2): The derived balance for one currency (zero when the teacher has no entries in it).
+ */
+export function currencyBalanceFromGroups(
+  groups: readonly LedgerBalanceGroup[],
   currency: string,
 ): DerivedCurrencyBalance {
   assertLedgerCurrency(currency);
-  const matching = entries.filter((entry) => entry.currency === currency);
-  const computed = computeDerivedBalances(matching)[0];
   return (
-    computed ?? {
+    balancesFromGroups(groups.filter((group) => group.currency === currency))[0] ?? {
       currency,
       balanceMinor: 0n,
       earningsMinor: 0n,
@@ -373,6 +422,7 @@ export function computeCurrencyBalance(
     }
   );
 }
+
 /** Order statuses for sales that are awaiting payment or admin verification (#81). */
 export const PENDING_SALE_ORDER_STATUSES = ['PENDING', 'PROOF_SUBMITTED'] as const;
 /** Order statuses for sales that have been verified (#81). */

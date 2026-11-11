@@ -1,7 +1,7 @@
 import { AudienceType, CourseStatus, ProgressionMode } from '@prisma/client';
 import { z } from 'zod';
 import { MAX_COMMISSION_BPS } from '../domain/course.rules';
-import { paging, uuidParams } from '../../../common/schemas';
+import { displayText, paging, uuidParams } from '../../../common/schemas';
 
 /** Money arrives as a string of minor units ("150000") and becomes a bigint. Never a float. */
 const moneyMinor = z
@@ -24,7 +24,7 @@ const courseDetails = {
   levelId: z.uuid(),
   subjectId: z.uuid(),
   syllabusArea: z.string().trim().min(1).max(200).nullable().optional(),
-  title: z.string().trim().min(1).max(200),
+  title: displayText(1, 200),
   description: z.string().trim().max(5000).nullable().optional(),
   progressionMode: z.enum(ProgressionMode).optional(),
   audienceType: z.enum(AudienceType).optional(),

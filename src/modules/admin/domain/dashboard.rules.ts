@@ -58,31 +58,37 @@ export function parseFinancialPeriodBounds(input: {
   };
 }
 
-export interface FinancialSaleFact {
+/**
+ * Totals the database has already added up, one row per currency. The summary reads the whole
+ * history, so adding it up in the application would mean loading every sale, refund, payout and
+ * ledger entry on each view.
+ */
+export interface FinancialSalesTotals {
   currency: string;
-  priceMinor: bigint;
+  /** Confirmed order lines verified in the period. */
+  count: number;
+  grossMinor: bigint;
   commissionMinor: bigint;
   netTeacherMinor: bigint;
-  verifiedAt: Date | null;
 }
 
-export interface FinancialRefundFact {
+/** Refunds, or payouts, recorded in the period. */
+export interface FinancialCountedTotals {
   currency: string;
+  count: number;
   amountMinor: bigint;
-  createdAt: Date;
 }
 
-export interface FinancialPayoutFact {
+export interface FinancialLedgerTotals {
   currency: string;
-  amountMinor: bigint;
-  recordedAt: Date;
-}
-
-export interface FinancialLedgerFact {
-  currency: string;
-  type: 'EARNING' | 'REFUND' | 'PAYOUT' | 'ADJUSTMENT';
-  amountMinor: bigint;
-  createdAt: Date;
+  /** Every entry up to the end of the period: what is owed to teachers at that point. */
+  outstandingMinor: bigint;
+  /** Entries inside the period. */
+  periodNetMinor: bigint;
+  /** REFUND entries inside the period (negative or zero). */
+  refundDebitsMinor: bigint;
+  /** ADJUSTMENT entries inside the period (signed). */
+  adjustmentsMinor: bigint;
 }
 
 export interface CurrencyFinancialSummary {
@@ -121,19 +127,6 @@ export interface AdminFinancialSummary {
   currencies: CurrencyFinancialSummary[];
 }
 
-function inPeriod(date: Date | null, bounds: FinancialPeriodBounds): boolean {
-  if (!date) return false;
-  const t = date.getTime();
-  if (bounds.from && t < bounds.from.getTime()) return false;
-  if (bounds.to && t > bounds.to.getTime()) return false;
-  return true;
-}
-
-function upToPeriodEnd(date: Date, bounds: FinancialPeriodBounds): boolean {
-  if (bounds.to && date.getTime() > bounds.to.getTime()) return false;
-  return true;
-}
-
 /**
  * #104 (FR-12.3): Computes the admin financial summary by period, broken down per currency:
  * - confirmed sales (count, gross, commission retained, teacher net earnings)
@@ -144,10 +137,10 @@ function upToPeriodEnd(date: Date, bounds: FinancialPeriodBounds): boolean {
  */
 export function buildAdminFinancialSummary(input: {
   bounds: FinancialPeriodBounds;
-  confirmedSales: readonly FinancialSaleFact[];
-  refunds: readonly FinancialRefundFact[];
-  payouts: readonly FinancialPayoutFact[];
-  ledgerEntries: readonly FinancialLedgerFact[];
+  sales: readonly FinancialSalesTotals[];
+  refunds: readonly FinancialCountedTotals[];
+  payouts: readonly FinancialCountedTotals[];
+  ledger: readonly FinancialLedgerTotals[];
 }): AdminFinancialSummary {
   const map = new Map<string, CurrencyFinancialSummary>();
 
@@ -174,43 +167,29 @@ export function buildAdminFinancialSummary(input: {
     return row;
   };
 
-  for (const sale of input.confirmedSales) {
-    if (!inPeriod(sale.verifiedAt, input.bounds)) continue;
+  for (const sale of input.sales) {
     const row = ensureCurrency(sale.currency);
-    row.confirmedSalesCount += 1;
-    row.confirmedSalesGrossMinor += sale.priceMinor;
+    row.confirmedSalesCount += sale.count;
+    row.confirmedSalesGrossMinor += sale.grossMinor;
     row.commissionRetainedMinor += sale.commissionMinor;
     row.teacherEarningsMinor += sale.netTeacherMinor;
   }
-
   for (const refund of input.refunds) {
-    if (!inPeriod(refund.createdAt, input.bounds)) continue;
     const row = ensureCurrency(refund.currency);
-    row.refundsCount += 1;
+    row.refundsCount += refund.count;
     row.refundsMinor += refund.amountMinor;
   }
-
   for (const payout of input.payouts) {
-    if (!inPeriod(payout.recordedAt, input.bounds)) continue;
     const row = ensureCurrency(payout.currency);
-    row.payoutsCount += 1;
+    row.payoutsCount += payout.count;
     row.payoutsMinor += payout.amountMinor;
   }
-
-  for (const entry of input.ledgerEntries) {
-    if (upToPeriodEnd(entry.createdAt, input.bounds)) {
-      const row = ensureCurrency(entry.currency);
-      row.outstandingLiabilityMinor += entry.amountMinor;
-    }
-    if (inPeriod(entry.createdAt, input.bounds)) {
-      const row = ensureCurrency(entry.currency);
-      row.periodNetLiabilityChangeMinor += entry.amountMinor;
-      if (entry.type === 'REFUND') {
-        row.teacherRefundDebitsMinor += entry.amountMinor;
-      } else if (entry.type === 'ADJUSTMENT') {
-        row.adjustmentsMinor += entry.amountMinor;
-      }
-    }
+  for (const entry of input.ledger) {
+    const row = ensureCurrency(entry.currency);
+    row.outstandingLiabilityMinor += entry.outstandingMinor;
+    row.periodNetLiabilityChangeMinor += entry.periodNetMinor;
+    row.teacherRefundDebitsMinor += entry.refundDebitsMinor;
+    row.adjustmentsMinor += entry.adjustmentsMinor;
   }
 
   return {
@@ -221,6 +200,7 @@ export function buildAdminFinancialSummary(input: {
     currencies: Array.from(map.values()).sort((a, b) => a.currency.localeCompare(b.currency)),
   };
 }
+
 export interface TeacherStatementLedgerItem {
   type: 'EARNING' | 'REFUND' | 'PAYOUT' | 'ADJUSTMENT';
 }

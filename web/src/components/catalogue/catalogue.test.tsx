@@ -180,6 +180,24 @@ describe('CatalogueBrowser', () => {
     );
   });
 
+  it('offers numbered page links with the current page marked, keeping the filters', async () => {
+    catalogue = () => listing([courseCard()], { total: 24 * 42 });
+    setSearch('free=true&page=20');
+    renderCatalogue();
+    const pages = within(await screen.findByRole('navigation', { name: 'Pages' }));
+    expect(pages.getByRole('link', { name: 'Page 20' })).toHaveAttribute('aria-current', 'page');
+    expect(pages.getByRole('link', { name: 'Page 21' })).toHaveAttribute(
+      'href',
+      '/courses?free=true&page=21',
+    );
+    expect(pages.getByRole('link', { name: 'Page 1' })).toHaveAttribute(
+      'href',
+      '/courses?free=true',
+    );
+    expect(pages.getByRole('link', { name: 'Page 42' })).toBeVisible();
+    expect(pages.queryByRole('link', { name: 'Page 10' })).not.toBeInTheDocument();
+  });
+
   it('shows a load failure with a retry', async () => {
     let calls = 0;
     catalogue = () => {

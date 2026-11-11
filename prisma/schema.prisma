@@ -267,6 +267,8 @@ model AuthToken {
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   expiresAt DateTime         @map("expires_at") @db.Timestamptz(3)
   usedAt    DateTime?        @map("used_at") @db.Timestamptz(3)
+  // Guesses spent on an MFA challenge. The challenge dies after a few (see MfaService).
+  attempts  Int              @default(0)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -408,6 +410,8 @@ model Course {
   orderItems  OrderItem[]
 
   @@index([boardId, levelId, subjectId, status])
+  @@index([teacherId])
+  @@index([status, publishedAt])
   @@map("courses")
 }
 
@@ -420,6 +424,7 @@ model Section {
   course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lessons Lesson[]
 
+  @@index([courseId])
   @@map("sections")
 }
 
@@ -442,6 +447,7 @@ model Lesson {
   progress      LessonProgress[]
   videoProgress VideoWatchProgress[]
 
+  @@index([sectionId])
   @@map("lessons")
 }
 
@@ -469,6 +475,7 @@ model LessonResource {
 
   lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
+  @@index([lessonId])
   @@map("lesson_resources")
 }
 
@@ -510,6 +517,7 @@ model Question {
   quiz      Quiz               @relation(fields: [quizId], references: [id], onDelete: Cascade)
   responses QuestionResponse[]
 
+  @@index([quizId])
   @@map("questions")
 }
 
@@ -528,6 +536,7 @@ model QuizAttempt {
   responses QuestionResponse[]
 
   @@unique([studentId, quizId, attemptNumber])
+  @@index([quizId])
   @@map("quiz_attempts")
 }
 
@@ -544,6 +553,7 @@ model QuestionResponse {
 
   // Assessment (#73, #74): one response per question per attempt, so saves can upsert.
   @@unique([attemptId, questionId])
+  @@index([questionId])
   @@map("question_responses")
 }
 
@@ -570,6 +580,7 @@ model Enrollment {
   orderItem OrderItem? @relation(fields: [orderItemId], references: [id])
 
   @@unique([studentId, courseId])
+  @@index([courseId])
   @@map("enrollments")
 }
 
@@ -595,6 +606,8 @@ model Order {
   refunds       Refund[]
 
   @@index([status, expiresAt])
+  @@index([studentId])
+  @@index([status, createdAt])
   @@map("orders")
 }
 
@@ -616,6 +629,8 @@ model OrderItem {
   ledgerEntries TeacherLedger[]
 
   @@unique([orderId, courseId])
+  @@index([teacherId])
+  @@index([courseId])
   @@map("order_items")
 }
 
@@ -632,6 +647,7 @@ model PaymentProof {
 
   // Indexed, deliberately not unique — warn on duplicates, do not block.
   @@index([transactionId])
+  @@index([orderId])
   @@map("payment_proofs")
 }
 
@@ -652,6 +668,7 @@ model PaymentVerification {
   proof      PaymentProof? @relation(fields: [proofId], references: [id])
   verifiedBy User          @relation(fields: [verifiedById], references: [id])
 
+  @@index([orderId])
   @@map("payment_verifications")
 }
 
@@ -669,6 +686,7 @@ model Refund {
   authorisedBy  User            @relation(fields: [authorisedById], references: [id])
   ledgerEntries TeacherLedger[]
 
+  @@index([orderId])
   @@map("refunds")
 }
 
@@ -699,6 +717,8 @@ model TeacherLedger {
   disputeAdjustments PayoutDispute[] @relation("DisputeAdjustment")
 
   @@index([teacherId, createdAt])
+  @@index([orderItemId])
+  @@index([payoutId])
   @@map("teacher_ledger")
 }
 
@@ -724,6 +744,7 @@ model Payout {
   ledgerEntries TeacherLedger[]
 
   @@index([status, disputeDeadline])
+  @@index([teacherId])
   @@map("payouts")
 }
 
@@ -744,6 +765,7 @@ model PayoutDispute {
   resolvedBy       User?          @relation("DisputeResolvedBy", fields: [resolvedById], references: [id])
   adjustmentLedger TeacherLedger? @relation("DisputeAdjustment", fields: [adjustmentLedgerId], references: [id])
 
+  @@index([payoutId])
   @@map("payout_disputes")
 }
 
@@ -762,6 +784,7 @@ model LessonProgress {
   lesson  Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, lessonId])
+  @@index([lessonId])
   @@map("lesson_progress")
 }
 
@@ -795,6 +818,9 @@ model AuditLog {
 
   actor User? @relation(fields: [actorUserId], references: [id])
 
+  @@index([createdAt])
+  @@index([action, entityId, createdAt])
+  @@index([actorUserId])
   @@map("audit_log")
 }
 

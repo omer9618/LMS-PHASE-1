@@ -45,10 +45,13 @@ export function AccountMenu() {
 
   return (
     <div className={styles.account}>
-      <span className={styles.userName}>
-        <span className="visually-hidden">Signed in as </span>
+      <Link
+        href="/account"
+        className={styles.userName}
+        aria-label={`Your account, signed in as ${displayName(user)}`}
+      >
         {displayName(user)}
-      </span>
+      </Link>
       {staffRoles.map((role) => (
         <Badge key={role} tone="primary">
           {ROLE_LABELS[role]}

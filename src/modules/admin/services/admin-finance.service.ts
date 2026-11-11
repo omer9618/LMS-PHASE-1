@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { adminScope } from '../../../common/auth/scope';
 import { AdminUserView, UserAdminService } from '../../auth/services/user-admin.service';
@@ -56,42 +55,18 @@ export class AdminFinanceService {
     admin: AuthUser,
     query: FinancialSummaryQuery,
   ): Promise<AdminFinancialSummary> {
-    const scope = adminScope(admin);
+    adminScope(admin);
     const bounds = parseFinancialPeriodBounds(query);
 
-    const [verifiedOrderItems, refunds, payouts, ledgerEntries] = await Promise.all([
-      this.orderService.listTeacherOrderItems(scope, [OrderStatus.VERIFIED]),
-      this.ledgerService.listRefundsForAdmin(admin),
-      this.payoutService.listPayoutsForAdmin(admin),
-      this.ledgerService.listEntries(scope),
+    // The database adds everything up: the summary covers all history and must not load it.
+    const [sales, refunds, payouts, ledger] = await Promise.all([
+      this.orderService.getVerifiedSalesTotals(bounds.from, bounds.to),
+      this.ledgerService.getRefundTotals(admin, bounds.from, bounds.to),
+      this.payoutService.getPayoutTotals(admin, bounds.from, bounds.to),
+      this.ledgerService.getFinancialTotals(admin, bounds.from, bounds.to),
     ]);
 
-    return buildAdminFinancialSummary({
-      bounds,
-      confirmedSales: verifiedOrderItems.map((item) => ({
-        currency: item.order.currency,
-        priceMinor: item.priceMinor,
-        commissionMinor: item.commissionMinor,
-        netTeacherMinor: item.netTeacherMinor,
-        verifiedAt: item.order.verifiedAt,
-      })),
-      refunds: refunds.map((refund) => ({
-        currency: refund.order.currency,
-        amountMinor: refund.amountMinor,
-        createdAt: refund.createdAt,
-      })),
-      payouts: payouts.map((payout) => ({
-        currency: payout.ledgerEntries[0]?.currency ?? 'PKR',
-        amountMinor: payout.amountMinor,
-        recordedAt: payout.recordedAt,
-      })),
-      ledgerEntries: ledgerEntries.map((entry) => ({
-        currency: entry.currency,
-        type: entry.type,
-        amountMinor: entry.amountMinor,
-        createdAt: entry.createdAt,
-      })),
-    });
+    return buildAdminFinancialSummary({ bounds, sales, refunds, payouts, ledger });
   }
 
   /**

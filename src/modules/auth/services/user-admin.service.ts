@@ -4,6 +4,7 @@ import type { AuthUser } from '../../../common/auth/auth-user';
 import { adminScope } from '../../../common/auth/scope';
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
+import { containsText } from '../../../common/like';
 import type { TransactionClient } from '../../../prisma/prisma.types';
 import { TransactionService } from '../../../prisma/transaction.service';
 import { AuditService, Paged } from '../../audit/services/audit.service';
@@ -53,10 +54,7 @@ export class UserAdminService {
       status: query.status,
       roles: query.role ? { some: { role: query.role } } : undefined,
       OR: query.q
-        ? [
-            { email: { contains: query.q, mode: 'insensitive' } },
-            { fullName: { contains: query.q, mode: 'insensitive' } },
-          ]
+        ? [{ email: containsText(query.q) }, { fullName: containsText(query.q) }]
         : undefined,
     };
     const [rows, total] = await Promise.all([

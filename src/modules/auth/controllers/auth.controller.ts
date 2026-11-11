@@ -5,7 +5,7 @@ import { AllowWithoutMfa } from '../../../common/decorators/allow-without-mfa.de
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Public } from '../../../common/decorators/public.decorator';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
-import { RateLimit } from '../../../common/rate-limit/rate-limits';
+import { LoginRateLimit, RateLimit } from '../../../common/rate-limit/rate-limits';
 import {
   LoginInput,
   loginSchema,
@@ -26,7 +26,7 @@ export class AuthController {
   ) {}
 
   @Public()
-  @RateLimit('LOGIN')
+  @LoginRateLimit()
   @Post('login')
   @HttpCode(200)
   async login(
@@ -83,6 +83,19 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthUser): MeView {
     return this.authService.describe(user);
+  }
+
+  /**
+   * Who is signed in, answered with 200 either way: `{ user: null }` for a visitor. The web app
+   * asks this on every page, and a 401 there would show as an error in every visitor's console.
+   * Public, so it reads the session cookie itself; that also lets an admin who has not set up
+   * two-step verification yet see who they are, which the MFA gate would otherwise refuse.
+   */
+  @Public()
+  @Get('session')
+  async session(@Req() req: Request): Promise<{ user: MeView | null }> {
+    const user = await this.authService.authenticate(this.sessionCookie.read(req));
+    return { user: user ? this.authService.describe(user) : null };
   }
 
   /** #109: switch an ADMIN+TEACHER session between the Admin and Teacher contexts. Audited. */

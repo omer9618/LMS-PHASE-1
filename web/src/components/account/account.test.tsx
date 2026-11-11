@@ -3,7 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TeacherApplicationForm, checkCv } from '@/components/onboarding/TeacherApplicationForm';
 import { DEV_CAPTCHA_TOKEN } from '@/components/ui/Captcha';
-import { StudentDashboard, sortEntries } from '@/components/dashboard/StudentDashboard';
+import {
+  filterEntries,
+  orderEntries,
+  PAGE_SIZE,
+  sortEntries,
+  StudentDashboard,
+} from '@/components/dashboard/StudentDashboard';
 import { RequestError } from '@/lib/api/errors';
 import type { DashboardEntry } from '@/lib/api/schemas/enrollment';
 import type { Me } from '@/lib/api/schemas/auth';
@@ -267,6 +273,65 @@ describe('StudentDashboard', () => {
       'href',
       '/login?next=/dashboard',
     );
+  });
+
+  describe('with many courses', () => {
+    const entry = (id: string, title: string, percent: number, overrides = {}): DashboardEntry => ({
+      ...ENTRY,
+      id,
+      completionPercent: percent,
+      course: { ...ENTRY.course, id: `c-${id}`, title },
+      ...overrides,
+    });
+    const MANY = [
+      entry('a', 'Chemistry', 0),
+      entry('b', 'Biology', 60),
+      entry('c', 'Accounting', 100),
+      entry('d', 'Physics', 20),
+      entry('e', 'Old course', 30, { access: 'EXPIRED' }),
+    ];
+
+    it('filters by where the student is up to', () => {
+      const ids = (filter: Parameters<typeof filterEntries>[1]) =>
+        filterEntries(MANY, filter).map((e) => e.id);
+      expect(ids('all')).toEqual(['a', 'b', 'c', 'd', 'e']);
+      expect(ids('in-progress')).toEqual(['b', 'd']);
+      expect(ids('not-started')).toEqual(['a']);
+      expect(ids('completed')).toEqual(['c']);
+      expect(ids('ended')).toEqual(['e']);
+    });
+
+    it('can put the course to continue first, or sort by title', () => {
+      const ids = (sort: Parameters<typeof orderEntries>[1]) =>
+        orderEntries(MANY, sort).map((e) => e.id);
+      // Under way (furthest first), not started, finished, then ended access.
+      expect(ids('progress')).toEqual(['b', 'd', 'a', 'c', 'e']);
+      expect(ids('title')).toEqual(['c', 'b', 'a', 'e', 'd']);
+    });
+
+    it('lets the student sort and filter, and shows a message when nothing matches', async () => {
+      renderWithSession(<StudentDashboard />, STUDENT, () => MANY);
+      await screen.findByRole('heading', { level: 2, name: 'Chemistry' });
+      await userEvent.selectOptions(screen.getByLabelText('Show'), 'completed');
+      expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
+        'Accounting',
+      ]);
+      await userEvent.selectOptions(screen.getByLabelText('Sort by'), 'title');
+      await userEvent.selectOptions(screen.getByLabelText('Show'), 'all');
+      expect(screen.getAllByRole('heading', { level: 2 })[0]).toHaveTextContent('Accounting');
+    });
+
+    it('shows a page of courses at a time, with a way to see the rest', async () => {
+      const lots = Array.from({ length: PAGE_SIZE + 3 }, (_, i) =>
+        entry(`x${i}`, `Course ${String(i).padStart(2, '0')}`, 10),
+      );
+      renderWithSession(<StudentDashboard />, STUDENT, () => lots);
+      await screen.findByRole('heading', { level: 2, name: /Course 00/ });
+      expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(PAGE_SIZE);
+      await userEvent.click(screen.getByRole('button', { name: 'Show more (3 more)' }));
+      expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(PAGE_SIZE + 3);
+      expect(screen.queryByRole('button', { name: /Show more/ })).not.toBeInTheDocument();
+    });
   });
 
   it('sorts active first, newest grant first', () => {

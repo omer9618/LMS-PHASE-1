@@ -9,14 +9,24 @@ const apiUrl = (process.env.API_URL ?? 'http://localhost:3000').replace(/\/+$/, 
 
 /**
  * Headers for every page. Caddy only adds HSTS on the web domain, so the app sets the rest.
- * `frame-ancestors 'none'` (with X-Frame-Options for old browsers) stops clickjacking. It is the
- * only CSP directive set here: a full policy has to allow KaTeX, Turnstile and the Bunny player.
+ * The Content-Security-Policy is a static baseline that needs no per-request work:
+ * `frame-ancestors 'none'` (with X-Frame-Options for old browsers) stops clickjacking,
+ * `object-src 'none'` and `base-uri 'self'` close the plugin and <base> injection routes, and
+ * `form-action 'self'` keeps a form from posting somewhere else.
+ * There is no `script-src` on purpose. Next.js adds inline scripts, so a script policy needs a
+ * per-request nonce (a `proxy.ts` and every page rendered dynamically, see "Content Security
+ * Policy" in the Next.js docs) and has to allow Turnstile and the Bunny player. That is a
+ * performance and caching trade to make deliberately; lesson maths is already rendered by KaTeX
+ * with `trust: false`.
  */
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+  {
+    key: 'Content-Security-Policy',
+    value: "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+  },
 ];
 
 const nextConfig: NextConfig = {

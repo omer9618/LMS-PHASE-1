@@ -1,6 +1,5 @@
 import { render, type RenderResult } from '@testing-library/react';
 import type { ReactElement } from 'react';
-import { RequestError } from '@/lib/api/errors';
 import type { Me } from '@/lib/api/schemas/auth';
 import { SessionProvider } from '@/lib/session';
 import { apiMock } from './mocks';
@@ -16,7 +15,7 @@ export const STUDENT: Me = {
 };
 
 /**
- * Renders inside a SessionProvider. GET /auth/me answers with `me` (signed out when null); any
+ * Renders inside a SessionProvider. GET /auth/session answers with `me` (signed out when null); any
  * other GET goes to `otherGets`.
  */
 export function renderWithSession(
@@ -27,13 +26,7 @@ export function renderWithSession(
   },
 ): RenderResult {
   apiMock.get.mockImplementation(async (path: string, query?: unknown) => {
-    if (path === '/auth/me') {
-      if (me) return me;
-      throw new RequestError('UNAUTHENTICATED', {
-        message: 'Authentication required',
-        status: 401,
-      });
-    }
+    if (path === '/auth/session') return { user: me };
     return otherGets(path, query);
   });
   return render(<SessionProvider>{ui}</SessionProvider>);

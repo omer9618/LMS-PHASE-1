@@ -1,6 +1,6 @@
 import { LessonType } from '@prisma/client';
 import { z } from 'zod';
-import { uuidParams } from '../../../common/schemas';
+import { displayText, uuidParams } from '../../../common/schemas';
 
 export const courseSectionParamsSchema = uuidParams('courseId', 'sectionId');
 export type CourseSectionParams = z.infer<typeof courseSectionParamsSchema>;
@@ -8,7 +8,7 @@ export type CourseSectionParams = z.infer<typeof courseSectionParamsSchema>;
 export const courseLessonParamsSchema = uuidParams('courseId', 'lessonId');
 export type CourseLessonParams = z.infer<typeof courseLessonParamsSchema>;
 
-export const sectionSchema = z.strictObject({ title: z.string().trim().min(1).max(200) });
+export const sectionSchema = z.strictObject({ title: displayText(1, 200) });
 export type SectionInput = z.infer<typeof sectionSchema>;
 
 export const sectionOrderSchema = z.strictObject({ sectionIds: z.array(z.uuid()).max(200) });
@@ -18,7 +18,7 @@ export const lessonOrderSchema = z.strictObject({ lessonIds: z.array(z.uuid()).m
 export type LessonOrderInput = z.infer<typeof lessonOrderSchema>;
 
 export const createLessonSchema = z.strictObject({
-  title: z.string().trim().min(1).max(200),
+  title: displayText(1, 200),
   type: z.enum(LessonType),
   bodyText: z.string().max(100_000).optional(),
   isFreePreview: z.boolean().optional(),
@@ -27,7 +27,7 @@ export type CreateLessonInput = z.infer<typeof createLessonSchema>;
 
 export const updateLessonSchema = z
   .strictObject({
-    title: z.string().trim().min(1).max(200).optional(),
+    title: displayText(1, 200).optional(),
     bodyText: z.string().max(100_000).optional(),
     isFreePreview: z.boolean().optional(),
   })

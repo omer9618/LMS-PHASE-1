@@ -7,7 +7,7 @@ import { CART_STORAGE_KEY } from '@/lib/orders/cart';
 import { COURSE_ID, courseDetail } from '@/test/fixtures';
 import { apiMock, resetMocks, router } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';
-import { CourseDetailView } from '../course/CourseDetailView';
+import { CourseDetailContent } from '../course/CourseDetailView';
 import { CartView } from './CartView';
 import { OrderDetail } from './OrderDetail';
 import { OrdersList } from './OrdersList';
@@ -154,8 +154,7 @@ describe('cart and checkout (#54, #55)', () => {
   });
 
   it('adds a paid course from the course page and goes to the cart', async () => {
-    renderWithSession(<CourseDetailView courseId={COURSE_ID} />, STUDENT, (path) => {
-      if (path === `/catalogue/courses/${COURSE_ID}`) return courseDetail();
+    renderWithSession(<CourseDetailContent course={courseDetail()} />, STUDENT, (path) => {
       if (path === '/me/enrollments') return [];
       throw new Error(`unexpected GET ${path}`);
     });

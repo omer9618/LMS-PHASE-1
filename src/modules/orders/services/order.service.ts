@@ -395,9 +395,9 @@ export class OrderService {
 
   // â”€â”€ For the verification module (#63-#67) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  /** #63: every order awaiting an admin's decision. */
-  listAwaitingVerification(): Promise<OrderRecord[]> {
-    return this.orderDao.getOrdersBy({ status: OrderStatus.PROOF_SUBMITTED });
+  /** #63: these orders, in no particular order (the queue page sorts them itself). */
+  listByIds(orderIds: string[]): Promise<OrderRecord[]> {
+    return this.orderDao.getOrdersBy({ id: { in: orderIds } });
   }
 
   /** #64-#66: an order loaded inside the decision's transaction. */
@@ -412,15 +412,16 @@ export class OrderService {
     orders: readonly OrderRecord[],
   ): Promise<Map<string, DuplicateTransactionIdWarning[]>> {
     const result = new Map<string, DuplicateTransactionIdWarning[]>();
+    // One query for the whole list, not one per order: the queue shows a page at a time.
+    const everyMatch = await this.orderDao.getProofsByTransactionIds(
+      orders.flatMap((order) => order.proofs.map((p) => p.transactionId)),
+    );
     for (const order of orders) {
       const transactionIds = order.proofs.map((p) => p.transactionId);
-      const matches = await this.orderDao.getOtherOrderProofsByTransactionIds(
-        order.id,
-        transactionIds,
-      );
+      const others = everyMatch.filter((match) => match.order.id !== order.id);
       result.set(
         order.id,
-        buildDuplicateTransactionIdWarnings(order.id, transactionIds, matches.map(toMatch)),
+        buildDuplicateTransactionIdWarnings(order.id, transactionIds, others.map(toMatch)),
       );
     }
     return result;
@@ -674,6 +675,11 @@ export class OrderService {
       statuses ? { order: { status: { in: [...statuses] } } } : {},
       tx,
     );
+  }
+
+  /** Confirmed sales per currency inside a period, added up by the database (#104). */
+  getVerifiedSalesTotals(from: Date | null, to: Date | null) {
+    return this.orderDao.getVerifiedSalesTotals(from, to);
   }
 
   private orderUrl(orderId: string): string {

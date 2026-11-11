@@ -55,18 +55,19 @@ Constraints and indexes:
 
 Server-side login sessions (#12). Not part of Schema v2.0: added so logout and password reset (#13) can revoke access immediately. See docs/DATABASE_RULES.md. The cookie holds a random token; only its SHA-256 hash is stored here.
 
-| Column            | Type           | Null | Notes                                                            |
-| ----------------- | -------------- | ---- | ---------------------------------------------------------------- |
-| `id`              | text           |      | primary key; default `uuid()`                                    |
-| `user_id`         | text           |      | FK → users (on delete Cascade)                                   |
-| `token_hash`      | char(64)       |      | unique                                                           |
-| `created_at`      | timestamptz(3) |      | default `now()`                                                  |
-| `expires_at`      | timestamptz(3) |      |                                                                  |
-| `last_seen_at`    | timestamptz(3) |      | default `now()`                                                  |
-| `revoked_at`      | timestamptz(3) | yes  |                                                                  |
-| `ip_address`      | text           | yes  |                                                                  |
-| `user_agent`      | text           | yes  |                                                                  |
-| `mfa_verified_at` | timestamptz(3) | yes  | Set when this session passed MFA (#16). Admin routes require it. |
+| Column            | Type           | Null | Notes                                                                                                                                                    |
+| ----------------- | -------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`              | text           |      | primary key; default `uuid()`                                                                                                                            |
+| `user_id`         | text           |      | FK → users (on delete Cascade)                                                                                                                           |
+| `token_hash`      | char(64)       |      | unique                                                                                                                                                   |
+| `created_at`      | timestamptz(3) |      | default `now()`                                                                                                                                          |
+| `expires_at`      | timestamptz(3) |      |                                                                                                                                                          |
+| `last_seen_at`    | timestamptz(3) |      | default `now()`                                                                                                                                          |
+| `revoked_at`      | timestamptz(3) | yes  |                                                                                                                                                          |
+| `ip_address`      | text           | yes  |                                                                                                                                                          |
+| `user_agent`      | text           | yes  |                                                                                                                                                          |
+| `mfa_verified_at` | timestamptz(3) | yes  | Set when this session passed MFA (#16). Admin routes require it.                                                                                         |
+| `active_role`     | enum Role      | yes  | Role context (#109): the active context (ADMIN or TEACHER) of an account holding both. Null means the default (ADMIN). Ignored for single-role accounts. |
 
 Constraints and indexes:
 
@@ -77,15 +78,16 @@ Constraints and indexes:
 
 Single-use, expiring tokens emailed to users (#11 email verification, #13 password reset). Like sessions, only the SHA-256 hash of the token is stored.
 
-| Column       | Type                  | Null | Notes                          |
-| ------------ | --------------------- | ---- | ------------------------------ |
-| `id`         | text                  |      | primary key; default `uuid()`  |
-| `user_id`    | text                  |      | FK → users (on delete Cascade) |
-| `purpose`    | enum AuthTokenPurpose |      |                                |
-| `token_hash` | char(64)              |      | unique                         |
-| `created_at` | timestamptz(3)        |      | default `now()`                |
-| `expires_at` | timestamptz(3)        |      |                                |
-| `used_at`    | timestamptz(3)        | yes  |                                |
+| Column       | Type                  | Null | Notes                                                                                            |
+| ------------ | --------------------- | ---- | ------------------------------------------------------------------------------------------------ |
+| `id`         | text                  |      | primary key; default `uuid()`                                                                    |
+| `user_id`    | text                  |      | FK → users (on delete Cascade)                                                                   |
+| `purpose`    | enum AuthTokenPurpose |      |                                                                                                  |
+| `token_hash` | char(64)              |      | unique                                                                                           |
+| `created_at` | timestamptz(3)        |      | default `now()`                                                                                  |
+| `expires_at` | timestamptz(3)        |      |                                                                                                  |
+| `used_at`    | timestamptz(3)        | yes  |                                                                                                  |
+| `attempts`   | integer               |      | default `0`; Guesses spent on an MFA challenge. The challenge dies after a few (see MfaService). |
 
 Constraints and indexes:
 
@@ -204,6 +206,8 @@ Constraints and indexes:
 Constraints and indexes:
 
 - `@@index([board_id, level_id, subject_id, status])`
+- `@@index([teacher_id])`
+- `@@index([status, published_at])`
 
 ### sections
 
@@ -213,6 +217,10 @@ Constraints and indexes:
 | `course_id`   | text    |      | FK → courses (on delete Cascade) |
 | `title`       | text    |      |                                  |
 | `order_index` | integer |      |                                  |
+
+Constraints and indexes:
+
+- `@@index([course_id])`
 
 ### lessons
 
@@ -227,6 +235,10 @@ Constraints and indexes:
 | `body_text`       | text            | yes  |                                   |
 | `is_free_preview` | boolean         |      | default `false`                   |
 | `created_at`      | timestamptz(3)  |      | default `now()`                   |
+
+Constraints and indexes:
+
+- `@@index([section_id])`
 
 ### video_assets
 
@@ -249,6 +261,10 @@ Constraints and indexes:
 | `file_name`       | text    |      |                                  |
 | `file_size_bytes` | integer | yes  |                                  |
 | `order_index`     | integer |      |                                  |
+
+Constraints and indexes:
+
+- `@@index([lesson_id])`
 
 ## Assessment
 
@@ -282,6 +298,10 @@ Constraints and indexes:
 | `explanation`       | text              | yes  |                                  |
 | `order_index`       | integer           |      |                                  |
 
+Constraints and indexes:
+
+- `@@index([quiz_id])`
+
 ### quiz_attempts
 
 | Column           | Type           | Null | Notes                         |
@@ -298,6 +318,7 @@ Constraints and indexes:
 Constraints and indexes:
 
 - `@@unique([student_id, quiz_id, attempt_number])`
+- `@@index([quiz_id])`
 
 ### question_responses
 
@@ -313,6 +334,7 @@ Constraints and indexes:
 Constraints and indexes:
 
 - `@@unique([attempt_id, question_id])`
+- `@@index([question_id])`
 
 ## Enrollment
 
@@ -335,6 +357,7 @@ Constraints and indexes:
 Constraints and indexes:
 
 - `@@unique([student_id, course_id])`
+- `@@index([course_id])`
 
 ## Orders and payment
 
@@ -355,6 +378,8 @@ Constraints and indexes:
 Constraints and indexes:
 
 - `@@index([status, expires_at])`
+- `@@index([student_id])`
+- `@@index([status, created_at])`
 
 ### order_items
 
@@ -372,6 +397,8 @@ Constraints and indexes:
 Constraints and indexes:
 
 - `@@unique([order_id, course_id])`
+- `@@index([teacher_id])`
+- `@@index([course_id])`
 
 ### payment_proofs
 
@@ -387,6 +414,7 @@ Constraints and indexes:
 Constraints and indexes:
 
 - `@@index([transaction_id])`
+- `@@index([order_id])`
 
 ### payment_verifications
 
@@ -404,6 +432,10 @@ Constraints and indexes:
 | `verified_by`           | text                     |      | FK → users                    |
 | `verified_at`           | timestamptz(3)           |      | default `now()`               |
 
+Constraints and indexes:
+
+- `@@index([order_id])`
+
 ### refunds
 
 | Column           | Type           | Null | Notes                         |
@@ -416,6 +448,10 @@ Constraints and indexes:
 | `transfer_date`  | date           | yes  |                               |
 | `authorised_by`  | text           |      | FK → users                    |
 | `created_at`     | timestamptz(3) |      | default `now()`               |
+
+Constraints and indexes:
+
+- `@@index([order_id])`
 
 ## Financial ledger
 
@@ -440,6 +476,8 @@ Append-only. Balance = SUM(amount_minor). No stored balance column.
 Constraints and indexes:
 
 - `@@index([teacher_id, created_at])`
+- `@@index([order_item_id])`
+- `@@index([payout_id])`
 
 ### payouts
 
@@ -462,6 +500,7 @@ Constraints and indexes:
 Constraints and indexes:
 
 - `@@index([status, dispute_deadline])`
+- `@@index([teacher_id])`
 
 ### payout_disputes
 
@@ -478,6 +517,10 @@ Constraints and indexes:
 | `resolved_by`          | text               | yes  | FK → users                    |
 | `resolved_at`          | timestamptz(3)     | yes  |                               |
 
+Constraints and indexes:
+
+- `@@index([payout_id])`
+
 ## Progress
 
 ### lesson_progress
@@ -493,6 +536,7 @@ Constraints and indexes:
 Constraints and indexes:
 
 - `@@unique([student_id, lesson_id])`
+- `@@index([lesson_id])`
 
 ### video_watch_progress
 
@@ -522,6 +566,12 @@ Constraints and indexes:
 | `details`       | jsonb          | yes  |                               |
 | `ip_address`    | text           | yes  |                               |
 | `created_at`    | timestamptz(3) |      | default `now()`               |
+
+Constraints and indexes:
+
+- `@@index([created_at])`
+- `@@index([action, entity_id, created_at])`
+- `@@index([actor_user_id])`
 
 ### platform_settings
 

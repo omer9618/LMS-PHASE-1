@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { AppThrottlerGuard } from './common/rate-limit/app-throttler.guard';
 import { LoggerModule } from 'nestjs-pino';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor';
-import { RATE_LIMITS } from './common/rate-limit/rate-limits';
+import { buildThrottlers } from './common/rate-limit/rate-limits';
 import { buildLoggerParams } from './common/logging/logger.config';
 import { ConfigModule, ENV } from './config/config.module';
 import { loadEnv, type Env } from './config/env.schema';
@@ -39,13 +40,11 @@ import { AdminModule } from './modules/admin/admin.module';
   imports: [
     ConfigModule,
     LoggerModule.forRootAsync({ inject: [ENV], useFactory: (env: Env) => buildLoggerParams(env) }),
-    // In-memory store: one app instance on the VPS. A shared store is only needed when scaling out.
+    // In-memory counters: see the note in common/rate-limit/rate-limits.ts. IPv6 clients are
+    // grouped by /64 (the library default), so rotating addresses inside one network does not help.
     ThrottlerModule.forRootAsync({
       inject: [ENV],
-      useFactory: (env: Env) => ({
-        throttlers: [{ name: 'default', ...RATE_LIMITS.DEFAULT }],
-        skipIf: () => !env.RATE_LIMIT_ENABLED,
-      }),
+      useFactory: (env: Env) => ({ throttlers: buildThrottlers(env.RATE_LIMIT_ENABLED) }),
     }),
     PrismaModule,
     EmailModule,
@@ -77,7 +76,7 @@ import { AdminModule } from './modules/admin/admin.module';
     ...(loadEnv().JOBS_ENABLED ? [ScheduleModule.forRoot()] : []),
   ],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: AppThrottlerGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
   ],

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AdminDashboard, MeWithContext } from '@/lib/api/admin';
@@ -10,9 +10,10 @@ import { AdminShell, isCurrent } from './AdminShell';
 import { ReasonAction } from '@/components/ui';
 import { DashboardScreen, formatWait } from './screens/DashboardScreen';
 import { reviewChecklist } from './screens/CoursesScreen';
-import { sortRun, toRunRow, totalsOwed, type RunRow } from './screens/PayoutRunScreen';
+import { PayoutRunScreen } from './screens/PayoutRunScreen';
 import { DecisionPanel, queueFlags } from './screens/VerificationScreen';
 import { settingValue } from '@/lib/forms/admin';
+import { todayIso } from '@/lib/format';
 import { dayBoundary } from './screens/AuditScreen';
 
 vi.mock('next/navigation', async () => (await import('@/test/mocks')).navigationMock);
@@ -104,7 +105,9 @@ describe('AdminShell (#102, #109)', () => {
         return me;
       },
     );
-    apiMock.get.mockImplementation(async (path: string) => (path === '/auth/me' ? me : gets(path)));
+    apiMock.get.mockImplementation(async (path: string) =>
+      path === '/auth/session' ? { user: me } : gets(path),
+    );
     render(
       <SessionProvider>
         <AdminShell>secret</AdminShell>
@@ -160,16 +163,46 @@ describe('DecisionPanel (#64–#66)', () => {
         orderId="o-1"
         totalMinor="150000"
         currency="PKR"
-        suggestedMinor="150000"
+        claimedMinor="140000"
         onDecided={onDecided}
       />,
     );
     return onDecided;
   };
 
+  /** Types what the bank statement shows, as an admin must: nothing is filled in for them. */
+  const fillBank = async (amount: string) => {
+    const field = screen.getByLabelText(/Amount received/);
+    await userEvent.clear(field);
+    await userEvent.type(field, amount);
+    fireEvent.change(screen.getByLabelText(/Bank value date/), { target: { value: todayIso() } });
+  };
+
+  it('starts empty and will not record a decision until the bank details are typed in', async () => {
+    renderPanel();
+    expect(screen.getByLabelText(/Amount received/)).toHaveValue('');
+    expect(screen.getByLabelText(/Bank value date/)).toHaveValue('');
+    await userEvent.click(screen.getByRole('button', { name: 'Record decision' }));
+    expect(
+      await screen.findByText(/Pick the bank value date|Enter the amount received/),
+    ).toBeVisible();
+    expect(apiMock.post).not.toHaveBeenCalled();
+  });
+
+  it('points out when the typed amount differs from what the student claimed', async () => {
+    renderPanel();
+    await fillBank('1500');
+    expect(screen.getByText('Different from what the student claimed')).toBeVisible();
+    expect(document.body).toHaveTextContent(/the student claimed PKR 1,400.00/);
+    await userEvent.clear(screen.getByLabelText(/Amount received/));
+    await userEvent.type(screen.getByLabelText(/Amount received/), '1400');
+    expect(screen.queryByText('Different from what the student claimed')).not.toBeInTheDocument();
+  });
+
   it('confirms an exact amount without a mismatch action', async () => {
     apiMock.post.mockResolvedValue({});
     const onDecided = renderPanel();
+    await fillBank('1500');
     await userEvent.click(screen.getByRole('button', { name: 'Record decision' }));
     await waitFor(() => expect(onDecided).toHaveBeenCalled());
     const [path, , body] = apiMock.post.mock.calls[0]!;
@@ -181,9 +214,7 @@ describe('DecisionPanel (#64–#66)', () => {
   it('on a short payment, shows the difference and requires a choice', async () => {
     apiMock.post.mockResolvedValue({});
     renderPanel();
-    const amount = screen.getByLabelText(/Amount received/);
-    await userEvent.clear(amount);
-    await userEvent.type(amount, '1000');
+    await fillBank('1000');
     expect(document.body).toHaveTextContent(/Short by PKR 500.00 against a total of PKR 1,500.00/);
     await userEvent.click(screen.getByRole('button', { name: 'Record decision' }));
     expect(await screen.findByText(/choose what to do/)).toBeVisible();
@@ -200,9 +231,7 @@ describe('DecisionPanel (#64–#66)', () => {
 
   it('an overpayment cannot be topped up', async () => {
     renderPanel();
-    const amount = screen.getByLabelText(/Amount received/);
-    await userEvent.clear(amount);
-    await userEvent.type(amount, '2000');
+    await fillBank('2000');
     const options = within(screen.getByLabelText('What to do'))
       .getAllByRole('option')
       .map((o) => o.getAttribute('value'));
@@ -331,72 +360,98 @@ describe('queueFlags', () => {
 });
 
 describe('payout run', () => {
-  const balance = (currency: string, balanceMinor: string) => ({
+  const balance = (currency: string, minor: string) => ({
     currency,
-    balanceMinor,
-    earningsMinor: balanceMinor,
+    balanceMinor: minor,
+    earningsMinor: minor,
     refundsMinor: '0',
     payoutsMinor: '0',
     adjustmentsMinor: '0',
     entryCount: 1,
   });
-  const teacher = (id: string, name: string) => ({
-    id,
-    email: `${id}@example.com`,
-    fullName: name,
-    isEmailVerified: true,
-    status: 'ACTIVE' as const,
-    roles: ['TEACHER' as const],
-    mfaEnabled: false,
-    guardianName: null,
-    guardianEmail: null,
-    guardianPhone: null,
-    createdAt: '2026-11-01T00:00:00.000Z',
-    lastLoginAt: null,
-  });
-  const statement = (
-    id: string,
+  const row = (
+    teacherId: string,
     name: string,
+    status: 'DUE' | 'DISPUTED' | 'CLEAR',
     balances: ReturnType<typeof balance>[],
-    payouts = [],
-  ) =>
-    toRunRow({
-      teacher: teacher(id, name),
-      balances,
-      sales: {
-        pending: { items: [], totalsByCurrency: [] },
-        confirmed: { items: [], totalsByCurrency: [] },
+    lastPayout: { transferDate: string; status: string } | null = null,
+  ) => ({ teacherId, name, status, balances, lastPayout });
+  const run = (items: ReturnType<typeof row>[], total = items.length) => ({
+    items,
+    total,
+    limit: 25,
+    offset: 0,
+    totalsOwed: [{ currency: 'PKR', minor: '9007199254741093' }],
+  });
+  const serve = (page: (offset: number) => unknown) =>
+    apiMock.get.mockImplementation(
+      async (path: string, _schema: unknown, query?: { offset?: number }) => {
+        if (path === '/auth/session') return { user: null };
+        if (path === '/admin/payouts/run') return page(query?.offset ?? 0);
+        if (path === '/admin/payout-concerns') return { count: 2, items: [] };
+        throw new Error(`unexpected GET ${path}`);
       },
-      refunds: { count: 0, items: [] },
-      adjustments: { count: 0, items: [] },
-      payouts: { count: payouts.length, items: payouts },
-      ledger: { count: 0, items: [] },
-    });
-
-  it('marks who is due, who has a concern, and who is clear', () => {
-    expect(statement('t-1', 'Sana', [balance('PKR', '4896000')]).status).toBe('DUE');
-    expect(statement('t-2', 'Danish', [balance('PKR', '0')]).status).toBe('CLEAR');
-    expect(statement('t-3', 'Noor', []).status).toBe('CLEAR');
-    const disputed = statement(
-      't-4',
-      'Bilal',
-      [balance('PKR', '1280000')],
-      [{ status: 'DISPUTED', transferDate: '2026-11-01' } as never],
     );
-    expect(disputed.status).toBe('DISPUTED');
+
+  it('shows each teacher’s balance, last payout and status, with exact totals for everyone', async () => {
+    serve(() =>
+      run([
+        row('t-1', 'Sana', 'DUE', [balance('PKR', '4896000')], null),
+        row('t-2', 'Bilal', 'DISPUTED', [balance('PKR', '1280000')], {
+          transferDate: '2026-11-01',
+          status: 'DISPUTED',
+        }),
+        row('t-3', 'Noor', 'CLEAR', []),
+      ]),
+    );
+    render(
+      <SessionProvider>
+        <PayoutRunScreen />
+      </SessionProvider>,
+    );
+    const table = await screen.findByRole('table');
+    const rows = within(table).getAllByRole('row').slice(1);
+    expect(rows).toHaveLength(3);
+    expect(within(rows[0]!).getByText('Sana')).toBeVisible();
+    expect(within(rows[0]!).getByText('Due')).toBeVisible();
+    expect(within(rows[0]!).getByText('Never')).toBeVisible();
+    expect(within(rows[1]!).getByText('Concern raised')).toBeVisible();
+    expect(within(rows[1]!).getByText(/1 Nov 2026 · DISPUTED/)).toBeVisible();
+    expect(within(rows[2]!).getByText('Nothing owed')).toBeVisible();
+    // The total comes from the API and covers every teacher, beyond this page, without rounding.
+    expect(screen.getByText('PKR 90,071,992,547,410.93')).toBeVisible();
+    expect(screen.getByText('Open concerns').parentElement).toHaveTextContent('2');
   });
 
-  it('sorts the most owed first and totals exactly per currency', () => {
-    const rows: RunRow[] = [
-      statement('a', 'A', [balance('PKR', '100')]),
-      statement('b', 'B', [balance('PKR', '9007199254740993')]),
-      statement('c', 'C', [balance('PKR', '-500'), balance('USD', '250')]),
-    ];
-    expect(sortRun(rows).map((r) => r.teacherId)).toEqual(['b', 'c', 'a']);
-    expect(totalsOwed(rows)).toEqual([
-      { currency: 'PKR', minor: '9007199254741093' },
-      { currency: 'USD', minor: '250' },
-    ]);
+  it('asks for one page at a time and pages through the teachers', async () => {
+    serve((offset) => run([row(`t-${offset}`, `Teacher ${offset}`, 'CLEAR', [])], 60));
+    render(
+      <SessionProvider>
+        <PayoutRunScreen />
+      </SessionProvider>,
+    );
+    expect(await screen.findByText('Teacher 0')).toBeVisible();
+    expect(apiMock.get).toHaveBeenCalledWith(
+      '/admin/payouts/run',
+      expect.anything(),
+      { limit: 25, offset: 0 },
+      expect.anything(),
+    );
+    expect(screen.getByText('1–25 of 60')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByText('Teacher 25')).toBeVisible();
+    expect(screen.getByText('26–50 of 60')).toBeVisible();
+  });
+
+  it('says so when there are no active teachers', async () => {
+    serve(() => ({ ...run([]), totalsOwed: [] }));
+    render(
+      <SessionProvider>
+        <PayoutRunScreen />
+      </SessionProvider>,
+    );
+    expect(await screen.findByText('No active teachers yet.')).toBeVisible();
+    expect(screen.getByText('Total owed').parentElement).toHaveTextContent('—');
   });
 });
 

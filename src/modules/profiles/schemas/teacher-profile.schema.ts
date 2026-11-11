@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { paging, uuidParams } from '../../../common/schemas';
+import { displayText, paging, uuidParams } from '../../../common/schemas';
 
 /** Empty or whitespace-only text clears the field. */
 const optionalText = (max: number) =>
@@ -15,15 +15,15 @@ export const MAX_F2F_LOCATIONS = 20;
 
 /** Only http(s) links to a real domain: no javascript:, mailto:, data: or bare hosts. */
 export const socialLinkSchema = z.strictObject({
-  label: z.string().trim().min(1).max(50),
+  label: displayText(1, 50),
   url: z
     .url({ protocol: /^https?$/, hostname: z.regexes.domain, error: 'Must be an http(s) link' })
     .max(500),
 });
 
 export const f2fLocationSchema = z.strictObject({
-  city: z.string().trim().min(2).max(100),
-  area: z.string().trim().min(1).max(100).optional(),
+  city: displayText(2, 100),
+  area: displayText(1, 100).optional(),
   notes: z.string().trim().min(1).max(300).optional(),
 });
 

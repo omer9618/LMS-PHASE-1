@@ -9,7 +9,8 @@ import {
   buildPayoutEntry,
   buildRefundEntries,
   buildTeacherEarningsDashboard,
-  computeCurrencyBalance,
+  balancesFromGroups,
+  currencyBalanceFromGroups,
   separatePendingAndConfirmedSales,
   TeacherSaleOrderItem,
   computeDerivedBalances,
@@ -27,7 +28,14 @@ describe('ledger rules (#78, #79, #80, #81, #82, #83, #84)', () => {
       const protoMethods = Object.getOwnPropertyNames(LedgerDao.prototype).filter(
         (name) => name !== 'constructor',
       );
-      expect(protoMethods).toEqual(['createLedgerEntry', 'getLedgerEntriesBy', 'getPayoutsBy']);
+      expect(protoMethods).toEqual([
+        'createLedgerEntry',
+        'getLedgerEntriesBy',
+        'getBalanceGroups',
+        'getBalanceGroupsByTeacher',
+        'getPayoutsBy',
+        'getFinancialTotals',
+      ]);
       for (const method of protoMethods) {
         expect(method).not.toMatch(/update|delete|upsert|remove|edit/i);
       }
@@ -249,7 +257,7 @@ describe('ledger rules (#78, #79, #80, #81, #82, #83, #84)', () => {
     });
 
     it('returns zeroed balance for a requested currency with no ledger entries', () => {
-      expect(computeCurrencyBalance([], 'PKR')).toEqual({
+      expect(currencyBalanceFromGroups([], 'PKR')).toEqual({
         currency: 'PKR',
         balanceMinor: 0n,
         earningsMinor: 0n,
@@ -260,8 +268,36 @@ describe('ledger rules (#78, #79, #80, #81, #82, #83, #84)', () => {
       });
     });
 
+    it('gives the same balances from per-type sums as from the entries themselves', () => {
+      const entries = [
+        { type: 'EARNING', amountMinor: 120000n, currency: 'PKR' },
+        { type: 'EARNING', amountMinor: 80000n, currency: 'PKR' },
+        { type: 'REFUND', amountMinor: -30000n, currency: 'PKR' },
+        { type: 'PAYOUT', amountMinor: -100000n, currency: 'PKR' },
+        { type: 'ADJUSTMENT', amountMinor: 5000n, currency: 'PKR' },
+        { type: 'EARNING', amountMinor: 700n, currency: 'USD' },
+      ] as const;
+      const groups = ['PKR', 'USD'].flatMap((currency) =>
+        (['EARNING', 'REFUND', 'PAYOUT', 'ADJUSTMENT'] as const).flatMap((type) => {
+          const rows = entries.filter((e) => e.currency === currency && e.type === type);
+          return rows.length
+            ? [
+                {
+                  currency,
+                  type,
+                  sumMinor: rows.reduce((sum, e) => sum + e.amountMinor, 0n),
+                  count: rows.length,
+                },
+              ]
+            : [];
+        }),
+      );
+      expect(balancesFromGroups(groups)).toEqual(computeDerivedBalances(entries));
+      expect(currencyBalanceFromGroups(groups, 'PKR').balanceMinor).toBe(75000n);
+    });
+
     it('refuses invalid currency codes when deriving balance', () => {
-      expect(() => computeCurrencyBalance([], 'pkr')).toThrow(LedgerRefusedError);
+      expect(() => currencyBalanceFromGroups([], 'pkr')).toThrow(LedgerRefusedError);
       expect(() =>
         computeDerivedBalances([{ type: 'EARNING', amountMinor: 100n, currency: 'bad' }]),
       ).toThrow(LedgerRefusedError);

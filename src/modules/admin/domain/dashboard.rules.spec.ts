@@ -38,82 +38,35 @@ describe('dashboard & finance rules (#102, #104)', () => {
   });
 
   describe('buildAdminFinancialSummary (#104)', () => {
-    it('aggregates period sales, commission, refunds, payouts, and cumulative liability up to period end', () => {
+    // The facts behind these totals, for the period 1-30 April 2026:
+    //   sales:   March 100,000 (not in period) and April 200,000 (30% commission)
+    //   refunds: 50,000 in April          payouts: 80,000 in April
+    //   ledger:  March earning +70,000; April earning +140,000, refund -35,000, adjustment +5,000,
+    //            payout -80,000; a May earning +90,000 that is after the period and counts nowhere
+    it('combines the per-currency totals into the period summary and the liability at its end', () => {
       const bounds = parseFinancialPeriodBounds({ from: '2026-04-01', to: '2026-04-30' });
       const summary = buildAdminFinancialSummary({
         bounds,
-        confirmedSales: [
+        sales: [
           {
             currency: 'PKR',
-            priceMinor: 100000n,
-            commissionMinor: 30000n,
-            netTeacherMinor: 70000n,
-            verifiedAt: new Date('2026-03-15T10:00:00.000Z'),
-          },
-          {
-            currency: 'PKR',
-            priceMinor: 200000n,
+            count: 1,
+            grossMinor: 200000n,
             commissionMinor: 60000n,
             netTeacherMinor: 140000n,
-            verifiedAt: new Date('2026-04-10T10:00:00.000Z'),
           },
         ],
-        refunds: [
+        refunds: [{ currency: 'PKR', count: 1, amountMinor: 50000n }],
+        payouts: [{ currency: 'PKR', count: 1, amountMinor: 80000n }],
+        ledger: [
           {
             currency: 'PKR',
-            amountMinor: 50000n,
-            createdAt: new Date('2026-04-12T10:00:00.000Z'),
-          },
-        ],
-        payouts: [
-          {
-            currency: 'PKR',
-            amountMinor: 80000n,
-            recordedAt: new Date('2026-04-20T10:00:00.000Z'),
-          },
-        ],
-        ledgerEntries: [
-          // March earning (before period, counts toward cumulative liability)
-          {
-            currency: 'PKR',
-            type: 'EARNING',
-            amountMinor: 70000n,
-            createdAt: new Date('2026-03-15T10:00:00.000Z'),
-          },
-          // April earning
-          {
-            currency: 'PKR',
-            type: 'EARNING',
-            amountMinor: 140000n,
-            createdAt: new Date('2026-04-10T10:00:00.000Z'),
-          },
-          // April refund debit
-          {
-            currency: 'PKR',
-            type: 'REFUND',
-            amountMinor: -35000n,
-            createdAt: new Date('2026-04-12T10:00:00.000Z'),
-          },
-          // April manual adjustment
-          {
-            currency: 'PKR',
-            type: 'ADJUSTMENT',
-            amountMinor: 5000n,
-            createdAt: new Date('2026-04-15T10:00:00.000Z'),
-          },
-          // April payout debit
-          {
-            currency: 'PKR',
-            type: 'PAYOUT',
-            amountMinor: -80000n,
-            createdAt: new Date('2026-04-20T10:00:00.000Z'),
-          },
-          // May earning (after period, excluded from both period and cumulative as of period end)
-          {
-            currency: 'PKR',
-            type: 'EARNING',
-            amountMinor: 90000n,
-            createdAt: new Date('2026-05-02T10:00:00.000Z'),
+            // 70,000 + 140,000 - 35,000 + 5,000 - 80,000: everything up to 30 April.
+            outstandingMinor: 100000n,
+            // The same without the March earning: what moved inside April.
+            periodNetMinor: 30000n,
+            refundDebitsMinor: -35000n,
+            adjustmentsMinor: 5000n,
           },
         ],
       });
@@ -138,6 +91,50 @@ describe('dashboard & finance rules (#102, #104)', () => {
           },
         ],
       });
+    });
+
+    it('lists each currency once, sorted, whichever totals mention it', () => {
+      const summary = buildAdminFinancialSummary({
+        bounds: parseFinancialPeriodBounds({}),
+        sales: [
+          {
+            currency: 'USD',
+            count: 2,
+            grossMinor: 900n,
+            commissionMinor: 90n,
+            netTeacherMinor: 810n,
+          },
+        ],
+        refunds: [],
+        payouts: [{ currency: 'PKR', count: 1, amountMinor: 5n }],
+        ledger: [
+          {
+            currency: 'USD',
+            outstandingMinor: 810n,
+            periodNetMinor: 810n,
+            refundDebitsMinor: 0n,
+            adjustmentsMinor: 0n,
+          },
+        ],
+      });
+      expect(summary.period).toEqual({ from: null, to: null });
+      expect(summary.currencies.map((c) => c.currency)).toEqual(['PKR', 'USD']);
+      expect(summary.currencies[1]).toMatchObject({
+        confirmedSalesCount: 2,
+        outstandingLiabilityMinor: 810n,
+      });
+    });
+
+    it('is empty when nothing happened', () => {
+      expect(
+        buildAdminFinancialSummary({
+          bounds: parseFinancialPeriodBounds({}),
+          sales: [],
+          refunds: [],
+          payouts: [],
+          ledger: [],
+        }),
+      ).toEqual({ period: { from: null, to: null }, currencies: [] });
     });
   });
   describe('buildTeacherAccountStatement (#105)', () => {

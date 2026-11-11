@@ -20,11 +20,11 @@ describe('Rate limiting on authentication and public endpoints (#17)', () => {
     await app.close();
   });
 
-  it('blocks repeated login attempts with 429, the error envelope and Retry-After', async () => {
+  it('limits guesses at one account by email, with 429, the error envelope and Retry-After', async () => {
     const attempt = () =>
       http().post('/auth/login').send({ email: 'nobody@test.local', password: 'wrong-password' });
 
-    for (let i = 0; i < RATE_LIMITS.LOGIN.limit; i++) {
+    for (let i = 0; i < RATE_LIMITS.LOGIN_ACCOUNT.limit; i++) {
       await attempt().expect(401);
     }
     const limited = await attempt().expect(429);
@@ -33,6 +33,38 @@ describe('Rate limiting on authentication and public endpoints (#17)', () => {
       error: { name: 'RATE_LIMITED', message: 'Too many requests. Please wait and try again.' },
     });
     expect(Number(limited.headers['retry-after'])).toBeGreaterThan(0);
+
+    // The email is case-insensitive for this limit, so changing case does not get a fresh budget.
+    await http()
+      .post('/auth/login')
+      .send({ email: 'NoBody@Test.Local', password: 'wrong-password' })
+      .expect(429);
+  });
+
+  it('lets a classroom behind one IP sign in: the per-IP cap is per login, not per account', async () => {
+    // The previous test spent LOGIN_ACCOUNT.limit + 2 requests of this IP's login budget.
+    const spent = RATE_LIMITS.LOGIN_ACCOUNT.limit + 2;
+    for (let i = 0; i < RATE_LIMITS.LOGIN.limit - spent; i++) {
+      await http()
+        .post('/auth/login')
+        .send({ email: `student-${i}@test.local`, password: 'wrong-password' })
+        .expect(401);
+    }
+    await http()
+      .post('/auth/login')
+      .send({ email: 'one-more@test.local', password: 'wrong-password' })
+      .expect(429);
+  });
+
+  it('counts only searches against the search limit, never plain browsing', async () => {
+    for (let i = 0; i < RATE_LIMITS.SEARCH.limit; i++) {
+      await http().get('/catalogue/courses').query({ q: 'physics' }).expect(200);
+    }
+    await http().get('/catalogue/courses').query({ q: 'physics' }).expect(429);
+
+    // Search is used up, but the plain listing and filters still work.
+    await http().get('/catalogue/courses').expect(200);
+    await http().get('/catalogue/courses').query({ sort: 'price_desc' }).expect(200);
   });
 
   it('limits password reset requests separately from login', async () => {

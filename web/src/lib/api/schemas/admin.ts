@@ -442,6 +442,28 @@ const salesGroup = z.object({
 const counted = <T extends z.ZodType>(item: T) =>
   z.object({ count: z.number().int().nonnegative(), items: z.array(item) });
 
+/** One teacher in the payout run (GET /admin/payouts/run). */
+export const payoutRunRow = z.object({
+  teacherId: id,
+  name: z.string(),
+  balances: z.array(currencyBalance),
+  lastPayout: z
+    .object({ transferDate: dateOrDateTime.nullable(), status: payoutStatus })
+    .nullable(),
+  status: z.enum(['DUE', 'DISPUTED', 'CLEAR']),
+});
+export type PayoutRunRow = z.infer<typeof payoutRunRow>;
+
+export const payoutRun = z.object({
+  items: z.array(payoutRunRow),
+  total: z.number().int().nonnegative(),
+  limit: z.number().int().positive(),
+  offset: z.number().int().nonnegative(),
+  /** Owed to every active teacher together, per currency. */
+  totalsOwed: z.array(z.object({ currency: currencyCode, minor: minorUnits })),
+});
+export type PayoutRun = z.infer<typeof payoutRun>;
+
 export const teacherStatement = z.object({
   teacher: adminUser,
   balances: z.array(currencyBalance),

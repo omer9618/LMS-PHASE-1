@@ -9,18 +9,19 @@ import { UserAdminService } from '../../auth/services/user-admin.service';
 import { EnrollmentService } from '../../enrollment/services/enrollment.service';
 import { OrderService, TeacherOrderItemRecord } from '../../orders/services/order.service';
 import { LedgerDao, LedgerEntryRecord, PayoutHistoryRecord } from '../dao/ledger.dao';
-import { RefundDao, RefundRecord, RefundWithOrderRecord } from '../dao/refund.dao';
+import { RefundDao, RefundRecord } from '../dao/refund.dao';
 import {
+  assertLedgerCurrency,
   assertOrderRefundable,
+  currencyBalanceFromGroups,
   assertTargetIsTeacher,
+  balancesFromGroups,
   buildAdjustmentEntry,
   buildTeacherEarningsDashboard,
   buildEarningEntries,
   buildPayoutEntry,
   BuildPayoutEntryInput,
   buildRefundEntries,
-  computeCurrencyBalance,
-  computeDerivedBalances,
   CONFIRMED_SALE_ORDER_STATUSES,
   ConfirmedOrderLine,
   DerivedCurrencyBalance,
@@ -39,7 +40,6 @@ export type {
   LedgerEntryRecord,
   PayoutHistoryRecord,
   RefundRecord,
-  RefundWithOrderRecord,
   SeparatedTeacherSales,
   TeacherEarningsDashboard,
   TeacherSaleOrderItem,
@@ -351,8 +351,15 @@ export class LedgerService {
     scope: TeacherScope,
     tx?: TransactionClient,
   ): Promise<DerivedCurrencyBalance[]> {
-    const entries = await this.ledgerDao.getLedgerEntriesBy(scope, {}, tx);
-    return computeDerivedBalances(entries);
+    return balancesFromGroups(await this.ledgerDao.getBalanceGroups(scope, {}, tx));
+  }
+
+  /** Balances for many teachers in one query, keyed by teacher id (the payout run). */
+  async getDerivedBalancesFor(
+    teacherIds: string[],
+  ): Promise<Map<string, DerivedCurrencyBalance[]>> {
+    const groups = await this.ledgerDao.getBalanceGroupsByTeacher(teacherIds);
+    return new Map([...groups].map(([teacherId, rows]) => [teacherId, balancesFromGroups(rows)]));
   }
 
   /**
@@ -363,8 +370,11 @@ export class LedgerService {
     currency: string,
     tx?: TransactionClient,
   ): Promise<DerivedCurrencyBalance> {
-    const entries = await this.ledgerDao.getLedgerEntriesBy(scope, { currency }, tx);
-    return computeCurrencyBalance(entries, currency);
+    assertLedgerCurrency(currency);
+    return currencyBalanceFromGroups(
+      await this.ledgerDao.getBalanceGroups(scope, { currency }, tx),
+      currency,
+    );
   }
 
   /**
@@ -417,24 +427,16 @@ export class LedgerService {
     return this.getEarningsDashboardForScope({ teacherId: targetUser.id });
   }
 
-  /**
-   * #104: Admin lists refunds across the platform (optionally filtered by creation period).
-   */
-  listRefundsForAdmin(
-    admin: AuthUser,
-    period?: { from?: Date; to?: Date },
-  ): Promise<RefundWithOrderRecord[]> {
+  /** #104: refunds recorded inside a period, per currency, added up by the database. */
+  getRefundTotals(admin: AuthUser, from: Date | null, to: Date | null) {
     adminScope(admin);
-    return this.refundDao.getRefundsBy({
-      ...(period?.from || period?.to
-        ? {
-            createdAt: {
-              ...(period.from ? { gte: period.from } : {}),
-              ...(period.to ? { lte: period.to } : {}),
-            },
-          }
-        : {}),
-    });
+    return this.refundDao.getTotalsByCurrency(from, to);
+  }
+
+  /** #104: the whole ledger summed per currency for the admin financial summary. */
+  getFinancialTotals(admin: AuthUser, from: Date | null, to: Date | null) {
+    adminScope(admin);
+    return this.ledgerDao.getFinancialTotals(from, to);
   }
 
   private async getEarningsDashboardForScope(

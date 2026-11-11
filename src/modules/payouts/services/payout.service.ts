@@ -30,12 +30,15 @@ import {
   buildPayoutCoverageEmailLines,
   buildPayoutRecordingPlan,
   isPayoutDueToAutoAccept,
+  payoutRunStatus,
+  type PayoutRunStatus,
   CoveredSaleItem,
   OpenConcernsSummary,
   selectCoveredSalesForPayout,
   summariseOpenConcerns,
 } from '../domain/payout.rules';
 import type {
+  PayoutRunQuery,
   RaisePayoutConcernInput,
   RecordPayoutInput,
   ResolvePayoutConcernInput,
@@ -48,6 +51,25 @@ export type {
   PayoutDisputeRecord,
   PayoutRecord,
 };
+
+/** One teacher in the payout run (#85-#89): what they are owed, their last payout, where it stands. */
+export interface PayoutRunRow {
+  teacherId: string;
+  name: string;
+  balances: DerivedCurrencyBalance[];
+  lastPayout: { transferDate: Date | null; status: PayoutStatus } | null;
+  status: PayoutRunStatus;
+}
+
+export interface PayoutRun {
+  items: PayoutRunRow[];
+  /** Active teachers in all. */
+  total: number;
+  limit: number;
+  offset: number;
+  /** Owed to every active teacher together, per currency (not only this page). */
+  totalsOwed: Array<{ currency: string; minor: bigint }>;
+}
 
 export interface RaisePayoutConcernResult {
   payout: PayoutRecord;
@@ -330,23 +352,43 @@ export class PayoutService {
     return this.payoutDao.getPayoutsBy({ teacherId: targetUser.id }, {});
   }
 
-  /** #104: Admin lists payouts across the platform, optionally filtered by recordedAt period. */
-  listPayoutsForAdmin(
-    admin: AuthUser,
-    period?: { from?: Date; to?: Date },
-  ): Promise<PayoutRecord[]> {
+  /**
+   * The payout run (#85-#89): every active teacher with what they are owed, most owed first.
+   * Ranking, paging and the totals are done by the database; only one page of teachers is
+   * assembled here.
+   */
+  async getPayoutRun(admin: AuthUser, query: PayoutRunQuery): Promise<PayoutRun> {
     adminScope(admin);
-    return this.payoutDao.getPayoutsBy(
-      { admin: true },
-      period?.from || period?.to
-        ? {
-            recordedAt: {
-              ...(period.from ? { gte: period.from } : {}),
-              ...(period.to ? { lte: period.to } : {}),
-            },
-          }
-        : {},
-    );
+    const [teachers, total, totalsOwed] = await Promise.all([
+      this.payoutDao.getPayoutRunPage(query.limit, query.offset),
+      this.payoutDao.countPayoutRunTeachers(),
+      this.payoutDao.getPayoutRunTotals(),
+    ]);
+    const ids = teachers.map((teacher) => teacher.id);
+    const [balances, facts] = await Promise.all([
+      this.ledgerService.getDerivedBalancesFor(ids),
+      this.payoutDao.getPayoutRunFacts(ids),
+    ]);
+    const items = teachers.map((teacher): PayoutRunRow => {
+      const teacherBalances = balances.get(teacher.id) ?? [];
+      return {
+        teacherId: teacher.id,
+        name: teacher.fullName || teacher.email,
+        balances: teacherBalances,
+        lastPayout: facts.lastPayout.get(teacher.id) ?? null,
+        status: payoutRunStatus({
+          balances: teacherBalances,
+          hasDisputedPayout: facts.disputed.has(teacher.id),
+        }),
+      };
+    });
+    return { items, total, limit: query.limit, offset: query.offset, totalsOwed };
+  }
+
+  /** #104: payouts recorded inside a period, per currency, added up by the database. */
+  getPayoutTotals(admin: AuthUser, from: Date | null, to: Date | null) {
+    adminScope(admin);
+    return this.payoutDao.getTotalsByCurrency(from, to);
   }
 
   /** Admin views a single payout with its itemised covered sales. */

@@ -29,6 +29,30 @@ export const EMAIL_TEMPLATES = {
       footnote: "If this wasn't you, ignore this email; your password stays the same.",
     }),
 
+  PASSWORD_CHANGED: (data: { resetUrl: string }) =>
+    renderEmail({
+      subject: 'Your password was changed',
+      heading: 'Password changed',
+      paragraphs: [
+        'The password for your account was just changed from the account page. Other devices were signed out.',
+      ],
+      action: { label: 'This was not me', url: data.resetUrl },
+      footnote: 'If you made this change, there is nothing to do.',
+    }),
+
+  MFA_LOCKED: (data: { minutes: number; resetUrl: string }) =>
+    renderEmail({
+      subject: 'Two-step sign-in paused on your account',
+      heading: 'Too many incorrect codes',
+      paragraphs: [
+        'Several incorrect two-step verification codes were entered for your account.',
+        `As a precaution, two-step sign-in is paused for ${data.minutes} minutes.`,
+        'If this was not you, someone may know your password. Choose a new one now.',
+      ],
+      action: { label: 'Choose a new password', url: data.resetUrl },
+      footnote: 'If it was you, wait and try again with a fresh code from your authenticator app.',
+    }),
+
   ACCOUNT_CREATED: (data: { setPasswordUrl: string; expiresInHours: number; roles: string[] }) =>
     renderEmail({
       subject: 'Your account has been created',

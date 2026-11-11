@@ -122,11 +122,25 @@ Teacher-owned data (courses, sections, lessons, enrollments, student records, ea
 - `@CurrentUser()` gives `AuthUser { id, email, fullName, isEmailVerified, roles: ReadonlySet<Role>, sessionId, mfaEnabled, mfaVerified }`.
 - **Role context (#109).** An account holding both ADMIN and TEACHER works in one context at a time, stored on the session (`sessions.active_role`, default ADMIN) and switched only by `POST /auth/context { role }` (audited). `AuthUser.roles` is the set **in effect**: the inactive context's role is left out, so `@Roles`, `teacherScope()`/`adminScope()` and any `roles.has(...)` check follow the context. A route needing the other context answers 403 `ROLE_CONTEXT_REQUIRED` with `info.requiredContext`; it never switches silently. `AuthUser.heldRoles` is every role held: use it only for account-level rules (MFA). `activeContext` is null for single-role accounts, which are unaffected. `/auth/me` returns `activeContext` and `availableContexts`.
 - MFA (#16): any account holding ADMIN needs an MFA-verified session. `AuthGuard` returns 403 `MFA_REQUIRED` otherwise, except on routes marked `@AllowWithoutMfa()` (enrolment, `/auth/me`). Don't add that decorator to anything else.
+- `GET /auth/session` is public and always answers 200: `{ user }`, or `{ user: null }` for a visitor. The web app asks it on every page (`/auth/me` answers 401 to a visitor, which shows as an error in the browser console).
+- **Your own account** (`/account`, any signed-in user): `POST /account/password` (current password first; ends every other session; emails the owner), `PATCH /account/profile` (name), `GET /account/sessions`, `DELETE /account/sessions/:sessionId`, `POST /account/sessions/sign-out-others`.
 - Emailed tokens (verification, reset) and the MFA challenge use `auth_tokens`: hashed, expiring, and single-use via a conditional update (`consumeAuthToken`).
 
 ## Rate limits (#17)
 
-Every route gets the default per-IP limit. Public or brute-forceable routes add a named limit from `common/rate-limit/rate-limits.ts`: `@RateLimit('LOGIN')`, `'REGISTER'`, `'ACCOUNT_EMAIL'`, `'APPLICATION_SUBMIT'`, `'SEARCH'`. Change the numbers there, not on routes. Exceeding a limit returns 429 `RATE_LIMITED` with `Retry-After`.
+Every route gets the default per-IP limit. Public or brute-forceable routes add a named limit from `common/rate-limit/rate-limits.ts`: `@RateLimit('REGISTER')`, `'ACCOUNT_EMAIL'` (also email verification), `'PASSWORD_CHANGE'`, `'APPLICATION_SUBMIT'`, and `'LOGIN'` for the second sign-in step. Change the numbers there, not on routes. Exceeding a limit returns 429 `RATE_LIMITED` with `Retry-After`.
+
+Three buckets work differently, because one address is not one person (a school lab or a hotspot shares an IP):
+
+- **Sign-in** (`@LoginRateLimit()`): 30 a minute per IP, and 10 a minute per **email** (case-insensitive). The per-email limit is what stops password guessing; the per-IP limit only stops one address trying many accounts.
+- **Search** (`@SearchRateLimit()`): 60 a minute per IP, counted **only for requests that carry a search term**. Plain browsing and filters use the default limit.
+- Named throttlers `account` and `search` act only on routes that opt in with those decorators; see `buildThrottlers`.
+
+Counters are in memory. The VPS runs one API container, and a deploy briefly runs two, so a limit can be doubled for a minute during a deploy. If the API is ever scaled out for good, give `ThrottlerModule` a shared storage (for example Redis). IPv6 clients are grouped by /64.
+
+### Two-step sign-in guesses (#16)
+
+A wrong code spends one of five guesses on its sign-in challenge (spent before the code is checked, so parallel requests cannot get more); the challenge is then dead and the person signs in again. Ten wrong codes for one account within 15 minutes pause two-step sign-in for that account for the rest of the window (`429 RATE_LIMITED`), email the owner (`MFA_LOCKED`) and write `MFA_LOGIN_FAILED` / `MFA_LOCKED` audit entries. The numbers are in `mfa.service.ts`.
 
 ## Errors
 
