@@ -1,6 +1,6 @@
-# LMS web app
+# Paperlane web app
 
-The student, teacher and admin web app for LMS Phase 1. Next.js (App Router) + React + TypeScript (strict), in its own npm package: installing or building it never touches the API's dependencies.
+The student, teacher and admin web app for Paperlane (LMS Phase 1). Next.js (App Router) + React + TypeScript (strict), in its own npm package: installing or building it never touches the API's dependencies.
 
 ## Run it against the API locally
 
@@ -102,8 +102,9 @@ Tests sit next to the code as `*.test.ts(x)` (not `*.spec.ts`, which the API's J
 - **Data loading** is TanStack Query (`QueryProvider` in `src/lib/query.tsx`). Read with `useQuery({ queryKey, queryFn: ({ signal }) => api.x(…, signal), enabled })`; keys are arrays that start with the resource name. Only retryable errors (`NETWORK_ERROR`, `INTERNAL`, `SERVICE_UNAVAILABLE`) are retried, at most twice. Data stays fresh for 30 s; any successful write marks the whole cache stale, so other screens ask again when opened. Writes use `useMutation()` from `src/lib/use-mutation.ts` (pending, error sentence, field errors, notice) or TanStack's `useMutation` directly for a fixed-shape write. Tests get a fresh cache per render from `vitest.setup.ts`.
 - **Money** is a string of minor units, as in the API. Format with `formatMoney` / `formatPrice`; parse what people type with `parseMajorToMinor`. Never `Number()` or `parseFloat` an amount.
 - **Accessibility:** every control has a label; errors are linked with `aria-describedby` and marked `aria-invalid`; focus is always visible; colour pairs meet WCAG 2.2 AA (checked in `src/styles/tokens.test.ts`).
+- **Security headers** (`nosniff`, `X-Frame-Options: DENY`, a referrer policy and a CSP with only `frame-ancestors 'none'`) are set for every page in `next.config.ts`. Caddy adds HSTS. A full CSP is not set yet: it must allow KaTeX, Turnstile and the Bunny player.
 - **Dependencies** are pinned exactly. `.npmrc` sets `legacy-peer-deps` because npm 10 crashes resolving vite 8's optional peer chain; every needed peer is listed in `package.json`.
-- **Design system rules (Exam Hall)** for any new screen:
+- **Design system rules (Paperlane, formerly Exam Hall)** for any new screen:
   - Colours, spacing, radii and shadows come from `src/styles/tokens.css` only, never raw values.
   - A status is shown with `StatusBadge`; the tone of every status is in `src/lib/status.ts`.
   - Money is rendered with `<Money>` (mono, two decimals) and sits in a `numeric` table column.
