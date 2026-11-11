@@ -102,7 +102,6 @@ export function FinanceSummaryScreen() {
                     value={formatMoney(c.commissionRetainedMinor, c.currency)}
                   />
                   <StatTile
-                    tone="primary"
                     label="Owed to teachers"
                     value={formatMoney(c.outstandingLiabilityMinor, c.currency)}
                   />

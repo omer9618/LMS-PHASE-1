@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Alert, Badge, Button, Input } from '@/components/ui';
+import { Alert, Badge, Button, Input, ProgressBar } from '@/components/ui';
 import { errorMessage, RequestAbortedError } from '@/lib/api/errors';
 import { teacherApi } from '@/lib/api/teacher';
 import type { AuthoringLesson } from '@/lib/api/schemas/teacher';
@@ -139,10 +139,10 @@ export function VideoPanel({
       )}
       {upload.kind === 'uploading' && (
         <div className="cluster">
-          <progress
-            max={100}
+          <ProgressBar
+            tone="primary"
             value={percent}
-            aria-label={`Uploading video: ${percent}%`}
+            label={`Uploading video: ${percent}%`}
             className={styles.progress}
           />
           <span>

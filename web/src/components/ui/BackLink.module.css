@@ -1,0 +1,14 @@
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  min-height: var(--target-min);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+
+.back span {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}

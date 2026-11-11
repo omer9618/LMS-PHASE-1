@@ -1,14 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { MathText } from '@/components/learn/MathText';
 import {
   Alert,
+  BackLink,
   Badge,
   Button,
   Loadable,
-  PageHeader,
   Section,
   SplitLayout,
   Icon,
@@ -71,15 +70,14 @@ export function QuizBuilder({ lessonId }: { lessonId: string }) {
 
   return (
     <div className="stack">
-      <PageHeader
-        eyebrow={
-          <>
-            <Link href={contentHref}>Content</Link> / Quiz
-          </>
-        }
-        title="Quiz builder"
-        description="Questions may use LaTeX between $ signs. Numeric answers are compared as exact decimals within the tolerance you set."
-      />
+      <BackLink href={contentHref}>Content</BackLink>
+      <div className={styles.builderHead}>
+        <h2>Quiz builder</h2>
+        <p className="muted">
+          Questions may use LaTeX between $ signs. Numeric answers are compared as exact decimals
+          within the tolerance you set.
+        </p>
+      </div>
       {!editable && (
         <Alert tone="info">
           This course is {course.status === 'PENDING_APPROVAL' ? 'in review' : 'not editable'}; the

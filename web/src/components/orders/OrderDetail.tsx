@@ -2,7 +2,15 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Alert, Badge, ButtonLink, PageHeader, SplitLayout, Icon, Money } from '@/components/ui';
+import {
+  Alert,
+  BackLink,
+  Badge,
+  ButtonLink,
+  PageHeader,
+  SplitLayout,
+  Money,
+} from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import {
   orders as defaultOrders,
@@ -10,11 +18,12 @@ import {
   type StudentOrder,
   type SubmittedProof,
 } from '@/lib/api/orders';
-import { humaniseGuidance } from '@/lib/orders/display';
+import { bankDetailsReady, humaniseGuidance, orderStatusLabel } from '@/lib/orders/display';
 import { statusTone } from '@/lib/status';
 import { formatDateTime } from '@/lib/format';
 import { useQuery } from '@tanstack/react-query';
 import { PaymentInstructions } from './PaymentInstructions';
+import { OrderSteps } from './OrderSteps';
 import { ProofForm } from './ProofForm';
 import styles from './Orders.module.css';
 
@@ -58,25 +67,34 @@ export function OrderDetail({
 
   const order: StudentOrder = latest?.order ?? loaded.data;
   const { guidance, lastDecision } = order;
+  const payBy = formatDateTime(order.paymentInstructions.expiresAt);
+  const canPay = bankDetailsReady(order.paymentInstructions.bankTransferInstructions);
 
   return (
     <div className="stack">
+      <BackLink href="/orders">My orders</BackLink>
       <PageHeader
-        eyebrow={
-          <Link href="/orders">
-            <Icon name="arrowLeft" /> My orders
-          </Link>
-        }
         title={
           <>
             Order <code>{order.paymentReference}</code>
           </>
         }
-        actions={<Badge tone={statusTone(order.status)}>{guidance.statusLabel}</Badge>}
+        actions={
+          <>
+            <Badge tone={statusTone(order.status)}>{orderStatusLabel(order)}</Badge>
+            {payBy && (order.status === 'PENDING' || order.status === 'REJECTED') && (
+              <Badge tone="warning">Pay by {payBy}</Badge>
+            )}
+          </>
+        }
+      />
+      <OrderSteps
+        order={order}
+        turnaroundHours={order.paymentInstructions.verificationTurnaroundHours}
       />
 
       {justPlaced && order.status === 'PENDING' && !latest && (
-        <Alert tone="success" title="Order placed">
+        <Alert tone="success" title="Your order is in">
           Your prices are fixed. Transfer the amount below with the reference, then tell us the
           transaction ID.
         </Alert>
@@ -136,13 +154,11 @@ export function OrderDetail({
                 {order.items.map((item) => (
                   <li key={item.courseId}>
                     <span>
-                      {order.status === 'VERIFIED' ? (
-                        <Link href={`/learn/${encodeURIComponent(item.courseId)}`}>
-                          {item.courseTitle}
-                        </Link>
-                      ) : (
-                        item.courseTitle
-                      )}
+                      <Link
+                        href={`/${order.status === 'VERIFIED' ? 'learn' : 'courses'}/${encodeURIComponent(item.courseId)}`}
+                      >
+                        {item.courseTitle}
+                      </Link>
                       {item.teacherName && <span className="muted"> · {item.teacherName}</span>}
                     </span>
                     <strong>
@@ -198,7 +214,7 @@ export function OrderDetail({
               <PaymentInstructions instructions={order.paymentInstructions} />
             )}
 
-            {guidance.canSubmitProof && (
+            {guidance.canSubmitProof && canPay && (
               <ProofForm order={order} client={client} onSubmitted={setLatest} />
             )}
           </>

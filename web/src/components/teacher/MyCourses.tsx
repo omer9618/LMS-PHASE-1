@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import {
   Badge,
+  Button,
   ButtonLink,
   Loadable,
   PageHeader,
@@ -68,7 +69,11 @@ const COLUMNS: Array<Column<TeacherCourse>> = [
     key: 'price',
     header: 'Price',
     numeric: true,
-    cell: (c) => (c.isFree || c.priceMinor ? formatPrice(c) : '—'),
+    // A draft or a course in review has no price of its own yet: an admin sets it at approval.
+    cell: (c) =>
+      c.priceMinor || (c.isFree && c.status !== 'DRAFT' && c.status !== 'PENDING_APPROVAL')
+        ? formatPrice(c)
+        : '—',
   },
   {
     key: 'enrollment',
@@ -87,12 +92,16 @@ const COLUMNS: Array<Column<TeacherCourse>> = [
   },
 ];
 
+/** Rows before "Show more": a teacher with dozens of courses still lands on the newest. */
+const PAGE_SIZE = 20;
+
 const count = (courses: TeacherCourse[], status: CourseStatus) =>
   courses.filter((c) => c.status === status).length;
 
 /** #24/#26: the teacher's own courses, with what each one needs next. */
 export function MyCourses() {
   const [status, setStatus] = useState<CourseStatus | ''>('');
+  const [shown, setShown] = useState(PAGE_SIZE);
   // One request for every course: the tiles count all of them, the filter narrows the table.
   const courses = useQuery({
     queryKey: ['my-courses'],
@@ -103,7 +112,11 @@ export function MyCourses() {
   return (
     <div className="stack">
       <PageHeader
-        eyebrow={total === null ? 'Your courses' : `${total} ${total === 1 ? 'course' : 'courses'}`}
+        eyebrow={
+          total === null
+            ? 'Your courses'
+            : `${total} ${total === 1 ? 'course' : 'courses'} · newest first`
+        }
         title="My courses"
         description="Details lock once a course is submitted. An admin sets the price and commission at approval."
         actions={<ButtonLink href="/teacher/courses/new">New course</ButtonLink>}
@@ -111,7 +124,16 @@ export function MyCourses() {
       <Loadable state={courses} what="your courses">
         {(all) => {
           const rejected = count(all, 'REJECTED');
-          const rows = status ? all.filter((c) => c.status === status) : all;
+          const newest = [...all].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+          const rows = status ? newest.filter((c) => c.status === status) : newest;
+          if (all.length === 0) {
+            return (
+              <div className={styles.emptyState}>
+                <p>You have no courses yet.</p>
+                <ButtonLink href="/teacher/courses/new">Create your first course</ButtonLink>
+              </div>
+            );
+          }
           return (
             <>
               <StatGrid label="Courses by status">
@@ -148,14 +170,21 @@ export function MyCourses() {
                   caption="My courses"
                   hideCaption
                   columns={COLUMNS}
-                  rows={rows}
+                  rows={rows.slice(0, shown)}
                   rowKey={(c) => c.id}
-                  empty={
-                    status
-                      ? 'No courses with this status.'
-                      : 'No courses yet. Create your first course.'
-                  }
+                  empty="No courses with this status."
                 />
+                {rows.length > shown && (
+                  <p className={styles.salesIntro}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setShown((n) => n + PAGE_SIZE)}
+                    >
+                      Show {Math.min(PAGE_SIZE, rows.length - shown)} more
+                    </Button>
+                  </p>
+                )}
               </Section>
             </>
           );

@@ -1,6 +1,5 @@
 .ground {
   background: var(--color-surface);
-  min-height: 100vh;
 }
 
 .shell {

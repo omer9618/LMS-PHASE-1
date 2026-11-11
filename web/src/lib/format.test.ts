@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { formatAgeHours, formatAgeMinutes, formatDuration, safeNextPath, todayIso } from './format';
+import {
+  formatAgeHours,
+  formatAgeMinutes,
+  formatDuration,
+  formatElapsed,
+  formatPeriod,
+  safeNextPath,
+  todayIso,
+} from './format';
 
 describe('formatDuration', () => {
   it.each([
@@ -47,12 +55,26 @@ describe('safeNextPath', () => {
 
 describe('ages and dates', () => {
   it('describes ages for queues and concerns', () => {
-    expect(formatAgeHours(0)).toBe('under an hour');
-    expect(formatAgeHours(5)).toBe('5 h');
-    expect(formatAgeHours(48)).toBe('2 d');
-    expect(formatAgeHours(50)).toBe('2 d 2 h');
+    expect(formatAgeHours(0)).toBe('<1h');
+    expect(formatAgeHours(5)).toBe('5h');
+    expect(formatAgeHours(48)).toBe('48h');
+    expect(formatAgeHours(72)).toBe('3d');
+    expect(formatAgeHours(75)).toBe('3d 3h');
     expect(formatAgeHours(null)).toBe('—');
-    expect(formatAgeMinutes(125)).toBe('2 h');
+    expect(formatAgeMinutes(125)).toBe('2h 05m');
+  });
+
+  it('writes every wait the same way', () => {
+    expect(formatElapsed(12)).toBe('0h 12m');
+    expect(formatElapsed(3070)).toBe('51h 10m');
+    expect(formatElapsed(4779 * 60 + 10)).toBe('199d 3h');
+    expect(formatElapsed(null)).toBe('—');
+  });
+
+  it('writes a payout period as one range', () => {
+    expect(formatPeriod('2026-10-01', '2026-10-31')).toBe('1–31 Oct 2026');
+    expect(formatPeriod('2026-10-28', '2026-11-03')).toBe('28 Oct – 3 Nov 2026');
+    expect(formatPeriod('2026-12-28', '2027-01-03')).toBe('28 Dec 2026 – 3 Jan 2027');
   });
 
   it('gives today as a UTC date', () => {

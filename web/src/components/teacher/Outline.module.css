@@ -24,12 +24,17 @@
 }
 
 .sectionHead {
+  /* `flex: none`: in the section's column, a flex-basis here would become a 224px height. */
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
 }
 
-.sectionHead,
 .sectionTitle {
   flex: 1 1 14rem;
   min-width: 0;
@@ -94,7 +99,7 @@
   padding: var(--space-4);
   border-radius: var(--radius-sm);
   background: var(--color-primary-subtle);
-  box-shadow: inset 3px 0 0 var(--color-primary);
+  box-shadow: var(--shadow-selected);
 }
 
 .subPanel {
@@ -118,8 +123,6 @@
 
 .progress {
   flex: 1 1 10rem;
-  height: 0.5rem;
-  accent-color: var(--color-primary);
 }
 
 .inlineForm,

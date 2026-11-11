@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Badge, Button } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { useMutation } from '@/lib/use-mutation';
@@ -18,6 +18,8 @@ export interface QuizPanelProps {
   viewer: 'STUDENT' | 'STAFF';
   /** Called after an attempt closes, so the course outline can refresh (a pass completes it). */
   onAttemptClosed?: () => void;
+  /** True while an attempt is on screen, so the page can drop everything that is not the quiz. */
+  onAttemptActive?: (active: boolean) => void;
   client?: LearnApi;
 }
 
@@ -29,6 +31,7 @@ export function QuizPanel({
   lessonId,
   viewer,
   onAttemptClosed,
+  onAttemptActive,
   client = learn,
 }: QuizPanelProps) {
   const [mode, setMode] = useState<Mode>({ kind: 'overview' });
@@ -40,6 +43,11 @@ export function QuizPanel({
     queryFn: () => client.quizOverview(courseId, lessonId),
     staleTime: 0,
   });
+  const attemptRunning = mode.kind === 'attempt' && mode.attempt.status === 'IN_PROGRESS';
+  useEffect(() => {
+    onAttemptActive?.(attemptRunning);
+    return () => onAttemptActive?.(false);
+  }, [attemptRunning, onAttemptActive]);
   const overview = loaded.data ?? null;
   const error = loaded.status === 'error' ? errorMessage(loaded.error) : null;
   const loadOverview = () => loaded.refetch();
@@ -79,6 +87,7 @@ export function QuizPanel({
         timeLimitSeconds={overview?.timeLimitSeconds ?? null}
         client={client}
         onClosed={closed}
+        onExit={backToOverview}
       />
     );
   }
@@ -110,7 +119,9 @@ export function QuizPanel({
   return (
     <section className={styles.panel} aria-labelledby="quiz-heading">
       <div className="cluster">
-        <h2 id="quiz-heading">Quiz</h2>
+        <h2 id="quiz-heading" className="visually-hidden">
+          Quiz
+        </h2>
         {overview.isBreakpoint && <Badge tone="warning">Checkpoint</Badge>}
         {overview.hasPassed && <Badge tone="success">Passed</Badge>}
       </div>
@@ -146,10 +157,14 @@ export function QuizPanel({
       {overview.isBreakpoint && !overview.hasPassed && (
         <p className={styles.muted}>Pass this checkpoint to unlock the lessons after it.</p>
       )}
-      {overview.timeLimitSeconds !== null && viewer === 'STUDENT' && (
+      {viewer === 'STUDENT' && (
         <p className={styles.muted}>
-          The timer starts when you begin and keeps running if you leave the page. Answers are saved
-          as you go.
+          {overview.openAttemptId
+            ? 'You have an attempt in progress. '
+            : 'Starting uses one of your attempts. '}
+          {overview.timeLimitSeconds !== null &&
+            'The timer starts when you begin and keeps running if you leave the page. '}
+          Answers are saved as you go.
         </p>
       )}
 

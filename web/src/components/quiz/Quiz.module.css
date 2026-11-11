@@ -92,8 +92,8 @@
 }
 
 .navButton {
-  min-width: 2.75rem;
-  min-height: 2.75rem;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background: var(--color-bg);
@@ -105,12 +105,21 @@
 .navButton[data-answered] {
   background: var(--color-primary-subtle);
   border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
+/* The question on screen: solid blue, so it never reads as "answered" by tint alone. */
 .navButton[data-current] {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 1px;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
   font-weight: var(--weight-bold);
+}
+
+.legend {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 
 .navButton:focus-visible {
@@ -159,7 +168,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  min-height: 2.75rem;
+  min-height: var(--target-min);
   padding: var(--space-3);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
@@ -170,12 +179,13 @@
 .option:has(input:checked) {
   border-color: var(--color-primary);
   background: var(--color-primary-subtle);
+  box-shadow: var(--shadow-selected);
 }
 
 .option input {
   flex: none;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: var(--check-size);
+  height: var(--check-size);
   margin: 0.125rem 0 0;
 }
 
@@ -211,7 +221,21 @@
 }
 
 .unit {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-family: var(--font-mono);
   font-weight: var(--weight-semibold);
+}
+
+.barActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .numeric p {

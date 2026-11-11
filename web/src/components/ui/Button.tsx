@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { ButtonHTMLAttributes, ComponentProps, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ComponentProps, ReactNode, Ref } from 'react';
 import { cx } from './cx';
 import styles from './Button.module.css';
 
@@ -25,6 +25,8 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>, St
   loading?: boolean;
   /** Replaces the label while loading, e.g. "Signing in…". */
   loadingText?: ReactNode;
+  /** React 19 passes `ref` as an ordinary prop. */
+  ref?: Ref<HTMLButtonElement>;
 }
 
 export function Button({

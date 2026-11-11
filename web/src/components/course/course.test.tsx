@@ -99,7 +99,7 @@ describe('CourseDetailContent', () => {
 
   it('asks visitors to sign in before a free enrollment', async () => {
     renderCourse(courseDetail({ isFree: true, priceMinor: null }));
-    const link = await screen.findByRole('link', { name: 'Sign in to enroll for free' });
+    const link = await screen.findByRole('link', { name: 'Sign in to enrol for free' });
     expect(link).toHaveAttribute(
       'href',
       `/login?next=${encodeURIComponent(`/courses/${COURSE_ID}`)}`,
@@ -110,7 +110,7 @@ describe('CourseDetailContent', () => {
   it('enrolls a signed-in student in a free course (#47)', async () => {
     apiMock.post.mockResolvedValue({ id: 'e-1', status: 'ACTIVE' });
     renderCourse(courseDetail({ isFree: true, priceMinor: null }), STUDENT);
-    await userEvent.click(await screen.findByRole('button', { name: 'Enroll for free' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Enrol for free' }));
     expect(await screen.findByText('You are enrolled')).toBeVisible();
     expect(apiMock.post).toHaveBeenCalledWith(`/courses/${COURSE_ID}/enroll`, expect.anything());
   });
@@ -120,7 +120,7 @@ describe('CourseDetailContent', () => {
       new RequestError('ENROLLMENT_REFUSED', { message: 'Enrollment is closed for this course' }),
     );
     renderCourse(courseDetail({ isFree: true, priceMinor: null }), STUDENT);
-    await userEvent.click(await screen.findByRole('button', { name: 'Enroll for free' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Enrol for free' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Enrollment is closed for this course',
     );
@@ -131,14 +131,14 @@ describe('CourseDetailContent', () => {
       { id: 'e-1', access: 'ACTIVE', course: { id: COURSE_ID, title: 'x' } },
     ]);
     expect(await screen.findByText('You are enrolled')).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Enroll for free' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Enrol for free' })).not.toBeInTheDocument();
   });
 
   it('has no free-enroll button for paid or closed courses', async () => {
     renderCourse(courseDetail({ isEnrollmentOpen: false }), STUDENT);
-    expect(await screen.findByText(/Enrollment for this course is closed/)).toBeVisible();
+    expect(await screen.findByText(/Enrolment for this course is closed/)).toBeVisible();
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Enroll for free' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('button', { name: 'Enrol for free' })).not.toBeInTheDocument(),
     );
   });
 });

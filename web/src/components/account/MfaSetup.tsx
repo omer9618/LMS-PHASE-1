@@ -1,10 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import QRCode from 'qrcode';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Alert, Button, ButtonLink, Checkbox, Input } from '@/components/ui';
+import { Alert, Button, ButtonLink, Checkbox, Input, SignInGate } from '@/components/ui';
 import styles from '@/components/ui/Form.module.css';
 import { authApi } from '@/lib/api/auth';
 import { errorMessage } from '@/lib/api/errors';
@@ -43,12 +42,9 @@ export function MfaSetup() {
   if (sessionStatus === 'loading') return <p role="status">Loading…</p>;
   if (!user) {
     return (
-      <div className={styles.form}>
-        <h1>Two-step verification</h1>
-        <p>
-          <Link href="/login?next=/account/mfa">Sign in</Link> to set up two-step verification.
-        </p>
-      </div>
+      <SignInGate next="/account/mfa" title="Sign in to set up two-step verification">
+        Two-step verification protects your account with a code from an authenticator app.
+      </SignInGate>
     );
   }
 

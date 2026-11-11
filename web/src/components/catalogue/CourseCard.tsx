@@ -27,7 +27,7 @@ export function CourseCard({ course }: { course: CourseCardData }) {
           {formatPrice(course)}
         </span>
         <span className="hint">{PACING_LABELS[course.progressionMode]}</span>
-        {!course.isEnrollmentOpen && <Badge tone="warning">Enrollment closed</Badge>}
+        {!course.isEnrollmentOpen && <Badge tone="warning">Enrolment closed</Badge>}
       </div>
     </article>
   );

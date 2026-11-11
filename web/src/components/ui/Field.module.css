@@ -49,6 +49,27 @@
 
 .control[type='file'] {
   padding: var(--space-2);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+/* The browser's own "Choose File" button, drawn like our secondary button. */
+.control[type='file']::file-selector-button {
+  min-height: var(--control-height-sm);
+  margin-right: var(--space-3);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--control-font-size);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.control[type='file']:hover::file-selector-button {
+  background: var(--color-primary-subtle);
 }
 
 /*
@@ -146,12 +167,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--control-height-sm);
+  min-height: var(--target-min); /* the whole row is the tap target, not just the 20px box */
 }
 
 .checkbox {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: var(--check-size);
+  height: var(--check-size);
   margin: 0;
   accent-color: var(--color-primary);
   flex-shrink: 0;

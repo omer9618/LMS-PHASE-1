@@ -93,20 +93,49 @@ export function formatDateTime(iso: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? '' : DATE_TIME.format(date);
 }
 
-/** 0 → "under an hour", 5 → "5 h", 50 → "2 d 2 h". For queue and concern ageing. */
-export function formatAgeHours(hours: number | null | undefined): string {
-  if (hours === null || hours === undefined) return '—';
-  if (hours < 1) return 'under an hour';
-  const days = Math.floor(hours / 24);
-  const rest = hours % 24;
-  if (days === 0) return `${hours} h`;
-  return rest === 0 ? `${days} d` : `${days} d ${rest} h`;
+/**
+ * Minutes → "0h 12m", "51h 10m" (under three days) or "8d 3h": the one wording for every wait and
+ * age in the app, so a queue, a deadline and a tile never disagree.
+ */
+export function formatElapsed(minutes: number | null | undefined): string {
+  if (minutes === null || minutes === undefined) return '—';
+  const whole = Math.max(0, Math.floor(minutes));
+  const hours = Math.floor(whole / 60);
+  if (hours >= 72) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+  return `${hours}h ${String(whole % 60).padStart(2, '0')}m`;
 }
 
-/** Minutes waiting → the same wording as formatAgeHours. */
+/** Whole hours → "<1h", "5h", "8d 3h". For concern and queue ageing that is kept in hours. */
+export function formatAgeHours(hours: number | null | undefined): string {
+  if (hours === null || hours === undefined) return '—';
+  if (hours < 1) return '<1h';
+  if (hours < 72) return `${hours}h`;
+  const rest = hours % 24;
+  return rest === 0 ? `${Math.floor(hours / 24)}d` : `${Math.floor(hours / 24)}d ${rest}h`;
+}
+
+/** Minutes waiting → the same wording as formatElapsed. */
 export function formatAgeMinutes(minutes: number | null | undefined): string {
-  if (minutes === null || minutes === undefined) return '—';
-  return formatAgeHours(Math.floor(minutes / 60));
+  return formatElapsed(minutes);
+}
+
+/** "2026-10-01" and "2026-10-31" → "1–31 Oct 2026"; across months "28 Oct – 3 Nov 2026". */
+export function formatPeriod(
+  startIso: string | null | undefined,
+  endIso: string | null | undefined,
+): string {
+  const start = startIso ? new Date(startIso) : null;
+  const end = endIso ? new Date(endIso) : null;
+  if (!start || Number.isNaN(start.getTime()) || !end || Number.isNaN(end.getTime())) {
+    return [formatDate(startIso), formatDate(endIso)].filter(Boolean).join(' – ');
+  }
+  const day = (d: Date) => d.getUTCDate();
+  const month = (d: Date) => d.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' });
+  const sameMonth =
+    start.getUTCMonth() === end.getUTCMonth() && start.getUTCFullYear() === end.getUTCFullYear();
+  if (sameMonth) return `${day(start)}–${day(end)} ${month(end)} ${end.getUTCFullYear()}`;
+  const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
+  return `${day(start)} ${month(start)}${sameYear ? '' : ` ${start.getUTCFullYear()}`} – ${day(end)} ${month(end)} ${end.getUTCFullYear()}`;
 }
 
 /** Today's date as YYYY-MM-DD in UTC (bank value dates and transfer dates). */

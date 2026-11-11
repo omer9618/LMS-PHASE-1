@@ -6,6 +6,7 @@ import {
   Badge,
   Button,
   Pager,
+  ProgressBar,
   Select,
   Table,
   type BadgeTone,
@@ -59,7 +60,18 @@ const COLUMNS: Array<Column<RosterEntry>> = [
     key: 'progress',
     header: 'Progress',
     numeric: true,
-    cell: (e) => (e.completionPercent === undefined ? '—' : `${e.completionPercent}%`),
+    cell: (e) =>
+      e.completionPercent === undefined ? (
+        '—'
+      ) : (
+        <span className={styles.progressCell}>
+          <ProgressBar
+            value={e.completionPercent}
+            label={`${e.student.fullName ?? e.student.email}: ${e.completionPercent}% complete`}
+          />
+          <span className="mono">{e.completionPercent}%</span>
+        </span>
+      ),
   },
 ];
 
@@ -113,7 +125,12 @@ export function Roster() {
         <>
           <Table
             caption={`Students (${roster.data.total})`}
-            columns={COLUMNS}
+            columns={
+              // An "Until" column of dashes (nobody's access ends) is only noise.
+              roster.data.items.some((e) => e.expiresAt)
+                ? COLUMNS
+                : COLUMNS.filter((c) => c.key !== 'expires')
+            }
             rows={roster.data.items}
             rowKey={(e) => e.id}
             empty="No students yet."

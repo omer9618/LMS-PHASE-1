@@ -8,7 +8,9 @@ import {
   ButtonLink,
   Loadable,
   PageHeader,
+  ProgressBar,
   Select,
+  SignInGate,
   StatGrid,
   StatTile,
   type BadgeTone,
@@ -46,8 +48,8 @@ export type DashboardSort = 'recent' | 'progress' | 'title';
 export type DashboardFilter = 'all' | 'in-progress' | 'not-started' | 'completed' | 'ended';
 
 export const SORT_LABELS: Record<DashboardSort, string> = {
-  recent: 'Recently enrolled',
   progress: 'Continue first',
+  recent: 'Recently enrolled',
   title: 'Title (A–Z)',
 };
 
@@ -112,7 +114,7 @@ export function orderEntries(entries: DashboardEntry[], sort: DashboardSort): Da
 /** #52: the student's courses with completion. */
 export function StudentDashboard() {
   const { status, user } = useSession();
-  const [sort, setSort] = useState<DashboardSort>('recent');
+  const [sort, setSort] = useState<DashboardSort>('progress');
   const [filter, setFilter] = useState<DashboardFilter>('all');
   const [shown, setShown] = useState(PAGE_SIZE);
   const enrollments = useQuery({
@@ -123,14 +125,7 @@ export function StudentDashboard() {
 
   if (status === 'loading') return <p role="status">Loading…</p>;
   if (!user) {
-    return (
-      <div className="stack">
-        <h1>My learning</h1>
-        <p>
-          <Link href="/login?next=/dashboard">Sign in</Link> to see your courses.
-        </p>
-      </div>
-    );
+    return <SignInGate next="/dashboard">Sign in to see your courses.</SignInGate>;
   }
 
   return (
@@ -210,7 +205,7 @@ export function StudentDashboard() {
               {visible.length > shown && (
                 <div>
                   <Button variant="secondary" onClick={() => setShown((n) => n + PAGE_SIZE)}>
-                    Show more ({visible.length - shown} more)
+                    Show {Math.min(PAGE_SIZE, visible.length - shown)} more
                   </Button>
                 </div>
               )}
@@ -243,18 +238,12 @@ function EnrollmentCard({ entry }: { entry: DashboardEntry }) {
         <h2 id={titleId} className={styles.title}>
           {entry.course.title}
         </h2>
-        <Badge tone={access.tone}>{access.label}</Badge>
+        {/* "Active" is the normal state and says nothing; only a problem gets a chip. */}
+        {entry.access !== 'ACTIVE' && <Badge tone={access.tone}>{access.label}</Badge>}
       </div>
-      <p className="hint">
-        {[entry.course.subject?.name, entry.course.teacher?.fullName].filter(Boolean).join(' · ')}
-      </p>
+      {entry.course.teacher?.fullName && <p className="hint">{entry.course.teacher.fullName}</p>}
       <div className={styles.progressRow}>
-        <progress
-          className={styles.progress}
-          max={100}
-          value={percent}
-          aria-label={`${entry.course.title}: ${percent}% complete`}
-        />
+        <ProgressBar value={percent} label={`${entry.course.title}: ${percent}% complete`} />
         <span className={styles.percent}>
           {percent}% complete
           {entry.totalLessons !== undefined && (

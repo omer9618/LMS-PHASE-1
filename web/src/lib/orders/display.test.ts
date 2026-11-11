@@ -58,9 +58,9 @@ describe('order display', () => {
 
   it('describes the time to a deadline', () => {
     const now = Date.parse('2026-11-03T10:00:00Z');
-    expect(timeUntil('2026-11-04T13:30:00Z', now)).toBe('in 1 day 3 h');
-    expect(timeUntil('2026-11-03T12:15:00Z', now)).toBe('in 2 h 15 min');
-    expect(timeUntil('2026-11-03T10:45:00Z', now)).toBe('in 45 min');
+    expect(timeUntil('2026-11-04T13:30:00Z', now)).toBe('27h 30m left');
+    expect(timeUntil('2026-11-03T12:15:00Z', now)).toBe('2h 15m left');
+    expect(timeUntil('2026-11-03T10:45:00Z', now)).toBe('0h 45m left');
     expect(timeUntil('2026-11-03T09:00:00Z', now)).toBe('passed');
   });
 

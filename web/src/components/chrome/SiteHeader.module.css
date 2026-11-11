@@ -133,7 +133,7 @@
   }
 
   .nav a {
-    min-height: 2.75rem;
+    min-height: var(--target-min);
   }
 
   .account {

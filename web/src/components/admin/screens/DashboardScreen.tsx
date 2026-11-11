@@ -4,14 +4,10 @@ import { Loadable, PageHeader, Section, StatGrid, StatTile } from '@/components/
 import { adminApi } from '@/lib/api/admin';
 import { adminFinanceApi } from '@/lib/api/admin-finance';
 import { useQuery } from '@tanstack/react-query';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatElapsed } from '@/lib/format';
 
-/** 3070 → "51h 10m". */
-export function formatWait(minutes: number | null): string {
-  if (minutes === null) return '—';
-  const whole = Math.floor(minutes);
-  return `${Math.floor(whole / 60)}h ${String(whole % 60).padStart(2, '0')}m`;
-}
+/** 3070 → "51h 10m"; three days or more → "8d 3h" (the same wording as every other queue). */
+export const formatWait = formatElapsed;
 
 /** #102: what needs an admin now, with links into each queue. */
 export function DashboardScreen() {
@@ -72,9 +68,9 @@ export function DashboardScreen() {
                 <StatGrid label="Today">
                   <StatTile label="Items needing attention" value={data.needsAttention} />
                   <StatTile
-                    label="Enrollments granted today"
+                    label="Enrolments granted today"
                     value={data.today.enrollmentsGranted}
-                    action={{ href: '/admin/enrollments', label: 'See enrollments' }}
+                    action={{ href: '/admin/enrollments', label: 'See enrolments' }}
                   />
                 </StatGrid>
                 <p className="muted">

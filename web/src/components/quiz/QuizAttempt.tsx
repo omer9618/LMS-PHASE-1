@@ -16,6 +16,8 @@ export interface QuizAttemptProps {
   timeLimitSeconds: number | null;
   client: LearnApi;
   onClosed: (attempt: AttemptView) => void;
+  /** Leave the attempt without submitting; the timer keeps running and it can be resumed. */
+  onExit?: () => void;
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -35,6 +37,7 @@ export function QuizAttempt({
   timeLimitSeconds,
   client,
   onClosed,
+  onExit,
 }: QuizAttemptProps) {
   const questions = attempt.questions;
   const [answers, setAnswers] = useState<Record<string, string>>(() =>
@@ -145,8 +148,49 @@ export function QuizAttempt({
           {saveState === 'saved' && 'All answers saved'}
           {saveState === 'error' && 'Not saved yet'}
         </span>
+        <div className={styles.barActions}>
+          {onExit && (
+            <Button variant="ghost" size="sm" onClick={onExit} disabled={submitting}>
+              Leave for now
+            </Button>
+          )}
+          <Button size="sm" onClick={() => setConfirming(true)} disabled={submitting}>
+            Submit attempt
+          </Button>
+        </div>
       </div>
 
+      {confirming && (
+        <div className={styles.confirm} role="group" aria-labelledby="confirm-heading">
+          <h3 id="confirm-heading">Submit your answers?</h3>
+          {unanswered > 0 ? (
+            <p>
+              {unanswered} of {questions.length} question{questions.length === 1 ? '' : 's'}{' '}
+              {unanswered === 1 ? 'is' : 'are'} not answered. Unanswered questions score zero.
+            </p>
+          ) : (
+            <p>
+              {questions.length === 1
+                ? 'The question is answered.'
+                : `All ${questions.length} questions are answered.`}
+            </p>
+          )}
+          {invalidNumeric.length > 0 && (
+            <p>
+              {invalidNumeric.length} numeric answer{invalidNumeric.length > 1 ? 's are' : ' is'}{' '}
+              not a plain number and will not be sent.
+            </p>
+          )}
+          <div className={styles.stepper}>
+            <Button variant="secondary" onClick={() => setConfirming(false)} disabled={submitting}>
+              Keep working
+            </Button>
+            <Button onClick={submit} loading={submitting} loadingText="Submitting…">
+              Submit
+            </Button>
+          </div>
+        </div>
+      )}
       <nav aria-label="Questions" className={styles.navigator}>
         <ol>
           {questions.map((q, i) => {
@@ -169,6 +213,9 @@ export function QuizAttempt({
           })}
         </ol>
       </nav>
+      <p className={styles.legend}>
+        Blue: this question. Tinted: answered. White: not answered yet.
+      </p>
 
       {error && <Alert tone="danger">{error}</Alert>}
 
@@ -203,38 +250,6 @@ export function QuizAttempt({
           </Button>
         )}
       </div>
-
-      {confirming && (
-        <div className={styles.confirm} role="group" aria-labelledby="confirm-heading">
-          <h3 id="confirm-heading">Submit your answers?</h3>
-          {unanswered > 0 ? (
-            <p>
-              {unanswered} of {questions.length} question{questions.length === 1 ? '' : 's'}{' '}
-              {unanswered === 1 ? 'is' : 'are'} not answered. Unanswered questions score zero.
-            </p>
-          ) : (
-            <p>
-              {questions.length === 1
-                ? 'The question is answered.'
-                : `All ${questions.length} questions are answered.`}
-            </p>
-          )}
-          {invalidNumeric.length > 0 && (
-            <p>
-              {invalidNumeric.length} numeric answer{invalidNumeric.length > 1 ? 's are' : ' is'}{' '}
-              not a plain number and will not be sent.
-            </p>
-          )}
-          <div className={styles.stepper}>
-            <Button variant="secondary" onClick={() => setConfirming(false)} disabled={submitting}>
-              Keep working
-            </Button>
-            <Button onClick={submit} loading={submitting} loadingText="Submitting…">
-              Submit
-            </Button>
-          </div>
-        </div>
-      )}
     </section>
   );
 }
@@ -315,7 +330,9 @@ function QuestionCard({
           <p id={hintId} className={invalid ? styles.fieldError : styles.muted}>
             {invalid
               ? 'Enter a plain number, such as 9.81 or -0.5 (no units, commas or exponents).'
-              : 'A number only; the unit is shown for you.'}
+              : question.numericUnit
+                ? 'Type the number only. The unit is fixed.'
+                : 'Type a number, such as 9.81 or -0.5.'}
           </p>
         </div>
       )}

@@ -146,6 +146,10 @@ describe('ProfileEditor', () => {
     );
     apiMock.post.mockResolvedValueOnce(profile({ bio: 'x' }));
     await userEvent.click(screen.getByRole('button', { name: 'Unpublish' }));
+    // Unpublishing hides the public page, so it asks first.
+    expect(apiMock.post).not.toHaveBeenCalledWith('/teacher/profile/unpublish', expect.anything());
+    expect(screen.getByText(/Unpublish your profile\?/)).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Unpublish' }));
     await waitFor(() =>
       expect(apiMock.post).toHaveBeenLastCalledWith(
         '/teacher/profile/unpublish',

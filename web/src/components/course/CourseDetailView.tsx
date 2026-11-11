@@ -6,7 +6,7 @@ import { Badge, Button, Icon } from '@/components/ui';
 import type { CourseDetail, OutlineLesson } from '@/lib/api/schemas/catalogue';
 import { formatDuration, PACING_HINTS, PACING_LABELS } from '@/lib/format';
 import { DemoPlayer } from './DemoPlayer';
-import { EnrollPanel } from './EnrollPanel';
+import { EnrollPanel, useAlreadyEnrolled } from './EnrollPanel';
 import styles from './Course.module.css';
 
 const LESSON_TYPE_LABELS: Record<string, string> = {
@@ -23,6 +23,7 @@ export function CourseDetailContent({ course }: { course: CourseDetail }) {
   const demoLessons = lessons.filter((l) => demoIds.has(l.id));
   const [playing, setPlaying] = useState<OutlineLesson | null>(null);
   const totalVideo = formatDuration(course.totalVideoSeconds);
+  const enrolled = useAlreadyEnrolled(course.id);
 
   function watch(lesson: OutlineLesson) {
     setPlaying(lesson);
@@ -121,20 +122,27 @@ export function CourseDetailContent({ course }: { course: CourseDetail }) {
                   <ul className={styles.lessons}>
                     {section.lessons.map((lesson) => (
                       <li key={lesson.id} className={styles.lesson}>
-                        <span className={styles.lessonTitle}>{lesson.title}</span>
+                        <span className={styles.lessonTitle}>
+                          {enrolled ? (
+                            <Link
+                              href={`/learn/${encodeURIComponent(course.id)}?lesson=${encodeURIComponent(lesson.id)}`}
+                            >
+                              {lesson.title}
+                            </Link>
+                          ) : (
+                            lesson.title
+                          )}
+                        </span>
                         <span className={styles.lessonMeta}>
                           {LESSON_TYPE_LABELS[lesson.type] ?? lesson.type}
                           {formatDuration(lesson.durationSeconds) &&
                             ` · ${formatDuration(lesson.durationSeconds)}`}
                         </span>
-                        {demoIds.has(lesson.id) && (
+                        {!enrolled && demoIds.has(lesson.id) && (
                           <Button size="sm" variant="ghost" onClick={() => watch(lesson)}>
                             Watch preview
                             <span className="visually-hidden">: {lesson.title}</span>
                           </Button>
-                        )}
-                        {lesson.isFreePreview && !demoIds.has(lesson.id) && (
-                          <Badge tone="info">Free preview</Badge>
                         )}
                       </li>
                     ))}

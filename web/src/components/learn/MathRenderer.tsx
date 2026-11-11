@@ -8,6 +8,7 @@ import styles from './MathText.module.css';
 function renderMath(value: string, display: boolean): string {
   // KaTeX escapes everything it outputs; trust: false refuses \href, \url and similar.
   return katex.renderToString(value, {
+    errorColor: '#b3261e', // --color-danger (KaTeX cannot read a CSS variable)
     displayMode: display,
     throwOnError: false,
     trust: false,

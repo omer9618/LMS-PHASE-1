@@ -15,11 +15,16 @@ import {
   Table,
   Textarea,
 } from '@/components/ui';
-import { adminApi, type ApplicationStatus, type TeacherApplication } from '@/lib/api/admin';
+import {
+  adminApi,
+  type AdminUser,
+  type ApplicationStatus,
+  type TeacherApplication,
+} from '@/lib/api/admin';
 import { formatDate } from '@/lib/format';
 import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
-import { MutationStatus } from '@/components/ui';
+import { ConfirmButton, MutationStatus, ReasonAction } from '@/components/ui';
 import { useMutation } from '@/lib/use-mutation';
 import { formatDateTime } from '@/lib/format';
 
@@ -110,8 +115,8 @@ export function ApplicationDetailScreen({ applicationId }: { applicationId: stri
   });
   const mutation = useMutation();
   const [notes, setNotes] = useState('');
-  const [linkUserId, setLinkUserId] = useState('');
-  const [cvUrl, setCvUrl] = useState<string | null>(null);
+  const [linkEmail, setLinkEmail] = useState('');
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   const act = async (action: () => Promise<unknown>, success: string) => {
     const ok = await mutation.run(action, success);
@@ -144,24 +149,27 @@ export function ApplicationDetailScreen({ applicationId }: { applicationId: stri
             <Section
               title="Application"
               actions={
-                cvUrl ? (
-                  <a href={cvUrl} target="_blank" rel="noopener noreferrer">
-                    Download CV (link valid for 5 minutes)
-                  </a>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() =>
-                      void mutation.run(async () => {
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={mutation.pending}
+                  onClick={() => {
+                    // Open the tab now (a click, so it is not blocked) and point it at the
+                    // short-lived link once the API has made it.
+                    const tab = window.open('', '_blank');
+                    void mutation
+                      .run(async () => {
                         const { url } = await adminApi.getApplicationCv(a.id);
-                        setCvUrl(url);
+                        if (tab) tab.location.href = url;
+                        else window.location.assign(url);
                       })
-                    }
-                  >
-                    Get CV link
-                  </Button>
-                )
+                      .then((ok) => {
+                        if (!ok) tab?.close();
+                      });
+                  }}
+                >
+                  Download CV
+                </Button>
               }
             >
               <Facts
@@ -202,16 +210,36 @@ export function ApplicationDetailScreen({ applicationId }: { applicationId: stri
                         Mark under review
                       </Button>
                     )}
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      onClick={() => review('REJECTED', 'Application rejected.')()}
+                    <ConfirmButton
+                      variant="primary"
+                      question={`Hire ${a.applicantName}?`}
+                      confirmLabel="Hire"
+                      onConfirm={async () => {
+                        await act(
+                          () =>
+                            adminApi.reviewApplication(a.id, {
+                              status: 'HIRED',
+                              notes: notes.trim() || undefined,
+                            }),
+                          'Applicant hired.',
+                        );
+                      }}
                     >
-                      Reject
-                    </Button>
-                    <Button size="sm" onClick={() => review('HIRED', 'Applicant hired.')()}>
                       Hire
-                    </Button>
+                    </ConfirmButton>
+                    <ReasonAction
+                      label="Reject"
+                      variant="danger"
+                      reasonLabel="Reason (kept with the application)"
+                      hint="Saved as the review notes. Rejecting is final."
+                      onConfirm={(reason) =>
+                        act(
+                          () =>
+                            adminApi.reviewApplication(a.id, { status: 'REJECTED', notes: reason }),
+                          'Application rejected.',
+                        )
+                      }
+                    />
                   </div>
                 </form>
               </Section>
@@ -219,36 +247,56 @@ export function ApplicationDetailScreen({ applicationId }: { applicationId: stri
             {a.status !== 'REJECTED' && !a.user && (
               <Section title="Teacher account">
                 <p className="muted">
-                  Create the account from this application (the applicant gets a link to set a
-                  password), or link an existing teacher account. Either hires the applicant.
+                  Hiring needs a teacher account. Create one from this application (the applicant
+                  gets a link to set a password), or link an account that already exists.
                 </p>
                 <div className={styles.actions}>
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      void act(
+                  <ConfirmButton
+                    variant="primary"
+                    question={`Create an account for ${a.applicantEmail} and email them a link to set a password?`}
+                    confirmLabel="Create account"
+                    onConfirm={async () => {
+                      await act(
                         () => adminApi.createAccountFromApplication(a.id),
                         `Teacher account created for ${a.applicantEmail}.`,
-                      )
-                    }
+                      );
+                    }}
                   >
                     Create teacher account
-                  </Button>
+                  </ConfirmButton>
                 </div>
                 <form
                   className={styles.filters}
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
-                    void act(
-                      () => adminApi.linkApplication(a.id, linkUserId.trim()),
-                      'Account linked.',
-                    );
+                    const email = linkEmail.trim().toLowerCase();
+                    if (!email) {
+                      setLinkError('Enter the email of the existing account.');
+                      return;
+                    }
+                    setLinkError(null);
+                    let found: AdminUser | undefined;
+                    const looked = await mutation.run(async () => {
+                      const page = await adminApi.listUsers({ q: email, limit: 5 });
+                      found = page.items.find((u) => u.email.toLowerCase() === email);
+                    });
+                    if (!looked) return;
+                    if (!found) {
+                      setLinkError('No account uses that email.');
+                      return;
+                    }
+                    const user = found;
+                    await act(() => adminApi.linkApplication(a.id, user.id), 'Account linked.');
                   }}
+                  noValidate
                 >
                   <Input
-                    label="Existing teacher's user ID"
-                    value={linkUserId}
-                    onChange={(e) => setLinkUserId(e.target.value)}
+                    label="Or link an existing account by email"
+                    type="email"
+                    autoComplete="off"
+                    value={linkEmail}
+                    error={linkError}
+                    onChange={(e) => setLinkEmail(e.target.value)}
                   />
                   <Button type="submit" size="sm" variant="secondary">
                     Link account

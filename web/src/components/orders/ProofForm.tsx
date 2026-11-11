@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { Alert, Button, Input } from '@/components/ui';
 import type { OrdersApi, StudentOrder, SubmittedProof } from '@/lib/api/orders';
 import { validateProofForm } from '@/lib/forms/orders';
+import { minorToMajorInput, minorUnitExponent } from '@/lib/money';
 import { useMutation } from '@/lib/use-mutation';
 import styles from './Orders.module.css';
 
@@ -23,7 +24,18 @@ export interface ProofFormProps {
  */
 export function ProofForm({ order, client, onSubmitted }: ProofFormProps) {
   const [transactionId, setTransactionId] = useState('');
-  const [amount, setAmount] = useState('');
+  // What the student most likely sent: the shortfall after a top-up request, else the order total.
+  // A further transfer on an order already under review starts empty.
+  const expected =
+    order.lastDecision?.kind === 'TOP_UP_REQUESTED'
+      ? order.lastDecision.shortfallMinor
+      : order.status === 'PENDING' || order.status === 'REJECTED'
+        ? order.totalMinor
+        : null;
+  const initialAmount = expected
+    ? minorToMajorInput(expected, minorUnitExponent(order.currency))
+    : '';
+  const [amount, setAmount] = useState(initialAmount);
   const [file, setFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const send = useMutation();
@@ -89,7 +101,11 @@ export function ProofForm({ order, client, onSubmitted }: ProofFormProps) {
       />
       <Input
         label={`Amount you transferred (${order.currency})`}
-        hint="Optional. For example 15000 or 15,000.50"
+        hint={
+          expected
+            ? 'Optional. Filled in from your order: change it if you sent a different amount.'
+            : 'Optional. For example 15000 or 15,000.50'
+        }
         inputMode="decimal"
         value={amount}
         onChange={(e) => setAmount(e.target.value)}

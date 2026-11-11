@@ -22,7 +22,6 @@
 
 .titleRow code,
 .orderLink code {
-  font-size: 0.95em;
   overflow-wrap: anywhere;
 }
 
@@ -69,7 +68,7 @@
   justify-content: space-between;
   gap: var(--space-2);
   padding-top: var(--space-3);
-  border-top: 2px solid var(--color-text);
+  box-shadow: 0 -1px 0 var(--color-border);
   font-size: var(--text-lg);
 }
 
@@ -88,29 +87,110 @@
 
 /* ── Payment instructions ── */
 
+/* The one raised panel on the page: the task the student came to do. */
 .instructions {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-4);
   border-radius: var(--radius-md);
-  background: var(--color-primary-subtle);
-  box-shadow:
-    0 0 0 2px var(--color-primary),
-    var(--shadow-lg);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-lg);
 }
 
-.payFacts {
+.payTiles {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: var(--space-4);
+  gap: var(--space-3);
   margin: 0;
 }
 
-.payFacts dt,
-.payFacts dd,
+.payTile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+/* The reference is what a student types into the bank app, so it is the highlighted one. */
+.payTileRef {
+  background: var(--color-highlight);
+  color: var(--color-text);
+}
+
+.payTileRef :global(.eyebrow) {
+  color: var(--color-text);
+}
+
+.payTile dt,
+.payTile dd,
 .receiptFacts dd {
   margin: 0;
+}
+
+/* ── Order progress ── */
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.step[aria-current='step'] {
+  background: var(--color-primary-subtle);
+  box-shadow: var(--shadow-selected);
+}
+
+.stepMark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--check-size);
+  height: var(--check-size);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.stepDone .stepMark {
+  background: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
+.stepCurrent .stepMark {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.stepText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stepTitle {
+  font-weight: var(--weight-semibold);
+}
+
+.stepNote {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 
 .bankDetails {

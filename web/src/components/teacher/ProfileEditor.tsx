@@ -3,7 +3,16 @@
 import Link from 'next/link';
 import { useMutation } from '@/lib/use-mutation';
 import { useState, type FormEvent } from 'react';
-import { Alert, Badge, Button, Input, MutationStatus, PageHeader, Textarea } from '@/components/ui';
+import {
+  Alert,
+  Badge,
+  Button,
+  ConfirmButton,
+  Input,
+  MutationStatus,
+  PageHeader,
+  Textarea,
+} from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import {
   checkPhoto,
@@ -146,14 +155,23 @@ function PublishPanel({
       </p>
       {error && <Alert tone="danger">{error}</Alert>}
       <div className="cluster">
-        <Button
-          variant={profile.isPublished ? 'secondary' : 'primary'}
-          loading={busy}
-          loadingText={profile.isPublished ? 'Unpublishing…' : 'Publishing…'}
-          onClick={() => void toggle()}
-        >
-          {profile.isPublished ? 'Unpublish' : 'Publish profile'}
-        </Button>
+        {profile.isPublished ? (
+          <ConfirmButton
+            variant="secondary"
+            size="md"
+            question="Unpublish your profile? Students will not see it on your courses until you publish it again."
+            confirmLabel="Unpublish"
+            onConfirm={async () => {
+              await toggle();
+            }}
+          >
+            Unpublish
+          </ConfirmButton>
+        ) : (
+          <Button loading={busy} loadingText="Publishing…" onClick={() => void toggle()}>
+            Publish profile
+          </Button>
+        )}
         {profile.isPublished && (
           <Link href={`/teachers/${profile.teacherId}`}>View your public page</Link>
         )}

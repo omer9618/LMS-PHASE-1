@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
-import { Alert, Badge, Button, ButtonLink } from '@/components/ui';
+import { Alert, Badge, Button, ButtonLink, Forbidden, SignInGate } from '@/components/ui';
 import { adminAccess, canSwitchContext } from '@/lib/admin/access';
 import { adminApi, type AdminDashboard, type MeWithContext } from '@/lib/api/admin';
 import { errorMessage } from '@/lib/api/errors';
@@ -43,7 +43,7 @@ export const ADMIN_NAV: Array<{ group: string; items: AdminNavItem[] }> = [
     group: 'Manage',
     items: [
       { href: '/admin/users', label: 'Users and teachers' },
-      { href: '/admin/enrollments', label: 'Enrollments' },
+      { href: '/admin/enrollments', label: 'Enrolments' },
       { href: '/admin/orders', label: 'Orders' },
     ],
   },
@@ -190,19 +190,14 @@ function Gate({
     case 'loading':
       return <p role="status">Loading…</p>;
     case 'signed-out':
-      return (
-        <Alert tone="info" title="Sign in to continue">
-          <p>The admin area is for staff accounts.</p>
-          <ButtonLink href="/login?next=/admin" size="sm">
-            Sign in
-          </ButtonLink>
-        </Alert>
-      );
+      return <SignInGate next="/admin">The admin area is for staff accounts.</SignInGate>;
     case 'not-admin':
       return (
-        <Alert tone="warning" title="Admins only">
-          <p>Your account does not have the Admin role.</p>
-        </Alert>
+        <Forbidden title="Admins only">
+          {user
+            ? `You are signed in as ${user.email}, which does not have the Admin role.`
+            : 'Your account does not have the Admin role.'}
+        </Forbidden>
       );
     case 'mfa-setup':
       return (

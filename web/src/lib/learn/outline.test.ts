@@ -66,6 +66,6 @@ describe('learner outline helpers', () => {
     const [a, b, c] = flattenLessons(outline);
     expect(lessonStatusLabel(a!)).toBe('completed');
     expect(lessonStatusLabel(b!)).toBe('not started');
-    expect(lessonStatusLabel(c!)).toMatch(/^locked: Complete/);
+    expect(lessonStatusLabel(c!)).toBe('locked');
   });
 });

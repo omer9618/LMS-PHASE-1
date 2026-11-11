@@ -11,7 +11,9 @@ import {
   SplitLayout,
   Money,
 } from '@/components/ui';
+import { api } from '@/lib/api/client';
 import { RequestError, errorMessage } from '@/lib/api/errors';
+import { courseDetail } from '@/lib/api/schemas/catalogue';
 import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
 import { useCart } from '@/lib/orders/cart';
 import { groupByTeacher } from '@/lib/orders/display';
@@ -51,6 +53,14 @@ export function CartView({ client = defaultOrders }: { client?: OrdersApi }) {
   const placeError = place.error;
   const checkout = () => place.mutate();
 
+  // The API refuses a cart for one course; name it, so the student knows what to remove.
+  const refused = refusedCourseId(quote.status === 'error' ? quote.error : placeError);
+  const refusedCourse = useQuery({
+    queryKey: ['cart-refused-course', refused],
+    queryFn: () => api.get(`/catalogue/courses/${refused}`, courseDetail),
+    enabled: refused !== null,
+  });
+
   if (cart.ids.length === 0) {
     return (
       <div className="stack">
@@ -77,8 +87,6 @@ export function CartView({ client = defaultOrders }: { client?: OrdersApi }) {
     );
   }
 
-  const refused = refusedCourseId(quote.status === 'error' ? quote.error : placeError);
-
   return (
     <div className="stack">
       <PageHeader eyebrow="Checkout" title="Your cart" />
@@ -91,19 +99,47 @@ export function CartView({ client = defaultOrders }: { client?: OrdersApi }) {
 
       {quote.status === 'error' && (
         <Alert tone="danger" title="Your cart cannot be checked out as it is">
-          <p>{errorMessage(quote.error)}</p>
           {refused ? (
-            <p>
-              <Button variant="secondary" size="sm" onClick={() => cart.remove(refused)}>
-                Remove that course
-              </Button>
-            </p>
+            <>
+              <p>
+                {refusedCourse.data ? (
+                  <>
+                    <Link href={`/courses/${encodeURIComponent(refused)}`}>
+                      {refusedCourse.data.title}
+                    </Link>
+                    :{' '}
+                  </>
+                ) : null}
+                <span>{errorMessage(quote.error)}</span>
+              </p>
+              <p className="cluster">
+                <Button variant="secondary" size="sm" onClick={() => cart.remove(refused)}>
+                  Remove it from the cart
+                </Button>
+                <ButtonLink
+                  href={`/courses/${encodeURIComponent(refused)}`}
+                  variant="ghost"
+                  size="sm"
+                >
+                  Open the course page
+                </ButtonLink>
+              </p>
+              {cart.ids.length > 1 && (
+                <p className="muted">
+                  The other {cart.ids.length - 1 === 1 ? 'course' : 'courses'} in your cart will be
+                  priced as soon as it is gone.
+                </p>
+              )}
+            </>
           ) : (
-            <p>
-              <Button variant="secondary" size="sm" onClick={() => cart.clear()}>
-                Empty the cart
-              </Button>
-            </p>
+            <>
+              <p>{errorMessage(quote.error)}</p>
+              <p>
+                <Button variant="secondary" size="sm" onClick={() => cart.clear()}>
+                  Empty the cart
+                </Button>
+              </p>
+            </>
           )}
         </Alert>
       )}

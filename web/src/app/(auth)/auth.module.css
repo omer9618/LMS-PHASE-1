@@ -2,7 +2,6 @@
 .shell {
   display: flex;
   justify-content: center;
-  min-height: calc(100vh - 9rem);
   padding: var(--space-8) var(--page-gutter) var(--space-12);
   background: var(--color-surface);
 }

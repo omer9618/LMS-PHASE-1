@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Alert, Badge, ButtonLink, Money } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
+import { orderStatusLabel } from '@/lib/orders/display';
 import { statusTone } from '@/lib/status';
 import { formatDateTime } from '@/lib/format';
 import { useSession } from '@/lib/session';
@@ -52,7 +53,7 @@ export function OrdersList({ client = defaultOrders }: { client?: OrdersApi }) {
             <Link href={`/orders/${encodeURIComponent(order.id)}`} className={styles.orderLink}>
               <code>{order.paymentReference}</code>
             </Link>
-            <Badge tone={statusTone(order.status)}>{order.guidance.statusLabel}</Badge>
+            <Badge tone={statusTone(order.status)}>{orderStatusLabel(order)}</Badge>
           </div>
           <p>{order.items.map((i) => i.courseTitle).join(', ')}</p>
           <p className={styles.orderMeta}>

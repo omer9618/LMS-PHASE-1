@@ -49,6 +49,12 @@ describe('platform settings rules', () => {
     expect(readSetting('BANK_TRANSFER_INSTRUCTIONS', '   ')).toContain('to be confirmed');
   });
 
+  it('refuses bank details that still contain the placeholder text', () => {
+    expect(() =>
+      normaliseSettingValue('BANK_TRANSFER_INSTRUCTIONS', 'Bank: [To Be Confirmed] IBAN: PK00'),
+    ).toThrow(InvalidSettingValueError);
+  });
+
   it('rejects empty or non-text values for text settings', () => {
     expect(() => normaliseSettingValue('BANK_TRANSFER_INSTRUCTIONS', '  ')).toThrow(
       InvalidSettingValueError,

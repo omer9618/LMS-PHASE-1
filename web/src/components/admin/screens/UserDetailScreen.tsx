@@ -76,7 +76,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
                   <ReasonAction
                     label="Suspend"
                     variant="danger"
-                    hint="Signs the user out everywhere. Teachers' courses stop taking enrollments."
+                    hint="Signs the user out everywhere. Teachers' courses stop taking enrolments."
                     onConfirm={(reason) =>
                       act(() => adminApi.suspendUser(user.id, reason), 'Account suspended.')
                     }
@@ -108,7 +108,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
                   <ReasonAction
                     label="Deactivate teacher"
                     variant="danger"
-                    hint="Permanent. Refused while students hold active enrollments in their courses."
+                    hint="Permanent. Refused while students hold active enrolments in their courses."
                     onConfirm={(reason) =>
                       act(() => adminApi.deactivateTeacher(user.id, reason), 'Teacher deactivated.')
                     }
@@ -206,7 +206,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
             )}
 
             <Section
-              title="Enrollments as a student"
+              title="Enrolments as a student"
               actions={
                 <ButtonLink
                   size="sm"
@@ -218,11 +218,11 @@ export function UserDetailScreen({ userId }: { userId: string }) {
               }
             >
               <Table<AdminEnrollment>
-                caption={`${enrollments.total} enrollment${enrollments.total === 1 ? '' : 's'}`}
+                caption={`${enrollments.total} enrolment${enrollments.total === 1 ? '' : 's'}`}
                 hideCaption
                 rows={enrollments.items}
                 rowKey={(e) => e.id}
-                empty="No enrollments."
+                empty="No enrolments."
                 columns={[
                   {
                     key: 'course',

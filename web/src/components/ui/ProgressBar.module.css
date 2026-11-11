@@ -1,0 +1,18 @@
+.track {
+  width: 100%;
+  min-width: 4rem;
+  height: var(--bar-height);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+}
+
+.fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-success);
+}
+
+.primary {
+  background: var(--color-primary);
+}

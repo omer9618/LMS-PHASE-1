@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import { Alert, Badge, Button, PageHeader } from '@/components/ui';
+import { Alert, Badge, BackLink, Breadcrumb, Button, PageHeader } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { teacherApi } from '@/lib/api/teacher';
 import type { TeacherCourse } from '@/lib/api/schemas/teacher';
@@ -23,6 +23,12 @@ export function useCourseWorkspace(): Workspace {
   const value = useContext(WorkspaceContext);
   if (!value) throw new Error('useCourseWorkspace must be used inside <CourseWorkspace>');
   return value;
+}
+
+/** The Content tab also stays current inside a quiz of the course (a quiz is a lesson). */
+function tabIsCurrent(pathname: string, href: string, base: string): boolean {
+  if (pathname === href) return true;
+  return href === `${base}/content` && pathname.startsWith(`${base}/quiz/`);
 }
 
 /** Loads one of the teacher's courses and frames its pages (overview, content, students). */
@@ -49,9 +55,7 @@ export function CourseWorkspace({ courseId, children }: { courseId: string; chil
             Try again
           </Button>
         )}
-        <p>
-          <Link href="/teacher/courses">Back to my courses</Link>
-        </p>
+        <BackLink href="/teacher/courses">My courses</BackLink>
       </div>
     );
   }
@@ -68,12 +72,10 @@ export function CourseWorkspace({ courseId, children }: { courseId: string; chil
   return (
     <WorkspaceContext.Provider value={{ course, setCourse: setUpdated }}>
       <div className="stack">
+        <Breadcrumb
+          items={[{ label: 'My courses', href: '/teacher/courses' }, { label: course.title }]}
+        />
         <PageHeader
-          eyebrow={
-            <nav aria-label="Breadcrumb">
-              <Link href="/teacher/courses">My courses</Link> / {course.title}
-            </nav>
-          }
           title={course.title}
           actions={<Badge tone={status.tone}>{status.label}</Badge>}
         />
@@ -84,7 +86,7 @@ export function CourseWorkspace({ courseId, children }: { courseId: string; chil
                 <Link
                   href={tab.href}
                   className={styles.tab}
-                  aria-current={pathname === tab.href ? 'page' : undefined}
+                  aria-current={tabIsCurrent(pathname, tab.href, base) ? 'page' : undefined}
                 >
                   {tab.label}
                 </Link>

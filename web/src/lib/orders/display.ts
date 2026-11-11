@@ -1,6 +1,7 @@
 import type { CartQuote } from '../api/orders';
-import { formatDateTime } from '../format';
+import { formatDateTime, formatElapsed } from '../format';
 import { formatMoney } from '../money';
+import { ORDER_STATUS_LABELS, statusLabel } from '../status';
 
 const MINOR_AMOUNT = /\b([A-Z]{3}) (-?\d+) \(minor units\)/g;
 const ISO_INSTANT = /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g;
@@ -43,15 +44,25 @@ export function groupByTeacher(items: CartQuote['items']): TeacherGroup[] {
   return [...groups.values()];
 }
 
-/** "in 1 day 3 h", "in 45 min", or "passed". For the payment deadline. */
+/** Bank details that were never filled in still hold the shipped "[to be confirmed]" placeholders. */
+export function bankDetailsReady(text: string | null | undefined): boolean {
+  return Boolean(text?.trim()) && !/\[to be confirmed\]/i.test(text ?? '');
+}
+
+/** The order chip: the shared words, or "Awaiting top-up" while the admin is waiting for the rest. */
+export function orderStatusLabel(order: {
+  status: string;
+  lastDecision?: { kind: string } | null;
+}): string {
+  if (order.status === 'PENDING' && order.lastDecision?.kind === 'TOP_UP_REQUESTED') {
+    return 'Awaiting top-up';
+  }
+  return statusLabel(order.status, ORDER_STATUS_LABELS);
+}
+
+/** "42h 10m left", or "passed". For the payment deadline. */
 export function timeUntil(iso: string, nowMs: number): string {
   const ms = Date.parse(iso) - nowMs;
   if (ms <= 0) return 'passed';
-  const minutes = Math.ceil(ms / 60_000);
-  const days = Math.floor(minutes / 1440);
-  const hours = Math.floor((minutes % 1440) / 60);
-  const mins = minutes % 60;
-  if (days > 0) return `in ${days} day${days === 1 ? '' : 's'}${hours ? ` ${hours} h` : ''}`;
-  if (hours > 0) return `in ${hours} h${mins ? ` ${mins} min` : ''}`;
-  return `in ${mins} min`;
+  return `${formatElapsed(Math.ceil(ms / 60_000))} left`;
 }

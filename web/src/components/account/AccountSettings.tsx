@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import {
   Alert,
@@ -12,6 +11,7 @@ import {
   MutationStatus,
   PageHeader,
   Section,
+  SignInGate,
 } from '@/components/ui';
 import { authApi } from '@/lib/api/auth';
 import { describeDevice } from '@/lib/device';
@@ -33,14 +33,7 @@ export function AccountSettings() {
 
   if (status === 'loading') return <p role="status">Loading…</p>;
   if (!user) {
-    return (
-      <div className="page stack">
-        <h1>Your account</h1>
-        <p>
-          <Link href="/login?next=/account">Sign in</Link> to manage your account.
-        </p>
-      </div>
-    );
+    return <SignInGate next="/account">Sign in to manage your account.</SignInGate>;
   }
 
   return (

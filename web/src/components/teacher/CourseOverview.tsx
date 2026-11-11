@@ -101,6 +101,14 @@ function ReadOnlyDetails({ course }: { course: TeacherCourse }) {
   );
 }
 
+/** A course in draft or review has no price of its own yet: the admin sets it at approval. */
+function priceLabel(course: TeacherCourse): string {
+  if (course.status === 'DRAFT' || course.status === 'PENDING_APPROVAL') {
+    return course.priceMinor ? formatPrice(course) : 'Set by an admin when the course is approved';
+  }
+  return course.isFree || course.priceMinor ? formatPrice(course) : '—';
+}
+
 function StatusPanel({ course }: { course: TeacherCourse; setCourse: (c: TeacherCourse) => void }) {
   return (
     <section className={styles.panel} aria-labelledby="status-heading">
@@ -133,12 +141,10 @@ function StatusPanel({ course }: { course: TeacherCourse; setCourse: (c: Teacher
       <dl className={styles.facts}>
         <div>
           <dt>Price</dt>
-          <dd>
-            {course.isFree || course.priceMinor ? formatPrice(course) : 'Set by an admin in review'}
-          </dd>
+          <dd>{priceLabel(course)}</dd>
         </div>
         <div>
-          <dt>Enrollment</dt>
+          <dt>Enrolment</dt>
           <dd>{course.isEnrollmentOpen ? 'Open' : 'Closed'}</dd>
         </div>
       </dl>
@@ -166,10 +172,13 @@ function SubmitPanel({
   const [proposalError, setProposalError] = useState<string | undefined>();
   const [problems, setProblems] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  // Items are "to do" in plain ink until the teacher has tried to submit; only then do they go red.
+  const [attempted, setAttempted] = useState(false);
   const checklist = submitChecklist(outline.status === 'success' ? outline.data : null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    setAttempted(true);
     const checked = validateForm(proposalForm, { proposal });
     if (!checked.ok) {
       setProposalError(checked.errors.proposal);
@@ -195,8 +204,11 @@ function SubmitPanel({
       </h2>
       <ul className={styles.checklist} aria-label="Before you submit">
         {checklist.map((item) => (
-          <li key={item.label} className={item.done ? styles.done : styles.todo}>
-            <Icon name={item.done ? 'check' : 'cross'} />{' '}
+          <li
+            key={item.label}
+            className={item.done ? styles.done : attempted ? styles.todo : styles.pending}
+          >
+            <Icon name={item.done ? 'check' : attempted ? 'cross' : 'circle'} />{' '}
             <span className="visually-hidden">{item.done ? 'Done: ' : 'To do: '}</span>
             {item.label}
           </li>
@@ -213,7 +225,7 @@ function SubmitPanel({
       )}
       <form noValidate onSubmit={submit} className="stack">
         <Input
-          label="Proposed commission (optional)"
+          label="Proposed commission, % (optional)"
           hint="Your suggestion for the platform’s share, in %. The admin decides."
           inputMode="decimal"
           value={proposal}
@@ -250,7 +262,7 @@ function ManagePanel({
       {manage.error && <Alert tone="danger">{manage.error}</Alert>}
       {showToggle && (
         <Checkbox
-          label="Open for new enrollments"
+          label="Open for new enrolments"
           hint="Closing stops new students joining; enrolled students keep access."
           checked={course.isEnrollmentOpen}
           disabled={toggling}
@@ -265,6 +277,7 @@ function ManagePanel({
       <div className="cluster">
         {canArchive(course.status) && (
           <ConfirmButton
+            variant="secondary"
             question="Archive this course?"
             confirmLabel="Archive"
             onConfirm={async () => {
