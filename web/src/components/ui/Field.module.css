@@ -51,8 +51,78 @@
   padding: var(--space-2);
 }
 
+/*
+ * Drop-down. The browser's own arrow and list look different on every system, so the arrow is
+ * drawn here (a slate chevron: --color-text-muted) and the list is themed. Browsers that support
+ * `appearance: base-select` (Chrome 135+) get a fully styled list; the rest keep their native list
+ * with our font, colours and padding.
+ */
 .select {
-  padding-right: var(--space-6);
+  appearance: none;
+  padding-right: var(--space-10);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%234a5568' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-4) center;
+  background-size: 0.75rem 0.5rem;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.select:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.select option {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--control-font-size);
+}
+
+@supports (appearance: base-select) {
+  .select,
+  .select::picker(select) {
+    appearance: base-select;
+  }
+
+  .select {
+    align-items: center;
+  }
+
+  .select::picker-icon {
+    display: none;
+  }
+
+  .select::picker(select) {
+    margin-top: var(--space-1);
+    padding: var(--space-1);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .select option {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+  }
+
+  .select option:hover,
+  .select option:focus-visible {
+    background: var(--color-surface);
+    outline: none;
+  }
+
+  .select option:checked {
+    background: var(--color-primary-subtle);
+    color: var(--color-primary);
+    font-weight: var(--weight-semibold);
+  }
+
+  .select option::checkmark {
+    display: none;
+  }
 }
 
 .hint {
