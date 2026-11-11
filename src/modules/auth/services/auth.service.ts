@@ -79,6 +79,8 @@ const MAX_USER_AGENT_LENGTH = 512;
 @Injectable()
 export class AuthService {
   private readonly policy: SessionPolicy;
+  /** DEV_SKIP_MFA: local testing only; the env schema refuses it outside development. */
+  private readonly skipMfa: boolean;
   private dummyHash?: Promise<string>;
 
   constructor(
@@ -89,6 +91,7 @@ export class AuthService {
     private readonly audit: AuditService,
     @Inject(ENV) env: Env,
   ) {
+    this.skipMfa = env.DEV_SKIP_MFA;
     this.policy = {
       ttlMs: env.SESSION_TTL_HOURS * 60 * 60 * 1000,
       idleTimeoutMs: env.SESSION_IDLE_TIMEOUT_MINUTES * 60 * 1000,
@@ -108,7 +111,7 @@ export class AuthService {
       throw new AppException(ErrorCode.INVALID_CREDENTIALS);
     }
 
-    if (user.mfaEnabledAt) {
+    if (user.mfaEnabledAt && !this.skipMfa) {
       // The password alone proves nothing more: issue a short single-use challenge instead.
       const challengeToken = generateOpaqueToken();
       const expiresAt = new Date(Date.now() + MFA_CHALLENGE_TTL_MS);
@@ -208,7 +211,7 @@ export class AuthService {
       activeContext,
       sessionId: session.id,
       mfaEnabled: session.user.mfaEnabledAt !== null,
-      mfaVerified: session.mfaVerifiedAt !== null,
+      mfaVerified: this.skipMfa || session.mfaVerifiedAt !== null,
     };
   }
 

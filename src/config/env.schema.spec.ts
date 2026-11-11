@@ -52,6 +52,15 @@ describe('env schema', () => {
     expect(envSchema.parse(productionOk).COOKIE_SECURE).toBe(true);
   });
 
+  it('allows DEV_SKIP_MFA only in development', () => {
+    expect(envSchema.parse({ ...base, DEV_SKIP_MFA: 'true' }).DEV_SKIP_MFA).toBe(true);
+    expect(envSchema.parse(base).DEV_SKIP_MFA).toBe(false);
+    expect(failingPaths({ ...productionOk, DEV_SKIP_MFA: 'true' })).toContain('DEV_SKIP_MFA');
+    expect(failingPaths({ ...base, NODE_ENV: 'test', DEV_SKIP_MFA: 'true' })).toContain(
+      'DEV_SKIP_MFA',
+    );
+  });
+
   it('refuses dev-only email and storage in production', () => {
     expect(failingPaths({ ...productionOk, EMAIL_TRANSPORT: 'log' })).toContain('EMAIL_TRANSPORT');
     expect(failingPaths({ ...productionOk, STORAGE_DRIVER: 'local' })).toContain('STORAGE_DRIVER');
