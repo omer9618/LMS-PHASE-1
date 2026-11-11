@@ -8,17 +8,40 @@
   text-decoration: none;
 }
 
+/* The Paperlane mark (LogoMark.tsx), drawn from tokens. */
 .logo {
   flex: none;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-primary);
-  background-image:
-    linear-gradient(rgb(255 255 255 / 0.22) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(255 255 255 / 0.22) 1px, transparent 1px);
-  background-size: 9px 9px;
-  box-shadow: var(--shadow-md);
+  display: block;
+}
+
+.logoTile {
+  fill: var(--color-primary);
+}
+
+.logoGrid {
+  stroke: var(--color-on-primary);
+  stroke-opacity: 0.14;
+  stroke-width: 1;
+}
+
+.logoTrail {
+  fill: none;
+  stroke: var(--color-highlight);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-dasharray: 2.5 3.5;
+}
+
+.logoNear {
+  fill: var(--color-on-primary);
+}
+
+.logoFar {
+  fill: var(--color-nav-text);
+}
+
+.logoFold {
+  fill: var(--color-border);
 }
 
 .brandText {
@@ -26,11 +49,18 @@
   flex-direction: column;
 }
 
+/* The wordmark: "paper" in ink, "lane" in exam blue. */
 .brandName {
   font-family: var(--font-serif);
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
   line-height: 1.375rem;
+  color: var(--color-text);
+}
+
+.brandLane {
+  color: var(--color-primary);
 }
 
 .brandDark {
@@ -41,14 +71,13 @@
   color: var(--color-text-inverse);
 }
 
-.brandDark .logo {
-  width: 1.75rem;
-  height: 1.75rem;
-  background-size: 7px 7px;
-  box-shadow: none;
+.brandDark .logoTile {
+  stroke: var(--color-nav-text);
+  stroke-width: 1.5;
 }
 
 .brandDark .brandName {
+  color: inherit;
   font-size: var(--text-md);
 }
 

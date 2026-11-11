@@ -1,7 +1,7 @@
 import type { BadgeTone } from '@/components/ui';
 
 /**
- * The tone of every status the API returns, in one place (Exam Hall status chips: a signal is a
+ * The tone of every status the API returns, in one place (Paperlane status chips: a signal is a
  * tint plus words, never colour alone). A screen whose meaning differs passes its own `tones`.
  *
  *   courses  DRAFT neutral · IN REVIEW info · PUBLISHED success · REJECTED danger · ARCHIVED neutral

@@ -1,8 +1,9 @@
-import { screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiMock, resetMocks, router, setPathname } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';
+import { BrandMark } from './BrandMark';
 import { SiteHeader } from './SiteHeader';
 
 vi.mock('next/navigation', async () => (await import('@/test/mocks')).navigationMock);
@@ -10,6 +11,16 @@ vi.mock('@/lib/api/client', async () => (await import('@/test/mocks')).apiClient
 
 beforeEach(() => {
   resetMocks();
+});
+
+describe('BrandMark', () => {
+  it('is announced as Paperlane, with the wordmark or the staff area', () => {
+    const { unmount } = render(<BrandMark />);
+    expect(screen.getByRole('link', { name: 'Paperlane' })).toHaveAttribute('href', '/');
+    unmount();
+    render(<BrandMark area="Admin" href="/admin" tone="dark" />);
+    expect(screen.getByRole('link', { name: 'Paperlane Admin' })).toHaveAttribute('href', '/admin');
+  });
 });
 
 describe('SiteHeader', () => {

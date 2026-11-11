@@ -2,7 +2,7 @@ import type { SVGProps } from 'react';
 
 /**
  * The icon set: inline stroke SVGs on a 24px grid, drawn in `currentColor`, stroke 2, round caps
- * (Exam Hall: no emoji, no icon fonts). Decorative by default (`aria-hidden`): the words beside an
+ * (Paperlane: no emoji, no icon fonts). Decorative by default (`aria-hidden`): the words beside an
  * icon carry the meaning. Pass `title` when an icon stands alone.
  */
 const PATHS = {

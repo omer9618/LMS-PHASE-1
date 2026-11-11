@@ -1,5 +1,5 @@
 /*
- * Design tokens (#7): the Exam Hall design system. Every colour, size and space in the app comes
+ * Design tokens (#7): the Paperlane design system (formerly Exam Hall). Every colour, size and space in the app comes
  * from here; a component stylesheet never hard-codes a value. docs/UI_PLAN.md has the plan.
  *
  * Text and interactive colours meet WCAG 2.2 AA on --color-bg and --color-surface (tokens.test.ts

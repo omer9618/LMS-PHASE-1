@@ -4,7 +4,7 @@ import { TeacherGuard } from '@/components/teacher/TeacherGuard';
 import { TeacherNav } from '@/components/teacher/TeacherNav';
 
 export const metadata: Metadata = {
-  title: { default: 'Teaching', template: '%s · Teaching · LMS' },
+  title: { default: 'Teaching', template: '%s · Teaching · Paperlane' },
 };
 
 /** The teacher area: sand ground, compact density, the dark staff bar. */

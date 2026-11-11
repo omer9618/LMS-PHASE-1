@@ -1,13 +1,15 @@
 import Link from 'next/link';
 import { cx } from '@/components/ui/cx';
 import styles from './Chrome.module.css';
+import { LogoMark } from './LogoMark';
 
-/** The platform's name until the client supplies one (docs/UI_PLAN.md). */
-export const PLATFORM_NAME = 'LMS';
+/** The platform's name, as written in sentences. The wordmark sets it in lower case. */
+export const PLATFORM_NAME = 'Paperlane';
 
 /**
- * The logo tile (a placeholder graph-paper square) with the platform name. `area` replaces the
- * tagline with the staff area's name ("Admin", "Teaching") in the dark bars.
+ * The Paperlane mark with the wordmark ("paper" in ink, "lane" in exam blue). `area` replaces the
+ * wordmark with the staff area's name ("Admin", "Teaching") in the dark bars; the link is still
+ * announced as Paperlane.
  */
 export function BrandMark({
   area,
@@ -18,12 +20,25 @@ export function BrandMark({
   href?: string;
   tone?: 'light' | 'dark';
 }) {
+  const dark = tone === 'dark';
   return (
-    <Link href={href} className={cx(styles.brand, tone === 'dark' && styles.brandDark)}>
-      <span aria-hidden="true" className={styles.logo} />
+    <Link
+      href={href}
+      className={cx(styles.brand, dark && styles.brandDark)}
+      aria-label={area ? `${PLATFORM_NAME} ${area}` : PLATFORM_NAME}
+    >
+      <LogoMark size={dark ? 28 : 36} />
       <span className={styles.brandText}>
-        <span className={styles.brandName}>{area ?? PLATFORM_NAME}</span>
-        {!area && <span className="eyebrow">Cambridge &amp; Edexcel courses</span>}
+        {area ? (
+          <span className={styles.brandName}>{area}</span>
+        ) : (
+          <>
+            <span className={styles.brandName}>
+              paper<span className={styles.brandLane}>lane</span>
+            </span>
+            <span className="eyebrow">Cambridge &amp; Edexcel courses</span>
+          </>
+        )}
       </span>
     </Link>
   );

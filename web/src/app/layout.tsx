@@ -8,7 +8,7 @@ import { SessionProvider } from '@/lib/session';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
-  title: { default: 'LMS', template: '%s · LMS' },
+  title: { default: 'Paperlane', template: '%s · Paperlane' },
   description: 'Courses for Cambridge and Edexcel students, taught by independent teachers.',
 };
 
