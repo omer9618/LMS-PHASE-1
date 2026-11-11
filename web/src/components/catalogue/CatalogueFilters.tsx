@@ -95,7 +95,7 @@ export function CatalogueFiltersPanel({ filters, subjects, boards, levels, onCha
         <option value="">All subjects</option>
         {subjects.map((s) => (
           <option key={s.id} value={s.id}>
-            {s.name} ({s.courseCount})
+            {s.name} · {s.courseCount}
           </option>
         ))}
       </Select>
