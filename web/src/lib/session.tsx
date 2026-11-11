@@ -95,6 +95,9 @@ export function displayName(user: Pick<Me, 'fullName' | 'email'>): string {
 }
 
 /** An admin must enrol in MFA before anything but MFA set-up works (#16). */
-export function needsMfaSetup(user: Pick<Me, 'roles' | 'mfaEnabled'> | null): boolean {
-  return Boolean(user && user.roles.includes('ADMIN') && !user.mfaEnabled);
+export function needsMfaSetup(
+  user: Pick<Me, 'roles' | 'mfaEnabled' | 'mfaVerified'> | null,
+): boolean {
+  // `mfaVerified` without `mfaEnabled` only happens when the API runs with DEV_SKIP_MFA.
+  return Boolean(user && user.roles.includes('ADMIN') && !user.mfaEnabled && !user.mfaVerified);
 }

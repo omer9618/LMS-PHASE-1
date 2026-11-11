@@ -60,6 +60,9 @@ export const envSchema = z
       .refine((v) => Buffer.from(v, 'base64').length === 32, 'must be 32 bytes, base64-encoded')
       .default(DEV_MFA_ENCRYPTION_KEY),
     MFA_ISSUER: z.string().min(1).max(40).default('LMS'),
+    // Local testing only: skip the MFA step at login and the admin MFA gate. Refused outside
+    // NODE_ENV=development (see superRefine), so the e2e suite and production always enforce MFA.
+    DEV_SKIP_MFA: booleanString.default(false),
 
     // Captcha for public forms (#18). turnstile = Cloudflare Turnstile; disabled = dev/tests only.
     CAPTCHA_PROVIDER: z.enum(['turnstile', 'disabled']).default('disabled'),
@@ -141,6 +144,9 @@ export const envSchema = z
     }
     if (env.CAPTCHA_PROVIDER === 'turnstile' && !env.CAPTCHA_SECRET_KEY) {
       issue('CAPTCHA_SECRET_KEY', 'is required when CAPTCHA_PROVIDER=turnstile');
+    }
+    if (env.DEV_SKIP_MFA && env.NODE_ENV !== 'development') {
+      issue('DEV_SKIP_MFA', 'is only allowed when NODE_ENV=development');
     }
     if (production && env.MFA_ENCRYPTION_KEY === DEV_MFA_ENCRYPTION_KEY) {
       issue('MFA_ENCRYPTION_KEY', 'must be set in production');

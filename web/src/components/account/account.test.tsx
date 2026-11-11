@@ -109,6 +109,7 @@ describe('MFA set-up', () => {
   it('knows who must enrol', () => {
     expect(needsMfaSetup(ADMIN)).toBe(true);
     expect(needsMfaSetup({ ...ADMIN, mfaEnabled: true })).toBe(false);
+    expect(needsMfaSetup({ ...ADMIN, mfaVerified: true })).toBe(false); // API running with DEV_SKIP_MFA
     expect(needsMfaSetup(STUDENT)).toBe(false);
     expect(needsMfaSetup(null)).toBe(false);
   });
