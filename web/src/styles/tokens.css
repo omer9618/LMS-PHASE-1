@@ -19,7 +19,7 @@
   --color-surface-sunken: #ebe9e1;
   --color-border: #d5dbe8; /* grid */
   --color-border-row: #ebeef5;
-  --color-border-strong: #757683; /* 4.5:1 on bg: control borders (1.4.11) */
+  --color-border-strong: #6d6e7b; /* 4.9:1 on bg, 4.5:1 on surface: control borders (1.4.11) */
   --color-text: #14213d; /* ink, 15.6:1 */
   --color-text-muted: #4a5568; /* slate, 7.3:1 */
   --color-text-inverse: #ffffff;
