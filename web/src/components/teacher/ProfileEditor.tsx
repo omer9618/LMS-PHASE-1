@@ -18,7 +18,7 @@ import { formatDate } from '@/lib/format';
 import { useQuery } from '@tanstack/react-query';
 import styles from './Teacher.module.css';
 import { profileForm } from '@/lib/forms/profile';
-import { validateForm } from '@/lib/zod-form';
+import { validateForm } from '@/lib/forms/validate';
 
 interface Draft {
   bio: string;

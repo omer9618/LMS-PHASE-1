@@ -9,7 +9,7 @@ import {
   linesToLocations,
   linksToLines,
   locationsToLines,
-} from '@/lib/profile-lines';
+} from '@/lib/admin/profile-lines';
 import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
 import { MutationStatus, ReasonAction } from '@/components/ui';

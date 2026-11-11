@@ -11,7 +11,7 @@ import { formatDateTime } from '@/lib/format';
 import { useMemo } from 'react';
 import { z } from 'zod';
 import { settingValue } from '@/lib/forms/admin';
-import { useZodForm } from '@/lib/use-zod-form';
+import { useZodForm } from '@/lib/forms/use-zod-form';
 
 /** #8: values admins change without a deploy. Each change is audited by the API. */
 export function SettingsScreen() {

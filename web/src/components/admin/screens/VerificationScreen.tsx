@@ -33,13 +33,13 @@ import {
 } from '@/lib/api/admin-finance';
 import { formatAgeHours, formatAgeMinutes, formatDateTime, humanize, todayIso } from '@/lib/format';
 import { minorToMajorInput, minorUnitExponent, parseMajorToMinor } from '@/lib/money';
-import { absMinor, checkReceived, MISMATCH_LABELS } from '@/lib/verification';
+import { absMinor, checkReceived, MISMATCH_LABELS } from '@/lib/admin/verification';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
 import { MutationStatus } from '@/components/ui';
 import { useMutation } from '@/lib/use-mutation';
 import { confirmPaymentForm, rejectPaymentForm } from '@/lib/forms/admin';
-import { firstError, validateForm } from '@/lib/zod-form';
+import { firstError, validateForm } from '@/lib/forms/validate';
 
 const LIMIT = 20;
 

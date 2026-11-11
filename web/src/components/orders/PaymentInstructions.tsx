@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button, Money } from '@/components/ui';
 import type { PaymentInstructions as Instructions } from '@/lib/api/orders';
-import { timeUntil } from '@/lib/order-display';
+import { timeUntil } from '@/lib/orders/display';
 import { formatDateTime } from '@/lib/format';
 import styles from './Orders.module.css';
 

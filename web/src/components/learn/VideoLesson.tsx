@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 import { Alert } from '@/components/ui';
 import { errorMessage, isRequestError } from '@/lib/api/errors';
 import type { LearnApi } from '@/lib/api/learn';
-import { parsePlayerMessage, playerCommands, shouldReport } from '@/lib/player-events';
+import { parsePlayerMessage, playerCommands, shouldReport } from '@/lib/learn/player-events';
 import styles from './Player.module.css';
 
 export interface VideoLessonProps {

@@ -15,7 +15,7 @@ import {
   type DetailsValues,
 } from '@/lib/forms/course';
 import { useMutation } from '@/lib/use-mutation';
-import { validateForm } from '@/lib/zod-form';
+import { validateForm } from '@/lib/forms/validate';
 import styles from './Teacher.module.css';
 
 /** #24 create and #26 edit of a course's details. */

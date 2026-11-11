@@ -7,7 +7,7 @@ import { Alert, Badge, Button, ButtonLink, Icon } from '@/components/ui';
 import { QuizPanel } from '@/components/quiz/QuizPanel';
 import { RequestError, errorMessage } from '@/lib/api/errors';
 import { learn, type LearnApi, type LearnerLesson, type LearnerOutline } from '@/lib/api/learn';
-import { flattenLessons, pickLesson } from '@/lib/learn-outline';
+import { flattenLessons, pickLesson } from '@/lib/learn/outline';
 import { LessonBody } from './LessonBody';
 import { LessonOutline } from './LessonOutline';
 import { VideoLesson } from './VideoLesson';

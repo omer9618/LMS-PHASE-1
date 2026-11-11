@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RequestError } from '@/lib/api/errors';
 import type { CartQuote, StudentOrder } from '@/lib/api/orders';
-import { CART_STORAGE_KEY } from '@/lib/cart';
+import { CART_STORAGE_KEY } from '@/lib/orders/cart';
 import { COURSE_ID, courseDetail } from '@/test/fixtures';
 import { apiMock, resetMocks, router } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';

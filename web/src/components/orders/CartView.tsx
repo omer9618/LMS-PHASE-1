@@ -13,8 +13,8 @@ import {
 } from '@/components/ui';
 import { RequestError, errorMessage } from '@/lib/api/errors';
 import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
-import { useCart } from '@/lib/cart';
-import { groupByTeacher } from '@/lib/order-display';
+import { useCart } from '@/lib/orders/cart';
+import { groupByTeacher } from '@/lib/orders/display';
 import { useSession } from '@/lib/session';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import styles from './Orders.module.css';

@@ -7,7 +7,7 @@ import { Alert, Badge, Button, PageHeader } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { teacherApi } from '@/lib/api/teacher';
 import type { TeacherCourse } from '@/lib/api/schemas/teacher';
-import { COURSE_STATUS } from '@/lib/course-status';
+import { COURSE_STATUS } from '@/lib/teacher/course-status';
 import { useQuery } from '@tanstack/react-query';
 import styles from './Teacher.module.css';
 

@@ -6,7 +6,7 @@ import { Alert, Badge, Button } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { useMutation } from '@/lib/use-mutation';
 import { learn, type AttemptSummary, type AttemptView, type LearnApi } from '@/lib/api/learn';
-import { describeTimeLimit } from '@/lib/quiz-timer';
+import { describeTimeLimit } from '@/lib/quiz/timer';
 import { QuizAttempt } from './QuizAttempt';
 import { QuizResult } from './QuizResult';
 import styles from './Quiz.module.css';

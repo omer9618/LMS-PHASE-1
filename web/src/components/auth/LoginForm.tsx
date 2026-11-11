@@ -4,14 +4,14 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { Alert, Button, Input } from '@/components/ui';
-import styles from '@/components/forms/Form.module.css';
+import styles from '@/components/ui/Form.module.css';
 import { authApi } from '@/lib/api/auth';
 import { isRequestError } from '@/lib/api/errors';
 import { safeNextPath } from '@/lib/format';
 import { needsMfaSetup, useSession } from '@/lib/session';
 import { loginForm, mfaCodeForm } from '@/lib/forms/auth';
 import { useMutation } from '@/lib/use-mutation';
-import { validateForm } from '@/lib/zod-form';
+import { validateForm } from '@/lib/forms/validate';
 
 type Step = { kind: 'password' } | { kind: 'mfa'; challengeToken: string };
 

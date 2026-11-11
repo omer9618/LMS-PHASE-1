@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Alert, Button, ButtonLink } from '@/components/ui';
-import { CART_MAX_ITEMS, useCart } from '@/lib/cart';
+import { CART_MAX_ITEMS, useCart } from '@/lib/orders/cart';
 
 /** #54: the paid-course actions on the course page: add to cart, or buy now (cart + checkout). */
 export function BuyButtons({ courseId }: { courseId: string }) {

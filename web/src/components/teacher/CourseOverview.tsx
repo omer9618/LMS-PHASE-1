@@ -8,7 +8,12 @@ import { errorMessage, isRequestError } from '@/lib/api/errors';
 import { useMutation } from '@/lib/use-mutation';
 import { submitChecklist, teacherApi } from '@/lib/api/teacher';
 import type { TeacherCourse } from '@/lib/api/schemas/teacher';
-import { canArchive, canSubmit, detailsEditable, detailsLockReason } from '@/lib/course-status';
+import {
+  canArchive,
+  canSubmit,
+  detailsEditable,
+  detailsLockReason,
+} from '@/lib/teacher/course-status';
 import { formatDate, PACING_LABELS } from '@/lib/format';
 import { formatPrice } from '@/lib/money';
 import { useQuery } from '@tanstack/react-query';
@@ -17,7 +22,7 @@ import { CourseDetailsForm } from './CourseDetailsForm';
 import { useCourseWorkspace } from './CourseWorkspace';
 import styles from './Teacher.module.css';
 import { proposalForm } from '@/lib/forms/admin';
-import { validateForm } from '@/lib/zod-form';
+import { validateForm } from '@/lib/forms/validate';
 
 /** What the API's `missing` codes (COURSE_INCOMPLETE, #34) mean, in the teacher's words. */
 export const MISSING_LABELS: Record<string, string> = {

@@ -2,7 +2,7 @@ import katex from 'katex';
 import 'katex/contrib/mhchem';
 import 'katex/dist/katex.min.css';
 import { Fragment, useMemo } from 'react';
-import { splitMath } from '@/lib/math-text';
+import { splitMath } from '@/lib/learn/math-text';
 import styles from './MathText.module.css';
 
 export interface MathTextProps {

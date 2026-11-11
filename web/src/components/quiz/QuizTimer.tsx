@@ -2,7 +2,7 @@
 
 import { Icon } from '@/components/ui';
 import { useEffect, useRef, useState } from 'react';
-import { clockOffsetMs, formatCountdown, isRunningLow, remainingMs } from '@/lib/quiz-timer';
+import { clockOffsetMs, formatCountdown, isRunningLow, remainingMs } from '@/lib/quiz/timer';
 import styles from './Quiz.module.css';
 
 export interface QuizTimerProps {

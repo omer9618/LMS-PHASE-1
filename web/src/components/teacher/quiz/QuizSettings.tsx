@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { Button, Checkbox, Input, Select } from '@/components/ui';
 import { type TeacherQuiz } from '@/lib/api/quiz-builder';
 import { quizSettingsForm, REVEAL_RULES, type QuizSettingsInput } from '@/lib/forms/quiz';
-import { validateForm, type FieldErrors } from '@/lib/zod-form';
+import { validateForm, type FieldErrors } from '@/lib/forms/validate';
 import styles from './QuizBuilder.module.css';
 
 interface Values {

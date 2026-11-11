@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TeacherApplicationForm, checkCv } from '@/components/onboarding/TeacherApplicationForm';
-import { DEV_CAPTCHA_TOKEN } from '@/components/forms/Captcha';
+import { DEV_CAPTCHA_TOKEN } from '@/components/ui/Captcha';
 import { StudentDashboard, sortEntries } from '@/components/dashboard/StudentDashboard';
 import { RequestError } from '@/lib/api/errors';
 import type { DashboardEntry } from '@/lib/api/schemas/enrollment';

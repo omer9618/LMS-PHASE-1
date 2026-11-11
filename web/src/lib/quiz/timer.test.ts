@@ -5,7 +5,7 @@ import {
   formatCountdown,
   isRunningLow,
   remainingMs,
-} from './quiz-timer';
+} from './timer';
 
 describe('quiz timer', () => {
   it('counts from the server clock, not the device clock', () => {

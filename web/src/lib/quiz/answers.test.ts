@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isPlainDecimal, revealExplanation } from './quiz-answers';
+import { isPlainDecimal, revealExplanation } from './answers';
 
 describe('quiz answers', () => {
   it('accepts the plain decimals the API accepts', () => {

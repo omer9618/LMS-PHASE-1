@@ -3,7 +3,7 @@
 import { Alert, Badge, Button } from '@/components/ui';
 import { MathText } from '@/components/learn/MathText';
 import type { AttemptQuestion, AttemptView, QuizOverview } from '@/lib/api/learn';
-import { revealExplanation } from '@/lib/quiz-answers';
+import { revealExplanation } from '@/lib/quiz/answers';
 import styles from './Quiz.module.css';
 
 export interface QuizResultProps {

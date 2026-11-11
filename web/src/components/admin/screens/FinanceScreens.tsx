@@ -36,7 +36,7 @@ import { useMutation } from '@/lib/use-mutation';
 import { formatDateTime } from '@/lib/format';
 import { humanize } from '@/lib/format';
 import { adjustmentForm, payoutForm } from '@/lib/forms/admin';
-import { useZodForm } from '@/lib/use-zod-form';
+import { useZodForm } from '@/lib/forms/use-zod-form';
 
 // ── #104 Financial summary by period ──
 
