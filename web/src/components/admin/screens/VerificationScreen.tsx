@@ -11,10 +11,12 @@ import {
   type Column,
   Facts,
   Input,
+  ConfirmButton,
   Loadable,
   Money,
   PageHeader,
   Pager,
+  RadioGroup,
   Section,
   Select,
   SplitLayout,
@@ -101,6 +103,7 @@ export function VerificationScreen() {
                       columns={queueColumns(selected.orderId, setSelectedId)}
                       rows={page.items}
                       rowKey={(e) => e.orderId}
+                      isSelected={(e) => e.orderId === selected.orderId}
                     />
                   </Section>
                   <Pager total={page.total} limit={LIMIT} offset={offset} onChange={setOffset} />
@@ -173,6 +176,27 @@ function queueColumns(
       cell: (e) => <Money minor={e.totalMinor} currency={e.currency} />,
     },
     {
+      key: 'claimed',
+      header: 'Claimed',
+      numeric: true,
+      cell: (e) =>
+        e.claimed.claimedMinor ? (
+          <span className={e.claimed.mismatch ? styles.bad : undefined}>
+            <Money minor={e.claimed.claimedMinor} currency={e.currency} />
+          </span>
+        ) : (
+          '—'
+        ),
+    },
+    {
+      key: 'txn',
+      header: 'Txn ID',
+      cell: (e) => {
+        const latest = e.proofs.at(-1);
+        return latest ? <code>{latest.transactionId}</code> : '—';
+      },
+    },
+    {
       key: 'waiting',
       header: 'Waiting',
       cell: (e) => (
@@ -186,11 +210,14 @@ function queueColumns(
       header: 'Flags',
       cell: (e) => (
         <span className={styles.flags}>
-          {queueFlags(e).map((f) => (
-            <Badge key={f.label} tone={f.tone}>
-              {f.label}
-            </Badge>
-          ))}
+          {/* "Past turnaround" is already the red Waiting figure: not repeated on every row. */}
+          {queueFlags(e)
+            .filter((f) => f.label !== 'Past turnaround')
+            .map((f) => (
+              <Badge key={f.label} tone={f.tone}>
+                {f.label}
+              </Badge>
+            ))}
         </span>
       ),
     },
@@ -258,19 +285,41 @@ function ReviewPanel({
   );
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function OrderLookup() {
   const router = useRouter();
   const [id, setId] = useState('');
+  const [error, setError] = useState<string | null>(null);
   return (
     <form
       className={styles.filters}
+      noValidate
       onSubmit={(e) => {
         e.preventDefault();
-        if (id.trim()) router.push(`/admin/orders/${encodeURIComponent(id.trim())}`);
+        const value = id.trim();
+        if (!value) return;
+        // The API finds an order by its ID, not by the reference the student types in a bank app.
+        if (!UUID.test(value)) {
+          setError(
+            'That is not an order ID. Paste the full ID (it looks like 3f2a9c1e-…), or pick the order in the queue.',
+          );
+          return;
+        }
+        setError(null);
+        router.push(`/admin/orders/${encodeURIComponent(value)}`);
       }}
     >
-      <Input label="Order ID" value={id} onChange={(e) => setId(e.target.value)} />
-      <Button type="submit" size="sm" variant="secondary">
+      <Input
+        label="Order ID"
+        value={id}
+        error={error}
+        onChange={(e) => {
+          setId(e.target.value);
+          setError(null);
+        }}
+      />
+      <Button type="submit" variant="secondary">
         Open
       </Button>
     </form>
@@ -337,22 +386,24 @@ export function DecisionPanel({
   const check =
     receivedMinor && !/^0+$/.test(receivedMinor) ? checkReceived(totalMinor, receivedMinor) : null;
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
+  async function rejectNow() {
     setError(null);
-    if (mode === 'reject') {
-      const checked = validateForm(rejectPaymentForm, { reason, notes });
-      if (!checked.ok) {
-        setError(firstError(checked.errors));
-        return;
-      }
-      const ok = await mutation.run(
-        () => adminFinanceApi.rejectPayment(orderId, checked.data),
-        'Payment rejected. The student has been told why.',
-      );
-      if (ok) onDecided();
+    const checked = validateForm(rejectPaymentForm, { reason, notes });
+    if (!checked.ok) {
+      setError(firstError(checked.errors));
       return;
     }
+    const ok = await mutation.run(
+      () => adminFinanceApi.rejectPayment(orderId, checked.data),
+      'Payment rejected. The student has been told why.',
+    );
+    if (ok) onDecided();
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (mode === 'reject') return;
+    setError(null);
     const checked = validateForm(confirmPaymentForm(totalMinor, currency), {
       received,
       valueDate,
@@ -375,26 +426,35 @@ export function DecisionPanel({
     if (ok) onDecided();
   }
 
+  /** The main button says what it will do, so the radio above it never has to be re-read. */
+  const confirmLabel =
+    action === 'REQUEST_TOP_UP'
+      ? 'Request top-up'
+      : action === 'REJECT'
+        ? 'Reject payment'
+        : action === 'CONFIRM_ANYWAY'
+          ? 'Confirm anyway'
+          : 'Confirm payment';
+
+  function chooseMode(next: 'confirm' | 'reject') {
+    setMode(next);
+    // An error about the other mode's fields does not apply to this one.
+    setError(null);
+    mutation.clear();
+  }
+
   return (
     <form className={styles.form} onSubmit={submit} aria-label="Decision">
-      <div className={styles.actions} role="radiogroup" aria-label="Decision">
-        <Button
-          size="sm"
-          variant={mode === 'confirm' ? 'primary' : 'secondary'}
-          aria-pressed={mode === 'confirm'}
-          onClick={() => setMode('confirm')}
-        >
-          Confirm received
-        </Button>
-        <Button
-          size="sm"
-          variant={mode === 'reject' ? 'danger' : 'secondary'}
-          aria-pressed={mode === 'reject'}
-          onClick={() => setMode('reject')}
-        >
-          Reject
-        </Button>
-      </div>
+      <RadioGroup
+        legend="Decision"
+        name="decision"
+        value={mode}
+        onChange={chooseMode}
+        options={[
+          { value: 'confirm', label: 'Payment received: confirm it' },
+          { value: 'reject', label: 'Payment not received: reject it' },
+        ]}
+      />
       {mode === 'confirm' ? (
         <>
           <div className={styles.filters}>
@@ -471,14 +531,19 @@ export function DecisionPanel({
       )}
       <MutationStatus mutation={mutation} />
       <div className={styles.actions}>
-        <Button
-          type="submit"
-          size="sm"
-          variant={mode === 'reject' ? 'danger' : 'primary'}
-          loading={mutation.pending}
-        >
-          {mode === 'reject' ? 'Reject payment' : 'Record decision'}
-        </Button>
+        {mode === 'reject' ? (
+          <ConfirmButton
+            question="Reject this payment? The student is told why."
+            confirmLabel="Reject payment"
+            onConfirm={rejectNow}
+          >
+            Reject payment
+          </ConfirmButton>
+        ) : (
+          <Button type="submit" loading={mutation.pending}>
+            {confirmLabel}
+          </Button>
+        )}
       </div>
     </form>
   );

@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import { Alert, Badge, BackLink, Breadcrumb, Button, PageHeader } from '@/components/ui';
+import { Alert, Badge, BackLink, Breadcrumb, Button, PageHeader, Skeleton } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { teacherApi } from '@/lib/api/teacher';
 import type { TeacherCourse } from '@/lib/api/schemas/teacher';
 import { COURSE_STATUS } from '@/lib/teacher/course-status';
+import { usePageTitle } from '@/lib/use-page-title';
 import { useQuery } from '@tanstack/react-query';
 import styles from './Teacher.module.css';
 
@@ -40,8 +41,17 @@ export function CourseWorkspace({ courseId, children }: { courseId: string; chil
   // Changes made on these pages, newer than what was loaded.
   const [updated, setUpdated] = useState<TeacherCourse | null>(null);
   const pathname = usePathname() ?? '';
+  const loadedTitle = loaded.status === 'success' ? loaded.data.title : null;
+  const section = pathname.endsWith('/content')
+    ? 'Content'
+    : pathname.endsWith('/enrollments')
+      ? 'Students'
+      : pathname.includes('/quiz/')
+        ? 'Quiz builder'
+        : 'Overview';
+  usePageTitle(loadedTitle && `${loadedTitle} · ${section} · Teaching`);
 
-  if (loaded.status === 'pending') return <p role="status">Loading the course…</p>;
+  if (loaded.status === 'pending') return <Skeleton label="Loading the course…" />;
   if (loaded.status === 'error') {
     const missing = loaded.error.name === 'NOT_FOUND';
     return (

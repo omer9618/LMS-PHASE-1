@@ -3,11 +3,22 @@
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, BackLink, Badge, Button, ButtonLink, Icon, ProgressBar } from '@/components/ui';
+import {
+  Alert,
+  BackLink,
+  Badge,
+  Button,
+  ButtonLink,
+  Icon,
+  LoadError,
+  ProgressBar,
+  Skeleton,
+} from '@/components/ui';
 import { QuizPanel } from '@/components/quiz/QuizPanel';
 import { RequestError, errorMessage } from '@/lib/api/errors';
 import { learn, type LearnApi, type LearnerLesson, type LearnerOutline } from '@/lib/api/learn';
 import { curlyQuotes, flattenLessons, pickLesson } from '@/lib/learn/outline';
+import { usePageTitle } from '@/lib/use-page-title';
 import { LessonBody } from './LessonBody';
 import { LessonOutline } from './LessonOutline';
 import { VideoLesson } from './VideoLesson';
@@ -63,6 +74,7 @@ export function CoursePlayer({ courseId, client = learn }: CoursePlayerProps) {
   const lessons = useMemo(() => (outline ? flattenLessons(outline) : []), [outline]);
   const selected = outline ? pickLesson(outline, search.get('lesson')) : null;
   const position = selected ? lessons.findIndex((l) => l.id === selected.id) : -1;
+  usePageTitle(outline ? `${selected ? `${selected.title} · ` : ''}${outline.title}` : null);
 
   // The address always names the lesson on screen, so a reload or a shared link comes back to
   // it. This also covers a link with no lesson, a stale one, and the lesson that "continue here"
@@ -96,12 +108,27 @@ export function CoursePlayer({ courseId, client = learn }: CoursePlayerProps) {
     }
   }
 
-  if (error) return <PlayerError error={error} courseId={courseId} pathname={pathname} />;
-  if (!outline) {
+  if (error) {
     return (
-      <p className={styles.muted} role="status">
-        Loading course…
-      </p>
+      <div className={styles.layout}>
+        <PlayerError
+          error={error}
+          courseId={courseId}
+          pathname={pathname}
+          onRetry={() => {
+            setError(null);
+            void load();
+          }}
+        />
+      </div>
+    );
+  }
+  if (!outline) {
+    // Inside the player's own frame, so the page does not collapse and jump when the course loads.
+    return (
+      <div className={styles.layout}>
+        <Skeleton label="Loading course…" lines={4} />
+      </div>
     );
   }
 
@@ -282,10 +309,12 @@ function PlayerError({
   error,
   courseId,
   pathname,
+  onRetry,
 }: {
   error: unknown;
   courseId: string;
   pathname: string;
+  onRetry: () => void;
 }) {
   const name = error instanceof RequestError ? error.name : null;
   if (name === 'UNAUTHENTICATED') {
@@ -303,8 +332,13 @@ function PlayerError({
     );
   }
   return (
-    <Alert tone="danger" title="The course could not be opened">
+    <LoadError
+      title="The course could not be opened"
+      onRetry={onRetry}
+      backHref="/dashboard"
+      backLabel="My learning"
+    >
       {errorMessage(error)}
-    </Alert>
+    </LoadError>
   );
 }

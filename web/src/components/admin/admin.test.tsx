@@ -182,7 +182,7 @@ describe('DecisionPanel (#64–#66)', () => {
     renderPanel();
     expect(screen.getByLabelText(/Amount received/)).toHaveValue('');
     expect(screen.getByLabelText(/Bank value date/)).toHaveValue('');
-    await userEvent.click(screen.getByRole('button', { name: 'Record decision' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm payment' }));
     expect(
       await screen.findByText(/Pick the bank value date|Enter the amount received/),
     ).toBeVisible();
@@ -203,7 +203,7 @@ describe('DecisionPanel (#64–#66)', () => {
     apiMock.post.mockResolvedValue({});
     const onDecided = renderPanel();
     await fillBank('1500');
-    await userEvent.click(screen.getByRole('button', { name: 'Record decision' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm payment' }));
     await waitFor(() => expect(onDecided).toHaveBeenCalled());
     const [path, , body] = apiMock.post.mock.calls[0]!;
     expect(path).toBe('/admin/verification/orders/o-1/confirm');
@@ -216,12 +216,13 @@ describe('DecisionPanel (#64–#66)', () => {
     renderPanel();
     await fillBank('1000');
     expect(document.body).toHaveTextContent(/Short by PKR 500.00 against a total of PKR 1,500.00/);
-    await userEvent.click(screen.getByRole('button', { name: 'Record decision' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm payment' }));
     expect(await screen.findByText(/choose what to do/)).toBeVisible();
     expect(apiMock.post).not.toHaveBeenCalled();
 
     await userEvent.selectOptions(screen.getByLabelText('What to do'), 'REQUEST_TOP_UP');
-    await userEvent.click(screen.getByRole('button', { name: 'Record decision' }));
+    // The button now says what it will do.
+    await userEvent.click(screen.getByRole('button', { name: 'Request top-up' }));
     await waitFor(() => expect(apiMock.post).toHaveBeenCalled());
     expect(apiMock.post.mock.calls[0]![2]).toMatchObject({
       amountReceivedMinor: '100000',
@@ -246,11 +247,15 @@ describe('DecisionPanel (#64–#66)', () => {
       }),
     );
     renderPanel();
-    await userEvent.click(screen.getByRole('button', { name: 'Reject' }));
+    await userEvent.click(screen.getByRole('radio', { name: /Payment not received/ }));
     await userEvent.selectOptions(screen.getByLabelText('Reason'), 'OTHER');
+    // Rejecting asks once more before it does anything.
+    await userEvent.click(screen.getByRole('button', { name: 'Reject payment' }));
     await userEvent.click(screen.getByRole('button', { name: 'Reject payment' }));
     expect(await screen.findByText(/Explain the rejection/)).toBeVisible();
+    expect(apiMock.post).not.toHaveBeenCalled();
     await userEvent.type(screen.getByLabelText(/Notes/), 'Wrong bank');
+    await userEvent.click(screen.getByRole('button', { name: 'Reject payment' }));
     await userEvent.click(screen.getByRole('button', { name: 'Reject payment' }));
     expect(await screen.findByText('This order is not waiting for verification')).toBeVisible();
     expect(apiMock.post).toHaveBeenCalledWith(

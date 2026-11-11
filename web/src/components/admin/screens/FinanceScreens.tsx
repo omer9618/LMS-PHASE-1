@@ -26,9 +26,10 @@ import {
   type TeacherSale,
 } from '@/lib/api/admin-finance';
 import { formatBps, parseSignedMajorToMinor } from '@/lib/money';
-import { formatAgeHours, todayIso } from '@/lib/format';
+import { formatAgeHours, formatPeriod, todayIso } from '@/lib/format';
 import { formatDate } from '@/lib/format';
 import { formatMoney, minorToMajorInput, minorUnitExponent } from '@/lib/money';
+import { usePageTitle } from '@/lib/use-page-title';
 import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
 import { MutationStatus } from '@/components/ui';
@@ -367,7 +368,7 @@ function SalesTable({ title, items }: { title: string; items: TeacherSale[] }) {
           },
           {
             key: 'net',
-            header: 'Teacher',
+            header: 'Teacher share',
             numeric: true,
             cell: (i) => <Money minor={i.netTeacherMinor} currency={i.currency} />,
           },
@@ -520,6 +521,11 @@ export function PayoutDetailScreen({ payoutId }: { payoutId: string }) {
     queryKey: ['payout', payoutId],
     queryFn: ({ signal }) => adminFinanceApi.getPayout(payoutId, signal),
   });
+  const who =
+    detail.status === 'success'
+      ? detail.data.payout.teacher?.fullName || detail.data.payout.teacher?.email || 'a teacher'
+      : null;
+  usePageTitle(who && `Payout to ${who} · Admin`);
   return (
     <Loadable state={detail} what="the payout">
       {({ payout, coveredSales }) => {
@@ -529,11 +535,11 @@ export function PayoutDetailScreen({ payoutId }: { payoutId: string }) {
           <>
             <PageHeader
               eyebrow="Payouts · one transfer"
-              title="Payout"
+              title={`Payout to ${payout.teacher?.fullName || payout.teacher?.email || 'a teacher'}`}
               description={
                 payout.teacher && (
                   <Link href={`/admin/teachers/${payout.teacherId}`}>
-                    {payout.teacher.fullName || payout.teacher.email}
+                    View the teacher’s ledger
                   </Link>
                 )
               }
@@ -549,7 +555,7 @@ export function PayoutDetailScreen({ payoutId }: { payoutId: string }) {
                   [
                     'Sales period',
                     payout.periodStart || payout.periodEnd
-                      ? `${formatDate(payout.periodStart) || '…'} to ${formatDate(payout.periodEnd) || '…'}`
+                      ? formatPeriod(payout.periodStart, payout.periodEnd)
                       : null,
                   ],
                   ['Recorded', formatDateTime(payout.recordedAt)],
@@ -604,7 +610,7 @@ export function PayoutDetailScreen({ payoutId }: { payoutId: string }) {
                   { key: 'course', header: 'Course', cell: (s) => s.courseTitle },
                   {
                     key: 'net',
-                    header: 'Teacher',
+                    header: 'Teacher share',
                     numeric: true,
                     cell: (s) => <Money minor={s.netTeacherMinor} currency={s.currency} />,
                   },

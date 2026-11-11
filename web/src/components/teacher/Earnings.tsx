@@ -16,6 +16,7 @@ import {
   type BadgeTone,
   type Column,
   Money,
+  Skeleton,
 } from '@/components/ui';
 import {
   canRaiseConcern,
@@ -354,7 +355,7 @@ function PayoutDetails({ payout, onChanged }: { payout: PayoutSummary; onChanged
     queryKey: ['payout', payout.id],
     queryFn: ({ signal }) => earningsApi.payout(payout.id, signal),
   });
-  if (detail.status === 'pending') return <p role="status">Loading…</p>;
+  if (detail.status === 'pending') return <Skeleton label="Loading…" />;
   if (detail.status === 'error') return <Alert tone="danger">{errorMessage(detail.error)}</Alert>;
   const { coveredSales, payout: full } = detail.data;
   return (

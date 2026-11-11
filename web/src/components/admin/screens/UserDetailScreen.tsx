@@ -19,7 +19,7 @@ import type { Role } from '@/lib/api/schemas/auth';
 import { formatDate } from '@/lib/format';
 import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
-import { MutationStatus, ReasonAction } from '@/components/ui';
+import { ConfirmButton, MutationStatus, ReasonAction } from '@/components/ui';
 import { useMutation } from '@/lib/use-mutation';
 import { formatDateTime } from '@/lib/format';
 import { humanize } from '@/lib/format';
@@ -89,21 +89,6 @@ export function UserDetailScreen({ userId }: { userId: string }) {
                     }
                   />
                 ) : null}
-                {user.status === 'ACTIVE' && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    loading={mutation.pending}
-                    onClick={() =>
-                      act(
-                        () => adminApi.sendPasswordReset(user.id),
-                        `A password reset link has been emailed to ${user.email}.`,
-                      )
-                    }
-                  >
-                    Send password reset
-                  </Button>
-                )}
                 {isTeacher && user.status !== 'DELETED' && (
                   <ReasonAction
                     label="Deactivate teacher"
@@ -117,21 +102,51 @@ export function UserDetailScreen({ userId }: { userId: string }) {
               </div>
             </Section>
 
+            {user.status === 'ACTIVE' && (
+              <Section title="Password">
+                <p className="muted">
+                  Emails {user.email} a link to choose a new password. Their current one keeps
+                  working until they use it.
+                </p>
+                <div className={styles.actions}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={mutation.pending}
+                    onClick={() =>
+                      act(
+                        () => adminApi.sendPasswordReset(user.id),
+                        `A password reset link has been emailed to ${user.email}.`,
+                      )
+                    }
+                  >
+                    Send password reset
+                  </Button>
+                </div>
+              </Section>
+            )}
+
             <Section title="Roles">
               <ul className={styles.actions} aria-label="Current roles">
                 {user.roles.map((r) => (
                   <li key={r} className={styles.actions}>
                     <Badge tone="primary">{humanize(r)}</Badge>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={`Remove the ${humanize(r)} role`}
-                      onClick={() =>
-                        act(() => adminApi.revokeRole(user.id, r), `${humanize(r)} role removed.`)
-                      }
-                    >
-                      Remove
-                    </Button>
+                    {user.roles.length > 1 ? (
+                      <ConfirmButton
+                        question={`Remove the ${humanize(r)} role?`}
+                        confirmLabel="Remove"
+                        onConfirm={async () => {
+                          await act(
+                            () => adminApi.revokeRole(user.id, r),
+                            `${humanize(r)} role removed.`,
+                          );
+                        }}
+                      >
+                        Remove
+                      </ConfirmButton>
+                    ) : (
+                      <span className="hint">The only role on this account</span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -149,7 +164,6 @@ export function UserDetailScreen({ userId }: { userId: string }) {
                     ))}
                   </Select>
                   <Button
-                    size="sm"
                     onClick={() => {
                       const chosen = missingRoles.includes(role) ? role : missingRoles[0]!;
                       void act(

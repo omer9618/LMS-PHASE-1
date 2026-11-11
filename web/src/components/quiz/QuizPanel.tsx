@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Alert, Badge, Button } from '@/components/ui';
+import { Alert, Badge, Button, Skeleton } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { useMutation } from '@/lib/use-mutation';
 import { learn, type AttemptSummary, type AttemptView, type LearnApi } from '@/lib/api/learn';
@@ -109,9 +109,7 @@ export function QuizPanel({
         {error}
       </Alert>
     ) : (
-      <p className={styles.muted} role="status">
-        Loading quiz…
-      </p>
+      <Skeleton label="Loading quiz…" />
     );
   }
 

@@ -32,6 +32,8 @@
 .filters > * {
   flex: 1 1 10rem;
   min-width: 0;
+  /* A filter or a one-line form never needs the whole row. */
+  max-width: 20rem;
 }
 
 .filters > button {
@@ -109,6 +111,7 @@ ul.actions {
   font-family: var(--font-mono);
   font-weight: var(--weight-bold);
   color: var(--color-danger);
+  white-space: nowrap; /* "199d 4h" never splits across two lines */
 }
 
 .flags {

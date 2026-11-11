@@ -1,10 +1,10 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { errorMessage } from '@/lib/api/errors';
-import { Alert } from './Alert';
-import { Button } from './Button';
+import { LoadError } from './LoadError';
+import { Skeleton } from './Skeleton';
 
-/** Loading, error (with retry) or the data, for a `useQuery` result. */
+/** Loading (a skeleton), error (with retry) or the data, for a `useQuery` result. */
 export function Loadable<T>({
   state,
   what,
@@ -15,15 +15,12 @@ export function Loadable<T>({
   what: string;
   children: (data: T) => ReactNode;
 }) {
-  if (state.status === 'pending') return <p role="status">Loading {what}…</p>;
+  if (state.status === 'pending') return <Skeleton label={`Loading ${what}…`} />;
   if (state.status === 'error') {
     return (
-      <Alert tone="danger" title={`Could not load ${what}`}>
-        <p>{errorMessage(state.error)}</p>
-        <Button size="sm" variant="secondary" onClick={() => void state.refetch()}>
-          Try again
-        </Button>
-      </Alert>
+      <LoadError title={`Could not load ${what}`} onRetry={() => void state.refetch()}>
+        {errorMessage(state.error)}
+      </LoadError>
     );
   }
   return <>{children(state.data)}</>;

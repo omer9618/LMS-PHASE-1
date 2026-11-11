@@ -34,6 +34,67 @@ Priorities:
 
 ---
 
+## Fix status (branch `fix/ui-ux-review`)
+
+The review pass above changed no app code. The fixes came after, in `fix/ui-ux-review`. This table
+says what each finding became. Most were fixed; the rest are listed with the reason.
+
+**Fixed:** A-1, A-2, A-3, A-8, A-9, A-10, A-11, A-12, O-1, O-3, O-4, L-1, L-2, L-3, Q-1, Q-2, Q-3, C-1,
+C-3, CT-1, T-1, T-2, T-3, T-7, T-9, T-11, T-13, AU-1, AU-3, AU-4, AU-6, G-1, G-2, G-4, G-5, G-6,
+G-8, G-10, G-13, G-14, G-16, K-2, K-4, K-6, quick wins 1–14, and duplicates D-a, D-b, D-c, D-e, D-f,
+D-j.
+
+**Partly fixed:**
+
+| ID                   | Done                                                                                                               | Left                                                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| A-1                  | Approval asks first, states the saved price or "free", lists open checklist items; pricing sits above the decision | Approve is not blocked while the pricing form has unsaved edits                                                     |
+| A-4                  | Lesson titles link to the staff preview                                                                            | "Details" and "Edit details" still duplicate each other                                                             |
+| A-5                  | One wording for waits ("199d 3h")                                                                                  | Card-in-card in "Today"                                                                                             |
+| A-6                  | Filters no longer stretch to the full row                                                                          | Pager still has no count                                                                                            |
+| G-3                  | One shared `SignInGate` and `Forbidden` page everywhere                                                            | No middleware redirect to `/login?next=` (the `proxy` convention changed in this Next version; not attempted blind) |
+| G-7                  | Footer, skip link, breadcrumb, tabs, checkbox rows and compact buttons now reach 36px (44px on phones)             | Admin QA-reference links; compact inputs are 36px on desktop by design                                              |
+| G-9                  | Payout periods, queue ages and deadlines share one format                                                          | Native date inputs still show mm/dd/yyyy (the browser's locale)                                                     |
+| G-12                 | Confirm/reason forms return focus; forgot-password success takes focus                                             | Not every async swap                                                                                                |
+| O-2                  | Progress steps, "Pay by" chip, amount prefilled, one raised panel                                                  | No order-summary column                                                                                             |
+| O-5                  | Receipt number in the eyebrow, "Billed to" on two lines, card centred                                              | No transaction ID or seller details (needs API fields)                                                              |
+| D-1                  | Default sort is "Continue first"; no "Active" chip noise; "Show 7 more"                                            | No "Next: lesson" line (the API does not send the next lesson's title)                                              |
+| L-4                  | My learning link, completion button beside Next                                                                    | Outline panel still scrolls inside its own column                                                                   |
+| T-6, T-8, T-10, T-12 | Newest-first and paged lists, empty states with a button, price wording, progress bars                             | Card layout for tables at 380px; Details column still repeats API text                                              |
+| AU-8                 | File inputs styled; unlocked from native look                                                                      | Not prefilled from the signed-in student                                                                            |
+| CA-1, CA-2           | Results row aligned, card text in Sans, "(PKR)" on the price range                                                 | Active-filter chips and "Clear all"                                                                                 |
+| Q-4                  | Quiz heading removed, "uses an attempt" line, selected-option bar                                                  | Question card still has its ring (it is the control's boundary)                                                     |
+| K-1                  | Total rule, empty states                                                                                           | Option borders kept: they are the 3:1 boundary of a control (WCAG 1.4.11)                                           |
+| K-3                  | `code` text stays on the type scale; KaTeX errors use the danger colour                                            | Hero headline size                                                                                                  |
+| ACC-1                | Current device first, five at a time, no loopback IPs                                                              | —                                                                                                                   |
+| D-d                  | See G-3                                                                                                            |                                                                                                                     |
+| D-h                  | File inputs share one style                                                                                        | No shared `FileInput` component                                                                                     |
+
+**Not changed:** G-15 (single staff bar), A-7, A-14, AU-2 (show-password), AU-5, AU-7, H-1, C-2,
+TP-1, ACC-2, K-5 (token renames), D-g, D-i. These are layout redesigns or small polish that
+deserve their own change.
+
+**Corrections to this review** (found while fixing):
+
+- **A-3:** I suggested prefilling the amount received from the student's claim. The code leaves it
+  empty on purpose, so that checking a transfer is not clicking through. That stays. The order
+  lookup also cannot find an order by its reference: the API has no such search, so it now
+  says so instead of failing.
+- **A-5:** the yellow queue badges are the design system's "count" use of the highlighter, not a
+  warning. Left as is.
+- **CT-2 / G-3:** a guest with items in the cart already sees "N courses in your cart" and a
+  Sign-in button. My crawl had an empty cart.
+- **ACC-2:** the header name already links to the account page.
+- **C-1:** "Free preview" on a text lesson was a chip with nothing behind it (only video lessons
+  have a demo player). The chip is gone; video demos keep their button.
+- **A-9:** the payout page sits under "Payout run", which is the right section.
+- **G-11:** the wordmark link already has the accessible name "Paperlane".
+
+New in the fixes: the API now refuses to save bank-transfer instructions that still contain
+`[to be confirmed]` (`settings.rules.ts`), and the free-course cart error says "Enrol".
+
+---
+
 ## Quick wins
 
 Each of these is small (minutes to an hour) and high-value.

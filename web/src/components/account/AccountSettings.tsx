@@ -12,6 +12,7 @@ import {
   PageHeader,
   Section,
   SignInGate,
+  Skeleton,
 } from '@/components/ui';
 import { authApi } from '@/lib/api/auth';
 import { describeDevice } from '@/lib/device';
@@ -31,9 +32,13 @@ import styles from './Account.module.css';
 export function AccountSettings() {
   const { status, user } = useSession();
 
-  if (status === 'loading') return <p role="status">Loading…</p>;
+  if (status === 'loading') return <Skeleton label="Loading…" />;
   if (!user) {
-    return <SignInGate next="/account">Sign in to manage your account.</SignInGate>;
+    return (
+      <div className="page">
+        <SignInGate next="/account">Sign in to manage your account.</SignInGate>
+      </div>
+    );
   }
 
   return (
@@ -187,6 +192,12 @@ function PasswordSection() {
   );
 }
 
+/** Devices listed before "Show more": the current one first, then the most recently active. */
+const DEVICES_SHOWN = 5;
+/** A loopback address says nothing to the person (it is how a development machine sees itself). */
+const isLoopback = (ip: string) =>
+  ip === '::1' || ip.startsWith('127.') || ip === '::ffff:127.0.0.1';
+
 function DevicesSection() {
   const queryClient = useQueryClient();
   const sessions = useQuery({
@@ -194,6 +205,7 @@ function DevicesSection() {
     queryFn: ({ signal }) => authApi.sessions(signal),
   });
   const action = useMutation();
+  const [shown, setShown] = useState(DEVICES_SHOWN);
   const reload = () => queryClient.invalidateQueries({ queryKey: ['account-sessions'] });
 
   return (
@@ -201,10 +213,14 @@ function DevicesSection() {
       <Loadable state={sessions} what="your devices">
         {(devices) => {
           const others = devices.filter((d) => !d.current);
+          const ordered = [...devices].sort(
+            (a, b) =>
+              Number(b.current) - Number(a.current) || b.lastSeenAt.localeCompare(a.lastSeenAt),
+          );
           return (
             <>
               <ul className={styles.devices}>
-                {devices.map((device) => (
+                {ordered.slice(0, shown).map((device) => (
                   <li key={device.id} className={styles.device}>
                     <div className={styles.deviceText}>
                       <span className={styles.deviceName}>
@@ -213,12 +229,13 @@ function DevicesSection() {
                       </span>
                       <span className="muted">
                         Last active {formatDateTime(device.lastSeenAt)}
-                        {device.ipAddress ? ` · ${device.ipAddress}` : ''}
+                        {device.ipAddress && !isLoopback(device.ipAddress)
+                          ? ` · ${device.ipAddress}`
+                          : ''}
                       </span>
                     </div>
                     {!device.current && (
                       <Button
-                        size="sm"
                         variant="secondary"
                         loading={action.pending}
                         aria-label={`Sign out ${describeDevice(device.userAgent)}, last active ${formatDateTime(device.lastSeenAt)}`}
@@ -236,6 +253,13 @@ function DevicesSection() {
                   </li>
                 ))}
               </ul>
+              {ordered.length > shown && (
+                <div>
+                  <Button variant="ghost" onClick={() => setShown((n) => n + DEVICES_SHOWN)}>
+                    Show {Math.min(DEVICES_SHOWN, ordered.length - shown)} more
+                  </Button>
+                </div>
+              )}
               <MutationStatus mutation={action} />
               {others.length > 0 && (
                 <div>

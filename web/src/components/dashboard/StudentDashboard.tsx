@@ -14,6 +14,7 @@ import {
   StatGrid,
   StatTile,
   type BadgeTone,
+  Skeleton,
 } from '@/components/ui';
 import { enrollmentApi } from '@/lib/api/enrollment';
 import type { AccessState, DashboardEntry } from '@/lib/api/schemas/enrollment';
@@ -123,7 +124,7 @@ export function StudentDashboard() {
     enabled: user !== null,
   });
 
-  if (status === 'loading') return <p role="status">Loading…</p>;
+  if (status === 'loading') return <Skeleton label="Loading…" />;
   if (!user) {
     return <SignInGate next="/dashboard">Sign in to see your courses.</SignInGate>;
   }

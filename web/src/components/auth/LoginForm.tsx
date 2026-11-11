@@ -98,11 +98,8 @@ export function LoginForm() {
         onSubmit={(e) => void submitCode(e, step.challengeToken)}
         aria-labelledby="mfa-title"
       >
-        <div className={styles.stepBar}>
-          <span>2 · Two-step verification</span>
-          <span className={styles.stepTag}>Admin</span>
-        </div>
         <div className={styles.header}>
+          <p className="eyebrow">Admin sign-in</p>
           <h1 id="mfa-title">Two-step verification</h1>
           <p className={styles.intro}>
             {useRecovery
@@ -113,6 +110,7 @@ export function LoginForm() {
         {signIn.error && <Alert tone="danger">{signIn.error}</Alert>}
         <Input
           key={useRecovery ? 'recovery' : 'totp'}
+          className={useRecovery ? undefined : styles.codeField}
           label={useRecovery ? 'Recovery code' : 'Authentication code'}
           name="code"
           value={code}
@@ -120,6 +118,7 @@ export function LoginForm() {
           error={shown.code ?? shown.recoveryCode}
           autoComplete="one-time-code"
           inputMode={useRecovery ? 'text' : 'numeric'}
+          pattern={useRecovery ? undefined : '[0-9]*'}
           maxLength={useRecovery ? 20 : 6}
           autoFocus
           required
@@ -164,7 +163,6 @@ export function LoginForm() {
       aria-labelledby="login-title"
     >
       <div className={styles.header}>
-        <p className="eyebrow">Step 1 for everyone · step 2 for admins</p>
         <h1 id="login-title">Sign in</h1>
       </div>
       {notice && <Alert tone="warning">{notice}</Alert>}

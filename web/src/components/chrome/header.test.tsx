@@ -27,7 +27,7 @@ describe('SiteHeader', () => {
   it('offers sign-in links that return to the current page', async () => {
     setPathname('/courses/abc');
     renderWithSession(<SiteHeader />);
-    expect(await screen.findByRole('link', { name: 'Sign in' })).toHaveAttribute(
+    expect((await screen.findAllByRole('link', { name: 'Sign in' }))[0]).toHaveAttribute(
       'href',
       '/login?next=%2Fcourses%2Fabc',
     );
@@ -41,11 +41,12 @@ describe('SiteHeader', () => {
   it('does not send people back to a sign-in or sign-up page', async () => {
     setPathname('/register');
     renderWithSession(<SiteHeader />);
-    expect(await screen.findByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login');
-    expect(screen.getByRole('link', { name: 'Create account' })).toHaveAttribute(
+    expect((await screen.findAllByRole('link', { name: 'Sign in' }))[0]).toHaveAttribute(
       'href',
-      '/register',
+      '/login',
     );
+    // On the sign-up page, "Create account" would point at the page you are already on.
+    expect(screen.queryByRole('link', { name: 'Create account' })).not.toBeInTheDocument();
   });
 
   it('links to each role’s area', async () => {
@@ -83,7 +84,7 @@ describe('SiteHeader', () => {
       expect(apiMock.post).toHaveBeenCalledWith('/auth/logout', expect.anything()),
     );
     expect(router.push).toHaveBeenCalledWith('/courses');
-    expect(await screen.findByRole('link', { name: 'Sign in' })).toBeVisible();
+    expect((await screen.findAllByRole('link', { name: 'Sign in' }))[0]).toBeVisible();
   });
 
   it('hides the shopping links from an admin-only account', async () => {

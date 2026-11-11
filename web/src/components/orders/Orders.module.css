@@ -233,7 +233,9 @@
   padding: var(--space-6) var(--space-4);
   box-shadow: var(--shadow-md);
   border-radius: var(--radius-md);
+  width: 100%;
   max-width: 40rem;
+  margin-inline: auto;
   background: var(--color-bg);
 }
 

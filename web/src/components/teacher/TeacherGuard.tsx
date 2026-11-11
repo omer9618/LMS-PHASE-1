@@ -17,23 +17,29 @@ export function TeacherGuard({ children }: { children: ReactNode }) {
     );
   }
   if (!user) {
-    return <SignInGate next={pathname}>Sign in with your teacher account.</SignInGate>;
+    return (
+      <div className="page">
+        <SignInGate next={pathname}>Sign in with your teacher account.</SignInGate>
+      </div>
+    );
   }
   if (!user.roles.includes('TEACHER')) {
     return (
-      <Forbidden
-        title="This area is for teachers"
-        actions={
-          <>
-            <ButtonLink href="/teach-with-us">Apply to teach</ButtonLink>
-            <ButtonLink href="/dashboard" variant="secondary">
-              Go to My learning
-            </ButtonLink>
-          </>
-        }
-      >
-        You are signed in as {user.email}, which does not have the Teacher role.
-      </Forbidden>
+      <div className="page">
+        <Forbidden
+          title="This area is for teachers"
+          actions={
+            <>
+              <ButtonLink href="/teach-with-us">Apply to teach</ButtonLink>
+              <ButtonLink href="/dashboard" variant="secondary">
+                Go to My learning
+              </ButtonLink>
+            </>
+          }
+        >
+          You are signed in as {user.email}, which does not have the Teacher role.
+        </Forbidden>
+      </div>
     );
   }
   return <>{children}</>;

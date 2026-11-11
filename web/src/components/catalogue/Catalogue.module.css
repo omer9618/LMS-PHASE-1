@@ -109,7 +109,7 @@
 .resultsBar {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
   gap: var(--space-3);
 }
 
@@ -174,10 +174,10 @@
 }
 
 .cardSyllabus,
-.cardTeacher,
-.cardSyllabus {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
+.cardTeacher {
+  /* Words, not codes: the mono face is for references, money and counts. */
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 
 .cardFooter {
@@ -200,8 +200,8 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-6);
-  border: 1px dashed var(--color-border-strong);
   border-radius: var(--radius-md);
+  background: var(--color-surface);
   text-align: center;
 }
 

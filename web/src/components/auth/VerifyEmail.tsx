@@ -15,13 +15,14 @@ type State =
   | { kind: 'verifying' }
   | { kind: 'verified' }
   | { kind: 'invalid' }
+  | { kind: 'missing' }
   | { kind: 'error'; message: string };
 
 /** #11: opened from the link in the verification email (`/verify-email?token=...`). */
 export function VerifyEmail() {
   const token = useSearchParams().get('token');
   const { status, refresh } = useSession();
-  const [state, setState] = useState<State>(token ? { kind: 'verifying' } : { kind: 'invalid' });
+  const [state, setState] = useState<State>(token ? { kind: 'verifying' } : { kind: 'missing' });
   // A token is single-use: never send it twice (React strict mode runs effects twice in dev).
   const sent = useRef<string | null>(null);
 
@@ -57,6 +58,21 @@ export function VerifyEmail() {
           <ButtonLink href="/courses" fullWidth>
             Browse courses
           </ButtonLink>
+        </>
+      )}
+      {state.kind === 'missing' && (
+        <>
+          <Alert tone="info" title="Open the link from your email">
+            We emailed you a link to confirm your address. Open that link: this page does not work
+            without it.
+          </Alert>
+          {status === 'signed-in' ? (
+            <ResendVerificationButton />
+          ) : (
+            <p>
+              <Link href="/login?next=/verify-email">Sign in</Link> to send yourself a new link.
+            </p>
+          )}
         </>
       )}
       {state.kind === 'invalid' && (

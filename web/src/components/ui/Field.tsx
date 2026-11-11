@@ -162,6 +162,45 @@ export function Checkbox({ label, hint, error, id, className, ...rest }: Checkbo
   );
 }
 
+export interface RadioGroupProps<T extends string> {
+  legend: ReactNode;
+  name: string;
+  value: T;
+  onChange: (value: T) => void;
+  options: Array<{ value: T; label: ReactNode }>;
+  hint?: ReactNode;
+}
+
+/** A set of mutually exclusive choices, each row a full-size tap target. */
+export function RadioGroup<T extends string>({
+  legend,
+  name,
+  value,
+  onChange,
+  options,
+  hint,
+}: RadioGroupProps<T>) {
+  return (
+    <fieldset className={styles.radioGroup}>
+      <legend className={styles.label}>{legend}</legend>
+      {options.map((option) => (
+        <label key={option.value} className={styles.radioRow}>
+          <input
+            type="radio"
+            name={name}
+            value={option.value}
+            checked={value === option.value}
+            onChange={() => onChange(option.value)}
+            className={styles.checkbox}
+          />
+          <span className={styles.checkboxLabel}>{option.label}</span>
+        </label>
+      ))}
+      {hint && <p className={styles.hint}>{hint}</p>}
+    </fieldset>
+  );
+}
+
 export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & FieldOwnProps;
 
 export function Textarea({ label, hint, error, hideLabel, id, className, ...rest }: TextareaProps) {

@@ -9,7 +9,16 @@ import styles from './SiteHeader.module.css';
  * narrow breakpoint down the children sit behind a Menu button so the header stays one row tall
  * and the page starts above the fold; on wider screens the button is hidden and nothing changes.
  */
-export function HeaderMenu({ brand, children }: { brand: ReactNode; children: ReactNode }) {
+export function HeaderMenu({
+  brand,
+  quick,
+  children,
+}: {
+  brand: ReactNode;
+  /** Always on screen next to the Menu button on a phone (a guest's "Sign in"). */
+  quick?: ReactNode;
+  children: ReactNode;
+}) {
   const pathname = usePathname();
   // The menu is open for one page: following a link changes the path and so closes it.
   const [openOn, setOpenOn] = useState<string | null>(null);
@@ -28,6 +37,7 @@ export function HeaderMenu({ brand, children }: { brand: ReactNode; children: Re
   return (
     <div className={styles.inner}>
       {brand}
+      {quick}
       <button
         type="button"
         className={styles.menuButton}

@@ -197,7 +197,13 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                               <ol className={styles.list}>
                                 {s.lessons.map((l) => (
                                   <li key={l.id}>
-                                    {l.title} <span className="muted">({humanize(l.type)}</span>
+                                    {/* The player opens in staff preview: nothing is recorded. */}
+                                    <Link
+                                      href={`/learn/${encodeURIComponent(c.id)}?lesson=${encodeURIComponent(l.id)}`}
+                                    >
+                                      {l.title}
+                                    </Link>{' '}
+                                    <span className="muted">({humanize(l.type)}</span>
                                     {l.isFreePreview && (
                                       <span className="muted">, free preview</span>
                                     )}

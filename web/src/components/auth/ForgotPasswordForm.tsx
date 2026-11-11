@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Alert, Button, Input } from '@/components/ui';
 import styles from '@/components/ui/Form.module.css';
 import { authApi } from '@/lib/api/auth';
@@ -15,6 +15,7 @@ export function ForgotPasswordForm() {
   const [error, setError] = useState<string | undefined>();
   const request = useMutation();
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const sentHeading = useRef<HTMLHeadingElement>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -29,11 +30,18 @@ export function ForgotPasswordForm() {
     if (ok) setSentTo(value);
   }
 
+  useEffect(() => {
+    if (sentTo) sentHeading.current?.focus();
+  }, [sentTo]);
+
   if (sentTo) {
     return (
       <div className={styles.form}>
         <div className={styles.header}>
-          <h1>Check your email</h1>
+          {/* Focus lands here when the form is replaced, so the change is announced. */}
+          <h1 ref={sentHeading} tabIndex={-1}>
+            Check your email
+          </h1>
         </div>
         <Alert tone="success">
           If an account exists for <strong>{sentTo}</strong>, we have sent it a link to reset the

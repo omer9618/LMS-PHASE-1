@@ -11,6 +11,7 @@ import {
   Table,
   type BadgeTone,
   type Column,
+  Skeleton,
 } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { teacherApi } from '@/lib/api/teacher';
@@ -112,7 +113,7 @@ export function Roster() {
           </option>
         ))}
       </Select>
-      {roster.status === 'pending' && <p role="status">Loading students…</p>}
+      {roster.status === 'pending' && <Skeleton label="Loading students…" />}
       {roster.status === 'error' && (
         <Alert tone="danger" title="Could not load the students">
           <p>{errorMessage(roster.error)}</p>

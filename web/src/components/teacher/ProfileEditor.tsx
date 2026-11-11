@@ -12,6 +12,7 @@ import {
   MutationStatus,
   PageHeader,
   Textarea,
+  Skeleton,
 } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import {
@@ -80,7 +81,7 @@ export function ProfileEditor() {
   });
   const [changed, setChanged] = useState<TeacherProfile | null>(null);
 
-  if (loaded.status === 'pending') return <p role="status">Loading your profile…</p>;
+  if (loaded.status === 'pending') return <Skeleton label="Loading your profile…" />;
   if (loaded.status === 'error') {
     return (
       <Alert tone="danger" title="Could not load your profile">

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Alert, Badge, ButtonLink, Money } from '@/components/ui';
+import { Alert, Badge, ButtonLink, LoadError, Money, Skeleton } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
 import { orderStatusLabel } from '@/lib/orders/display';
@@ -28,13 +28,15 @@ export function OrdersList({ client = defaultOrders }: { client?: OrdersApi }) {
     );
   }
   if (status === 'loading' || list.status === 'pending') {
+    return <Skeleton label="Loading orders…" />;
+  }
+  if (list.status === 'error') {
     return (
-      <p className="muted" role="status">
-        Loading orders…
-      </p>
+      <LoadError title="Could not load your orders" onRetry={() => void list.refetch()}>
+        {errorMessage(list.error)}
+      </LoadError>
     );
   }
-  if (list.status === 'error') return <Alert tone="danger">{errorMessage(list.error)}</Alert>;
   if (list.data.length === 0) {
     return (
       <div className="stack">

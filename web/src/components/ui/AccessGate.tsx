@@ -2,6 +2,9 @@ import type { ReactNode } from 'react';
 import { ButtonLink } from './Button';
 
 /**
+ * (Both gates are a plain `stack`: the route's own `.page` wrapper frames them, so they sit exactly
+ * where the page they stand in for would.)
+ *
  * One screen for "this page needs you to sign in". Every protected area uses it, so a guest sees
  * the same words and the same button wherever they land, and sign-in brings them back here.
  */
@@ -16,7 +19,7 @@ export function SignInGate({
   title?: string;
 }) {
   return (
-    <div className="page stack">
+    <div className="stack">
       <h1>{title}</h1>
       <p>{children}</p>
       <p>
@@ -39,7 +42,7 @@ export function Forbidden({
   actions?: ReactNode;
 }) {
   return (
-    <div className="page stack">
+    <div className="stack">
       <h1>{title}</h1>
       <p>{children}</p>
       <div className="cluster">

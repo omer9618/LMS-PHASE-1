@@ -142,3 +142,19 @@
     border-top: 1px solid var(--color-border);
   }
 }
+
+/* Only on a phone, beside the Menu button; on a wide screen the account controls are in view. */
+.quickSignIn {
+  display: none;
+  margin-left: auto;
+}
+
+@media (max-width: 40rem) {
+  .quickSignIn {
+    display: inline-flex;
+  }
+
+  .quickSignIn + .menuButton {
+    margin-left: 0;
+  }
+}

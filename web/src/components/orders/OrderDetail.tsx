@@ -7,9 +7,11 @@ import {
   BackLink,
   Badge,
   ButtonLink,
+  LoadError,
   PageHeader,
   SplitLayout,
   Money,
+  Skeleton,
 } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import {
@@ -21,6 +23,7 @@ import {
 import { bankDetailsReady, humaniseGuidance, orderStatusLabel } from '@/lib/orders/display';
 import { statusTone } from '@/lib/status';
 import { formatDateTime } from '@/lib/format';
+import { usePageTitle } from '@/lib/use-page-title';
 import { useQuery } from '@tanstack/react-query';
 import { PaymentInstructions } from './PaymentInstructions';
 import { OrderSteps } from './OrderSteps';
@@ -46,22 +49,21 @@ export function OrderDetail({
 }: OrderDetailProps) {
   const loaded = useQuery({ queryKey: ['order', orderId], queryFn: () => client.get(orderId) });
   const [latest, setLatest] = useState<SubmittedProof | null>(null);
+  usePageTitle(loaded.status === 'success' ? `Order ${loaded.data.paymentReference}` : null);
 
   if (loaded.status === 'pending') {
-    return (
-      <p className="muted" role="status">
-        Loading order…
-      </p>
-    );
+    return <Skeleton label="Loading order…" />;
   }
   if (loaded.status === 'error') {
     return (
-      <Alert tone="danger" title="The order could not be loaded">
-        <p>{errorMessage(loaded.error)}</p>
-        <p>
-          <Link href="/orders">Back to my orders</Link>
-        </p>
-      </Alert>
+      <LoadError
+        title="The order could not be loaded"
+        onRetry={() => void loaded.refetch()}
+        backHref="/orders"
+        backLabel="My orders"
+      >
+        {errorMessage(loaded.error)}
+      </LoadError>
     );
   }
 

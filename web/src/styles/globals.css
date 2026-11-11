@@ -135,7 +135,10 @@ a:hover {
   left: var(--space-2);
   top: -100px;
   z-index: 100;
-  padding: var(--space-2) var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  padding: 0 var(--space-4);
   background: var(--color-bg);
   border-radius: var(--radius-md);
 }

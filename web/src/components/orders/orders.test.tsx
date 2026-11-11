@@ -336,7 +336,7 @@ describe('orders list and receipt (#60, #62)', () => {
       }
       throw new Error(`unexpected GET ${path}`);
     });
-    expect(await screen.findByText('No. R-2026-0001')).toBeVisible();
+    expect(await screen.findByText('R-2026-0001')).toBeVisible();
     expect(screen.getByText(/Ayesha Khan/)).toBeVisible();
     expect(screen.getAllByText('PKR 15,000.00').length).toBeGreaterThan(0);
   });

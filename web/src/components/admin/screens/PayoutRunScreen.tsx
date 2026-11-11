@@ -101,7 +101,7 @@ export function PayoutRunScreen() {
                 page.totalsOwed.map((t) => (
                   <StatTile
                     key={t.currency}
-                    label={`Total owed (${t.currency})`}
+                    label="Total owed"
                     value={formatMoney(t.minor, t.currency)}
                   />
                 ))

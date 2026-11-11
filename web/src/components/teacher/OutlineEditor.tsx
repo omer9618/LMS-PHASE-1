@@ -12,6 +12,7 @@ import {
   Select,
   Textarea,
   Icon,
+  Skeleton,
 } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { moveItem, teacherApi } from '@/lib/api/teacher';
@@ -60,7 +61,7 @@ export function OutlineEditor() {
   const [error, setError] = useState<string | null>(null);
   const editable = contentEditable(course.status);
 
-  if (loaded.status === 'pending') return <p role="status">Loading the content…</p>;
+  if (loaded.status === 'pending') return <Skeleton label="Loading the content…" />;
   if (loaded.status === 'error') {
     return (
       <Alert tone="danger" title="Could not load the content">
