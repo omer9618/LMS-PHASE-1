@@ -26,6 +26,12 @@
   font-size: var(--control-font-size);
 }
 
+/* The browser's default placeholder grey is 4.49:1 on paper; muted text clears 4.5:1. */
+.control::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
 .control:focus-visible {
   border-color: var(--focus-ring-color);
   box-shadow: var(--focus-ring);

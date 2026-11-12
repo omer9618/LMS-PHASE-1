@@ -45,10 +45,12 @@ export function ForgotPasswordForm() {
         </div>
         <Alert tone="success">
           If an account exists for <strong>{sentTo}</strong>, we have sent it a link to reset the
-          password. The link expires soon, so use it shortly.
+          password. The link expires in 30 minutes.
         </Alert>
         <p>
-          <Link href="/login">Back to sign in</Link>
+          <Link href="/login" className={styles.standaloneLink}>
+            Back to sign in
+          </Link>
         </p>
       </div>
     );
@@ -78,7 +80,9 @@ export function ForgotPasswordForm() {
         Send reset link
       </Button>
       <div className={styles.footer}>
-        <Link href="/login">Back to sign in</Link>
+        <Link href="/login" className={styles.standaloneLink}>
+          Back to sign in
+        </Link>
       </div>
     </form>
   );

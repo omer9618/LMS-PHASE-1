@@ -58,6 +58,7 @@ export function OrderDetail({
     return (
       <LoadError
         title="The order could not be loaded"
+        page
         onRetry={() => void loaded.refetch()}
         backHref="/orders"
         backLabel="My orders"

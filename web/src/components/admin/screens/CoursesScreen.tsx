@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import {
   Button,
   Checkbox,
@@ -134,6 +134,8 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
     queryFn: ({ signal }) => adminApi.getCourseOutline(courseId, signal),
   });
   const mutation = useMutation();
+  // Approval publishes the saved price, so unsaved pricing edits hold Approve back.
+  const [pricingDirty, setPricingDirty] = useState(false);
   const act = async (action: () => Promise<unknown>, success: string) => {
     const ok = await mutation.run(action, success);
     if (ok) void course.refetch();
@@ -257,6 +259,7 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                     course={c}
                     mutation={mutation}
                     onSaved={() => void course.refetch()}
+                    onDirtyChange={setPricingDirty}
                   />
                 )}
                 <Section raised title="Decision">
@@ -272,6 +275,7 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                             />
                           }
                           confirmLabel="Approve and publish"
+                          disabled={pricingDirty}
                           onConfirm={async () => {
                             await act(
                               () => adminApi.approveCourse(c.id),
@@ -281,6 +285,12 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                         >
                           Approve and publish
                         </ConfirmButton>
+                        {pricingDirty && (
+                          <p className="muted">
+                            Save or undo the pricing changes first: approval publishes the saved
+                            price.
+                          </p>
+                        )}
                         <ReasonAction
                           label="Reject"
                           variant="danger"
@@ -395,20 +405,31 @@ function PricingForm({
   course,
   mutation,
   onSaved,
+  onDirtyChange,
 }: {
   course: AdminCourse;
   mutation: Mutation;
   onSaved: () => void;
+  /** Whether the form differs from the saved pricing (it does until a save is refetched). */
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const proposed = course.commissionRateBps ?? course.teacherProposedBps;
-  const form = useZodForm(pricingForm, {
+  const saved = {
     isFree: course.isFree,
     currency: course.currency ?? 'PKR',
     price: course.priceMinor
       ? minorToMajorInput(course.priceMinor, minorUnitExponent(course.currency))
       : '',
     commission: proposed !== null ? formatBps(proposed).replace('%', '') : '',
-  });
+  };
+  const form = useZodForm(pricingForm, saved);
+  const dirty = (Object.keys(saved) as Array<keyof typeof saved>).some(
+    (key) => String(form.values[key] ?? '') !== String(saved[key]),
+  );
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();

@@ -9,7 +9,7 @@ import { renderWithSession, STUDENT } from '@/test/render';
 import { AdminShell, isCurrent } from './AdminShell';
 import { ReasonAction } from '@/components/ui';
 import { DashboardScreen, formatWait } from './screens/DashboardScreen';
-import { reviewChecklist } from './screens/CoursesScreen';
+import { CourseDetailScreen, reviewChecklist } from './screens/CoursesScreen';
 import { PayoutRunScreen } from './screens/PayoutRunScreen';
 import { DecisionPanel, queueFlags } from './screens/VerificationScreen';
 import { settingValue } from '@/lib/forms/admin';
@@ -283,6 +283,57 @@ describe('screen helpers', () => {
       new Date('2026-11-08T00:00:00.000').toISOString(),
     );
     expect(dayBoundary('2026-11-08', true)).toBe(new Date('2026-11-08T23:59:59.999').toISOString());
+  });
+});
+
+describe('CourseDetailScreen approval (A-1)', () => {
+  const COURSE_ID = '44444444-4444-4444-8444-444444444444';
+  const pending = {
+    id: COURSE_ID,
+    teacherId: 't-1',
+    boardId: '22222222-2222-4222-8222-222222222222',
+    levelId: '33333333-3333-4333-8333-333333333333',
+    subjectId: '11111111-1111-4111-8111-111111111111',
+    syllabusArea: 'Mechanics',
+    title: 'A Level Physics',
+    description: null,
+    priceMinor: '500000',
+    currency: 'PKR',
+    commissionRateBps: 2000,
+    teacherProposedBps: 2000,
+    isFree: false,
+    status: 'PENDING_APPROVAL',
+    progressionMode: 'FREE',
+    audienceType: 'STUDENT',
+    isEnrollmentOpen: true,
+    createdAt: '2026-10-01T00:00:00Z',
+    publishedAt: null,
+    archivedAt: null,
+    board: { id: '22222222-2222-4222-8222-222222222222', name: 'Cambridge' },
+    level: { id: '33333333-3333-4333-8333-333333333333', name: 'A Level' },
+    subject: { id: '11111111-1111-4111-8111-111111111111', name: 'Physics' },
+    rejectionReason: null,
+    teacher: { id: 't-1', name: 'Tess Teacher', email: 'tess@example.com' },
+  };
+
+  it('holds Approve back while the pricing form has unsaved edits', async () => {
+    renderWithSession(<CourseDetailScreen courseId={COURSE_ID} />, ADMIN, (path) => {
+      if (path === `/admin/courses/${COURSE_ID}`) return pending;
+      if (path === `/admin/courses/${COURSE_ID}/outline`)
+        return { courseId: COURSE_ID, sections: [] };
+      throw new Error(`unexpected GET ${path}`);
+    });
+    const approve = await screen.findByRole('button', { name: /Approve and publish/ });
+    expect(approve).toBeEnabled();
+    const price = screen.getByLabelText<HTMLInputElement>(/^Price/);
+    const saved = price.value;
+    await userEvent.clear(price);
+    await userEvent.type(price, '6000');
+    expect(screen.getByRole('button', { name: /Approve and publish/ })).toBeDisabled();
+    expect(screen.getByText(/Save or undo the pricing changes first/)).toBeVisible();
+    await userEvent.clear(price);
+    await userEvent.type(price, saved);
+    expect(screen.getByRole('button', { name: /Approve and publish/ })).toBeEnabled();
   });
 });
 

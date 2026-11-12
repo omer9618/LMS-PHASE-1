@@ -45,6 +45,13 @@
   font-size: var(--text-sm);
 }
 
+/* A link that stands on its own (not inside a sentence) gets a full touch target (WCAG 2.5.8). */
+.standaloneLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+}
+
 .inlineStatus {
   display: inline-flex;
   flex-wrap: wrap;

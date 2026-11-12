@@ -79,6 +79,13 @@
   gap: var(--space-3);
 }
 
+/* On a phone the two hero buttons stack at the same full width. */
+@media (max-width: 47.99rem) {
+  .actions > * {
+    flex: 1 1 100%;
+  }
+}
+
 .checks {
   display: flex;
   flex-wrap: wrap;

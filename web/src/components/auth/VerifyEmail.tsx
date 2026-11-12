@@ -70,7 +70,10 @@ export function VerifyEmail() {
             <ResendVerificationButton />
           ) : (
             <p>
-              <Link href="/login?next=/verify-email">Sign in</Link> to send yourself a new link.
+              <Link href="/login?next=/verify-email" className={styles.standaloneLink}>
+                Sign in
+              </Link>{' '}
+              to send yourself a new link.
             </p>
           )}
         </>
@@ -78,13 +81,16 @@ export function VerifyEmail() {
       {state.kind === 'invalid' && (
         <>
           <Alert tone="danger" title="This link is invalid or has expired">
-            Verification links work once and expire after a while.
+            Verification links work once and expire after 48 hours.
           </Alert>
           {status === 'signed-in' ? (
             <ResendVerificationButton />
           ) : (
             <p>
-              <Link href="/login?next=/verify-email">Sign in</Link> to send yourself a new link.
+              <Link href="/login?next=/verify-email" className={styles.standaloneLink}>
+                Sign in
+              </Link>{' '}
+              to send yourself a new link.
             </p>
           )}
         </>

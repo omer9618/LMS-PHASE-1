@@ -27,7 +27,10 @@ export function CourseDetailContent({ course }: { course: CourseDetail }) {
 
   function watch(lesson: OutlineLesson) {
     setPlaying(lesson);
-    document.getElementById('demo')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    document
+      .getElementById('demo')
+      ?.scrollIntoView?.({ behavior: still ? 'auto' : 'smooth', block: 'start' });
   }
 
   return (

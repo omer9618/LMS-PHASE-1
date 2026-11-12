@@ -27,6 +27,7 @@ export function RouteError({
     <div className="page stack">
       <LoadError
         title="Something went wrong on our side"
+        page
         onRetry={retry}
         backHref={backHref}
         backLabel={backLabel}

@@ -148,7 +148,7 @@ describe('CoursePlayer (#53)', () => {
     expect(screen.queryByRole('button', { name: 'Mark as complete' })).toBeNull();
   });
 
-  it('sends people without an enrollment to the course page', async () => {
+  it('sends people without an enrolment to the course page', async () => {
     const client = fakeClient({
       outline: vi.fn().mockRejectedValue(
         new RequestError('ENROLLMENT_REQUIRED', {
@@ -158,10 +158,25 @@ describe('CoursePlayer (#53)', () => {
       ),
     });
     render(<CoursePlayer courseId="c" client={client} />);
-    expect(await screen.findByText('Enrol in this course to access it')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Enrol in this course to access it' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'See the course details' })).toHaveAttribute(
       'href',
       '/courses/c',
     );
+    expect(document.title).toBe('Enrol in this course to access it · Paperlane');
+  });
+
+  it('names a failed load in the h1 and the tab, and offers a retry', async () => {
+    const client = fakeClient({
+      outline: vi.fn().mockRejectedValue(new RequestError('INTERNAL', { status: 500 })),
+    });
+    render(<CoursePlayer courseId="c" client={client} />);
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'The course could not be opened' }),
+    ).toBeInTheDocument();
+    expect(document.title).toBe('The course could not be opened · Paperlane');
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
   });
 });

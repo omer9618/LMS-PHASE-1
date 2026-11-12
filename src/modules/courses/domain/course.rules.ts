@@ -133,7 +133,7 @@ export function assertContentEditable(status: CourseStatusValue): void {
 export function assertDeletable(related: { enrollments: number; orderItems: number }): void {
   if (related.enrollments > 0 || related.orderItems > 0) {
     throw new CourseLockedError(
-      'This course has enrollments or orders and cannot be deleted. Archive it instead.',
+      'This course has enrolments or orders and cannot be deleted. Archive it instead.',
       related,
     );
   }

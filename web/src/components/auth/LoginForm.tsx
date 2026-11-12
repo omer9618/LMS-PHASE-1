@@ -191,7 +191,9 @@ export function LoginForm() {
         Sign in
       </Button>
       <div className={styles.footer}>
-        <Link href="/forgot-password">Forgot your password?</Link>
+        <Link href="/forgot-password" className={styles.standaloneLink}>
+          Forgot your password?
+        </Link>
         <p>
           New here?{' '}
           <Link

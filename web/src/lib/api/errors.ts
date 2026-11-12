@@ -41,7 +41,7 @@ export const ErrorCode = {
   COURSE_NOT_PRICEABLE: 'COURSE_NOT_PRICEABLE',
   COURSE_LOCKED: 'COURSE_LOCKED',
   COURSE_INCOMPLETE: 'COURSE_INCOMPLETE',
-  // Content and enrollment
+  // Content and enrolment
   ENROLLMENT_REQUIRED: 'ENROLLMENT_REQUIRED',
   ENROLLMENT_EXPIRED: 'ENROLLMENT_EXPIRED',
   ENROLLMENT_REFUSED: 'ENROLLMENT_REFUSED',
@@ -116,9 +116,9 @@ export const ERRORS: Record<ErrorCode, ErrorDefinition> = {
   COURSE_NOT_PRICEABLE: { status: 409, message: 'This course cannot be priced right now.' },
   COURSE_LOCKED: { status: 409, message: 'This course cannot be changed right now.' },
   COURSE_INCOMPLETE: { status: 422, message: 'The course is not ready to submit.' },
-  ENROLLMENT_REQUIRED: { status: 403, message: 'Enroll in this course to open it.' },
+  ENROLLMENT_REQUIRED: { status: 403, message: 'Enrol in this course to access it.' },
   ENROLLMENT_EXPIRED: { status: 403, message: 'Your access to this course has ended.' },
-  ENROLLMENT_REFUSED: { status: 409, message: 'You cannot enroll in this course.' },
+  ENROLLMENT_REFUSED: { status: 409, message: 'You cannot enrol in this course.' },
   VIDEO_NOT_READY: { status: 409, message: 'This video is still processing.' },
   ORDER_REFUSED: { status: 409, message: 'This order cannot be placed.' },
   LESSON_LOCKED: { status: 403, message: 'This lesson is locked.' },

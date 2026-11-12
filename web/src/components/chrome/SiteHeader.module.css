@@ -150,8 +150,10 @@
 }
 
 @media (max-width: 40rem) {
+  /* A phone tap target: 44px, not the small button's 36px. */
   .quickSignIn {
     display: inline-flex;
+    min-height: var(--target-min);
   }
 
   .quickSignIn + .menuButton {

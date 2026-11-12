@@ -8,7 +8,12 @@
 }
 
 .title {
+  /* Looks the same as a heading (h1 on a failed page) as it does as a paragraph. */
+  margin: 0;
+  font: inherit;
   font-weight: var(--weight-semibold);
+  letter-spacing: normal;
+  color: inherit;
 }
 
 .body {

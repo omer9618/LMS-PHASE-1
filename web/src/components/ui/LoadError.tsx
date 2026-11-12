@@ -1,4 +1,7 @@
+'use client';
+
 import type { ReactNode } from 'react';
+import { usePageTitle } from '@/lib/use-page-title';
 import { Alert } from './Alert';
 import { BackLink } from './BackLink';
 import { Button } from './Button';
@@ -13,6 +16,7 @@ export function LoadError({
   onRetry,
   backHref,
   backLabel,
+  page = false,
 }: {
   /** "Could not load your courses" */
   title: string;
@@ -20,9 +24,15 @@ export function LoadError({
   onRetry?: () => void;
   backHref?: string;
   backLabel?: string;
+  /**
+   * The error is the page's whole content (the screen it replaces had the h1): the title becomes
+   * the h1 and names the browser tab, so the page is not left headless under the old title.
+   */
+  page?: boolean;
 }) {
+  usePageTitle(page ? title : null);
   return (
-    <Alert tone="danger" title={title}>
+    <Alert tone="danger" title={title} titleAs={page ? 'h1' : 'p'}>
       <p>{children}</p>
       {onRetry && (
         <p>
