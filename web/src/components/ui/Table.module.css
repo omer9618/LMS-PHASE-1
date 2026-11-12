@@ -53,6 +53,15 @@
   background: var(--color-primary-subtle);
 }
 
+/* The selected row: tinted, with the 3px bar on its first cell. */
+.row[data-selected] {
+  background: var(--color-primary-subtle);
+}
+
+.row[data-selected] > :first-child {
+  box-shadow: var(--shadow-selected);
+}
+
 .numeric {
   text-align: right;
   font-family: var(--font-mono);

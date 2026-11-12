@@ -1,10 +1,15 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Icon } from '@/components/ui';
 import type { LearnerOutline } from '@/lib/api/learn';
 import { formatDuration } from '@/lib/format';
-import { lessonStatusLabel, lessonTypeLabel } from '@/lib/learn/outline';
+import {
+  curlyQuotes,
+  lessonsExplainingLock,
+  lessonStatusLabel,
+  lessonTypeLabel,
+} from '@/lib/learn/outline';
 import styles from './Player.module.css';
 
 export interface LessonOutlineProps {
@@ -53,6 +58,7 @@ function revealWithinParent(element: HTMLElement) {
  */
 export function LessonOutline({ outline, selectedLessonId, onSelect }: LessonOutlineProps) {
   const currentRef = useRef<HTMLButtonElement>(null);
+  const explaining = useMemo(() => lessonsExplainingLock(outline), [outline]);
 
   // A long outline opens with the current lesson in view, and follows it as lessons change.
   useEffect(() => {
@@ -88,8 +94,10 @@ export function LessonOutline({ outline, selectedLessonId, onSelect }: LessonOut
                         {duration && ` · ${duration}`}
                         {lesson.isCheckpoint && ' · Checkpoint'}
                       </span>
-                      {lesson.state === 'LOCKED' && lesson.lock && (
-                        <span className={styles.lockReason}>{lesson.lock.message}</span>
+                      {explaining.has(lesson.id) && lesson.lock && (
+                        <span className={styles.lockReason}>
+                          {curlyQuotes(lesson.lock.message)}
+                        </span>
                       )}
                     </span>
                     <span className="visually-hidden">, {lessonStatusLabel(lesson)}</span>

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { CourseCard } from '@/components/catalogue/CourseCard';
 import catalogueStyles from '@/components/catalogue/Catalogue.module.css';
 import { locationLabel, type PublicTeacherProfile } from '@/lib/api/profile';
@@ -17,9 +17,7 @@ export function PublicProfile({ profile }: { profile: PublicTeacherProfile }) {
   const courses = profile.courses.items;
   return (
     <article className={styles.layout} aria-labelledby="teacher-name">
-      <nav aria-label="Breadcrumb" className="hint">
-        <Link href="/courses">Courses</Link> / Teachers / {name}
-      </nav>
+      <Breadcrumb items={[{ label: 'Courses', href: '/courses' }, { label: name }]} />
       <header className={styles.header}>
         {profile.photoUrl && (
           // A short-lived signed storage URL: next/image's static host list cannot cover it.

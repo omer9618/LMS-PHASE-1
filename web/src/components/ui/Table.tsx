@@ -21,6 +21,8 @@ export interface TableProps<Row> {
   columns: Array<Column<Row>>;
   rows: Row[];
   rowKey: (row: Row) => string;
+  /** The row being worked on: gets the selected bar (a mark, not just a tint). */
+  isSelected?: (row: Row) => boolean;
   /** Shown in a single full-width cell when there are no rows. */
   empty?: ReactNode;
   className?: string;
@@ -36,6 +38,7 @@ export function Table<Row>({
   columns,
   rows,
   rowKey,
+  isSelected,
   empty = 'Nothing to show.',
   className,
 }: TableProps<Row>) {
@@ -73,7 +76,11 @@ export function Table<Row>({
             </tr>
           ) : (
             rows.map((row) => (
-              <tr key={rowKey(row)} className={styles.row}>
+              <tr
+                key={rowKey(row)}
+                className={styles.row}
+                data-selected={isSelected?.(row) || undefined}
+              >
                 {columns.map((column) => {
                   const className = cx(styles.td, column.numeric && styles.numeric);
                   return column.rowHeader ? (

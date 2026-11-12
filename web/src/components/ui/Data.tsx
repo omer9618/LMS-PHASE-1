@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { humanize } from '@/lib/format';
 import { formatMoney } from '@/lib/money';
-import { STATUS_TONES } from '@/lib/status';
+import { STATUS_TONES, statusLabel } from '@/lib/status';
 import { Badge, type BadgeTone } from './Badge';
 import { cx } from './cx';
 import styles from './Data.module.css';
@@ -52,7 +51,7 @@ export function StatusBadge({
   tones?: Partial<Record<string, BadgeTone>>;
   label?: string;
 }) {
-  return <Badge tone={tones[status] ?? 'neutral'}>{label ?? humanize(status)}</Badge>;
+  return <Badge tone={tones[status] ?? 'neutral'}>{label ?? statusLabel(status)}</Badge>;
 }
 
 export type StatTone = 'neutral' | 'primary' | 'warning' | 'danger';

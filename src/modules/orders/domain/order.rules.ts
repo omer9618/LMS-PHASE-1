@@ -280,7 +280,7 @@ export function assertCoursePurchasable(
     refuse(course.id, 'You teach this course', 'OWN_COURSE');
   }
   if (course.isFree) {
-    refuse(course.id, 'This is a free course. Enroll directly without checkout.', 'FREE_COURSE');
+    refuse(course.id, 'This is a free course. Enrol directly without checkout.', 'FREE_COURSE');
   }
   if (buyer.activeCourseIds.has(course.id)) {
     refuse(course.id, 'You already have access to this course', 'ALREADY_ENROLLED');

@@ -246,7 +246,7 @@ describe('StudentDashboard', () => {
     const progress = await screen.findByRole('progressbar', {
       name: 'A Level Physics: 40% complete',
     });
-    expect(progress).toHaveAttribute('value', '40');
+    expect(progress).toHaveAttribute('aria-valuenow', '40');
     expect(screen.getAllByText(/2 of 5 lessons/)).toHaveLength(2);
     expect(screen.getByRole('link', { name: 'Continue learning' })).toHaveAttribute(
       'href',
@@ -328,7 +328,7 @@ describe('StudentDashboard', () => {
       renderWithSession(<StudentDashboard />, STUDENT, () => lots);
       await screen.findByRole('heading', { level: 2, name: /Course 00/ });
       expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(PAGE_SIZE);
-      await userEvent.click(screen.getByRole('button', { name: 'Show more (3 more)' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Show 3 more' }));
       expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(PAGE_SIZE + 3);
       expect(screen.queryByRole('button', { name: /Show more/ })).not.toBeInTheDocument();
     });

@@ -19,7 +19,7 @@ import type { Role } from '@/lib/api/schemas/auth';
 import { formatDate } from '@/lib/format';
 import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
-import { MutationStatus, ReasonAction } from '@/components/ui';
+import { ConfirmButton, MutationStatus, ReasonAction } from '@/components/ui';
 import { useMutation } from '@/lib/use-mutation';
 import { formatDateTime } from '@/lib/format';
 import { humanize } from '@/lib/format';
@@ -76,7 +76,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
                   <ReasonAction
                     label="Suspend"
                     variant="danger"
-                    hint="Signs the user out everywhere. Teachers' courses stop taking enrollments."
+                    hint="Signs the user out everywhere. Teachers' courses stop taking enrolments."
                     onConfirm={(reason) =>
                       act(() => adminApi.suspendUser(user.id, reason), 'Account suspended.')
                     }
@@ -89,7 +89,26 @@ export function UserDetailScreen({ userId }: { userId: string }) {
                     }
                   />
                 ) : null}
-                {user.status === 'ACTIVE' && (
+                {isTeacher && user.status !== 'DELETED' && (
+                  <ReasonAction
+                    label="Deactivate teacher"
+                    variant="danger"
+                    hint="Permanent. Refused while students hold active enrolments in their courses."
+                    onConfirm={(reason) =>
+                      act(() => adminApi.deactivateTeacher(user.id, reason), 'Teacher deactivated.')
+                    }
+                  />
+                )}
+              </div>
+            </Section>
+
+            {user.status === 'ACTIVE' && (
+              <Section title="Password">
+                <p className="muted">
+                  Emails {user.email} a link to choose a new password. Their current one keeps
+                  working until they use it.
+                </p>
+                <div className={styles.actions}>
                   <Button
                     size="sm"
                     variant="secondary"
@@ -103,35 +122,31 @@ export function UserDetailScreen({ userId }: { userId: string }) {
                   >
                     Send password reset
                   </Button>
-                )}
-                {isTeacher && user.status !== 'DELETED' && (
-                  <ReasonAction
-                    label="Deactivate teacher"
-                    variant="danger"
-                    hint="Permanent. Refused while students hold active enrollments in their courses."
-                    onConfirm={(reason) =>
-                      act(() => adminApi.deactivateTeacher(user.id, reason), 'Teacher deactivated.')
-                    }
-                  />
-                )}
-              </div>
-            </Section>
+                </div>
+              </Section>
+            )}
 
             <Section title="Roles">
               <ul className={styles.actions} aria-label="Current roles">
                 {user.roles.map((r) => (
                   <li key={r} className={styles.actions}>
                     <Badge tone="primary">{humanize(r)}</Badge>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={`Remove the ${humanize(r)} role`}
-                      onClick={() =>
-                        act(() => adminApi.revokeRole(user.id, r), `${humanize(r)} role removed.`)
-                      }
-                    >
-                      Remove
-                    </Button>
+                    {user.roles.length > 1 ? (
+                      <ConfirmButton
+                        question={`Remove the ${humanize(r)} role?`}
+                        confirmLabel="Remove"
+                        onConfirm={async () => {
+                          await act(
+                            () => adminApi.revokeRole(user.id, r),
+                            `${humanize(r)} role removed.`,
+                          );
+                        }}
+                      >
+                        Remove
+                      </ConfirmButton>
+                    ) : (
+                      <span className="hint">The only role on this account</span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -149,7 +164,6 @@ export function UserDetailScreen({ userId }: { userId: string }) {
                     ))}
                   </Select>
                   <Button
-                    size="sm"
                     onClick={() => {
                       const chosen = missingRoles.includes(role) ? role : missingRoles[0]!;
                       void act(
@@ -206,7 +220,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
             )}
 
             <Section
-              title="Enrollments as a student"
+              title="Enrolments as a student"
               actions={
                 <ButtonLink
                   size="sm"
@@ -218,11 +232,11 @@ export function UserDetailScreen({ userId }: { userId: string }) {
               }
             >
               <Table<AdminEnrollment>
-                caption={`${enrollments.total} enrollment${enrollments.total === 1 ? '' : 's'}`}
+                caption={`${enrollments.total} enrolment${enrollments.total === 1 ? '' : 's'}`}
                 hideCaption
                 rows={enrollments.items}
                 rowKey={(e) => e.id}
-                empty="No enrollments."
+                empty="No enrolments."
                 columns={[
                   {
                     key: 'course',

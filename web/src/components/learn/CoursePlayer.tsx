@@ -3,11 +3,22 @@
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Badge, Button, ButtonLink, Icon } from '@/components/ui';
+import {
+  Alert,
+  BackLink,
+  Badge,
+  Button,
+  ButtonLink,
+  Icon,
+  LoadError,
+  ProgressBar,
+  Skeleton,
+} from '@/components/ui';
 import { QuizPanel } from '@/components/quiz/QuizPanel';
 import { RequestError, errorMessage } from '@/lib/api/errors';
 import { learn, type LearnApi, type LearnerLesson, type LearnerOutline } from '@/lib/api/learn';
-import { flattenLessons, pickLesson } from '@/lib/learn/outline';
+import { curlyQuotes, flattenLessons, pickLesson } from '@/lib/learn/outline';
+import { usePageTitle } from '@/lib/use-page-title';
 import { LessonBody } from './LessonBody';
 import { LessonOutline } from './LessonOutline';
 import { VideoLesson } from './VideoLesson';
@@ -31,6 +42,14 @@ export function CoursePlayer({ courseId, client = learn }: CoursePlayerProps) {
   const [error, setError] = useState<unknown>(null);
   const [completing, setCompleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // The outline is open beside the lesson on a wide screen. On a phone it starts closed, so the
+  // lesson is what you see first instead of two thousand pixels of outline.
+  // A timed attempt is a focused mode: no outline, no links to other lessons, until it is over.
+  const [attemptActive, setAttemptActive] = useState(false);
+  const [outlineOpen, setOutlineOpen] = useState(
+    () =>
+      typeof window.matchMedia !== 'function' || window.matchMedia('(min-width: 60rem)').matches,
+  );
 
   const load = useCallback(async () => {
     try {
@@ -55,6 +74,7 @@ export function CoursePlayer({ courseId, client = learn }: CoursePlayerProps) {
   const lessons = useMemo(() => (outline ? flattenLessons(outline) : []), [outline]);
   const selected = outline ? pickLesson(outline, search.get('lesson')) : null;
   const position = selected ? lessons.findIndex((l) => l.id === selected.id) : -1;
+  usePageTitle(outline ? `${selected ? `${selected.title} · ` : ''}${outline.title}` : null);
 
   // The address always names the lesson on screen, so a reload or a shared link comes back to
   // it. This also covers a link with no lesson, a stale one, and the lesson that "continue here"
@@ -88,12 +108,27 @@ export function CoursePlayer({ courseId, client = learn }: CoursePlayerProps) {
     }
   }
 
-  if (error) return <PlayerError error={error} courseId={courseId} pathname={pathname} />;
-  if (!outline) {
+  if (error) {
     return (
-      <p className={styles.muted} role="status">
-        Loading course…
-      </p>
+      <div className={styles.layout}>
+        <PlayerError
+          error={error}
+          courseId={courseId}
+          pathname={pathname}
+          onRetry={() => {
+            setError(null);
+            void load();
+          }}
+        />
+      </div>
+    );
+  }
+  if (!outline) {
+    // Inside the player's own frame, so the page does not collapse and jump when the course loads.
+    return (
+      <div className={styles.layout}>
+        <Skeleton label="Loading course…" lines={4} />
+      </div>
     );
   }
 
@@ -102,24 +137,17 @@ export function CoursePlayer({ courseId, client = learn }: CoursePlayerProps) {
   const next = position >= 0 && position < lessons.length - 1 ? lessons[position + 1] : null;
 
   return (
-    <div className={styles.layout}>
+    <div className={styles.layout} data-focus={attemptActive || undefined}>
       <header className={styles.courseHeader}>
+        {isStudent && !attemptActive && <BackLink href="/dashboard">My learning</BackLink>}
         <h1>{outline.title}</h1>
         {isStudent ? (
           <div className={styles.progress}>
-            <div
+            <ProgressBar
               className={styles.progressTrack}
-              role="progressbar"
-              aria-label="Course progress"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={outline.completionPercent}
-            >
-              <div
-                className={styles.progressFill}
-                style={{ width: `${outline.completionPercent}%` }}
-              />
-            </div>
+              value={outline.completionPercent}
+              label="Course progress"
+            />
             <span className={styles.muted}>
               {outline.completionPercent}% · {outline.completedLessons} of {outline.totalLessons}{' '}
               lessons
@@ -130,16 +158,30 @@ export function CoursePlayer({ courseId, client = learn }: CoursePlayerProps) {
         )}
       </header>
 
-      <aside className={styles.sidebar}>
-        <details className={styles.drawer} open>
-          <summary>Course outline</summary>
-          <LessonOutline
-            outline={outline}
-            selectedLessonId={selected?.id ?? null}
-            onSelect={select}
-          />
-        </details>
-      </aside>
+      {!attemptActive && (
+        <aside className={styles.sidebar}>
+          <details
+            className={styles.drawer}
+            open={outlineOpen}
+            onToggle={(event) => setOutlineOpen(event.currentTarget.open)}
+          >
+            <summary>
+              Course outline
+              {isStudent && (
+                <span className={styles.muted}>
+                  {' '}
+                  · {outline.completedLessons} of {outline.totalLessons} done
+                </span>
+              )}
+            </summary>
+            <LessonOutline
+              outline={outline}
+              selectedLessonId={selected?.id ?? null}
+              onSelect={select}
+            />
+          </details>
+        </aside>
+      )}
 
       <section className={styles.main} aria-labelledby="lesson-title">
         {!selected ? (
@@ -154,7 +196,7 @@ export function CoursePlayer({ courseId, client = learn }: CoursePlayerProps) {
 
             {selected.state === 'LOCKED' && selected.lock ? (
               <Alert tone="warning" title="This lesson is locked">
-                <p>{selected.lock.message}</p>
+                <p>{curlyQuotes(selected.lock.message)}</p>
                 <p>
                   <Button
                     variant="secondary"
@@ -173,40 +215,45 @@ export function CoursePlayer({ courseId, client = learn }: CoursePlayerProps) {
                 isStudent={isStudent}
                 client={client}
                 onProgress={load}
+                onAttemptActive={setAttemptActive}
               />
             )}
 
             {actionError && <Alert tone="danger">{actionError}</Alert>}
 
-            <div className={styles.lessonFooter}>
-              {previous ? (
-                <Button variant="ghost" onClick={() => select(previous.id)}>
-                  <Icon name="arrowLeft" /> {previous.title}
-                </Button>
-              ) : (
-                <span />
-              )}
-              {isStudent && selected.type !== 'QUIZ' && selected.state === 'AVAILABLE' && (
-                <Button
-                  variant="secondary"
-                  onClick={() => markComplete(selected)}
-                  loading={completing}
-                  loadingText="Saving…"
-                >
-                  Mark as complete
-                </Button>
-              )}
-              {next ? (
-                <Button
-                  variant={selected.state === 'COMPLETED' ? 'primary' : 'ghost'}
-                  onClick={() => select(next.id)}
-                >
-                  {next.title} <Icon name="arrowRight" />
-                </Button>
-              ) : (
-                <span />
-              )}
-            </div>
+            {!attemptActive && (
+              <div className={styles.lessonFooter}>
+                {previous ? (
+                  <Button variant="ghost" onClick={() => select(previous.id)}>
+                    <Icon name="arrowLeft" /> {previous.title}
+                  </Button>
+                ) : (
+                  <span />
+                )}
+                <div className="cluster">
+                  {isStudent && selected.type !== 'QUIZ' && selected.state === 'AVAILABLE' && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => markComplete(selected)}
+                      loading={completing}
+                      loadingText="Saving…"
+                    >
+                      Mark as complete
+                    </Button>
+                  )}
+                  {next && next.state === 'LOCKED' ? (
+                    <span className={styles.muted}>Next: {next.title} unlocks after this one</span>
+                  ) : next ? (
+                    <Button
+                      variant={selected.state === 'COMPLETED' ? 'primary' : 'ghost'}
+                      onClick={() => select(next.id)}
+                    >
+                      {next.title} <Icon name="arrowRight" />
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            )}
           </>
         )}
       </section>
@@ -220,12 +267,14 @@ function LessonContentFor({
   isStudent,
   client,
   onProgress,
+  onAttemptActive,
 }: {
   lesson: LearnerLesson;
   courseId: string;
   isStudent: boolean;
   client: LearnApi;
   onProgress: () => void;
+  onAttemptActive: (active: boolean) => void;
 }) {
   switch (lesson.type) {
     case 'VIDEO':
@@ -247,6 +296,7 @@ function LessonContentFor({
           lessonId={lesson.id}
           viewer={isStudent ? 'STUDENT' : 'STAFF'}
           onAttemptClosed={onProgress}
+          onAttemptActive={onAttemptActive}
           client={client}
         />
       );
@@ -259,10 +309,12 @@ function PlayerError({
   error,
   courseId,
   pathname,
+  onRetry,
 }: {
   error: unknown;
   courseId: string;
   pathname: string;
+  onRetry: () => void;
 }) {
   const name = error instanceof RequestError ? error.name : null;
   if (name === 'UNAUTHENTICATED') {
@@ -280,8 +332,13 @@ function PlayerError({
     );
   }
   return (
-    <Alert tone="danger" title="The course could not be opened">
+    <LoadError
+      title="The course could not be opened"
+      onRetry={onRetry}
+      backHref="/dashboard"
+      backLabel="My learning"
+    >
       {errorMessage(error)}
-    </Alert>
+    </LoadError>
   );
 }

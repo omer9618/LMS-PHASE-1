@@ -1,0 +1,32 @@
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.bar {
+  display: block;
+  height: 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.bar:first-of-type {
+  width: 45%;
+  height: 1.25rem;
+}
+
+.bar:last-of-type {
+  width: 70%;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
+}

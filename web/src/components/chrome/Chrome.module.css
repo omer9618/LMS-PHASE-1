@@ -54,7 +54,7 @@
   font-family: var(--font-serif);
   font-size: var(--text-xl);
   font-weight: var(--weight-semibold);
-  letter-spacing: -0.01em;
+  letter-spacing: var(--tracking-tight);
   line-height: 1.375rem;
   color: var(--color-text);
 }
@@ -194,11 +194,14 @@
   flex: 1 1 9rem;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 0;
   font-size: var(--text-sm);
 }
 
 .footerColumn a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
   text-decoration: none;
 }
 
@@ -212,4 +215,11 @@
   padding: 0 var(--page-gutter) var(--space-6);
   font-size: var(--text-xs);
   color: var(--color-text-muted);
+}
+
+/* On a phone the tagline gives way, so the brand, Sign in and Menu share one row. */
+@media (max-width: 30rem) {
+  .brandText :global(.eyebrow) {
+    display: none;
+  }
 }

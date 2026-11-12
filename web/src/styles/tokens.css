@@ -70,6 +70,7 @@
   --text-xl: 1.25rem;
   --text-2xl: 1.75rem; /* 28px page title */
   --text-3xl: 2.25rem;
+  --text-question: 1.0625rem; /* 17px: a question in the player and the builder */
   --leading-tight: 1.25;
   --leading-normal: 1.45;
   --weight-regular: 400;
@@ -78,6 +79,8 @@
   --weight-bold: 700;
   --tracking-label: 0.02em;
   --tracking-eyebrow: 0.04em;
+  --tracking-tight: -0.01em;
+  --tracking-tighter: -0.02em;
 
   /* ── Spacing (4px scale) ── */
   --space-1: 0.25rem;
@@ -98,6 +101,7 @@
   --shadow-sm: 0 1px 3px rgb(20 33 61 / 0.04);
   --shadow-md: 0 2px 6px -1px rgb(20 33 61 / 0.08), 0 0 0 1px #d5dbe8; /* the ring is the border */
   --shadow-lg: 0 8px 24px -4px rgb(20 33 61 / 0.14);
+  --shadow-selected: inset 3px 0 0 var(--color-primary); /* the bar on a selected row or option */
 
   /* ── Pattern: graph paper ── */
   --grid-paper:
@@ -109,6 +113,9 @@
   --content-max-width: 80rem;
   --content-max-width-wide: 90rem;
   --form-max-width: 28rem;
+  --target-min: 2.75rem; /* 44px: the least a tap target is on a phone, in any density */
+  --check-size: 1.25rem; /* the box of a checkbox or radio */
+  --bar-height: 0.5rem; /* a progress bar */
   --page-gutter: var(--space-4);
 
   /* ── Density: comfortable (default) ── */
@@ -131,7 +138,7 @@
 [data-density='compact'] {
   --density-body-size: var(--text-sm);
   --control-height: 2.25rem; /* 36px */
-  --control-height-sm: 1.75rem;
+  --control-height-sm: 2.25rem; /* 36px: the staff screens' small buttons */
   --control-height-lg: 2.5rem;
   --control-padding-x: var(--space-3);
   --control-font-size: var(--text-sm);
@@ -148,5 +155,14 @@
 @media (min-width: 48rem) {
   :root {
     --page-gutter: var(--space-6);
+  }
+}
+
+/* On a phone the dense staff screens still get 44px targets. */
+@media (max-width: 47.99rem) {
+  [data-density='compact'] {
+    --control-height: var(--target-min);
+    --control-height-sm: var(--target-min);
+    --control-height-lg: 3rem;
   }
 }

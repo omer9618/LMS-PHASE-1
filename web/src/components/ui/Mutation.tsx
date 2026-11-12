@@ -1,6 +1,13 @@
 'use client';
 
-import { useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { reasonForm } from '@/lib/forms/admin';
 import type { Mutation } from '@/lib/use-mutation';
 import { validateForm } from '@/lib/forms/validate';
@@ -49,13 +56,33 @@ export function ReasonAction({
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+
+  // Put focus back on the button that opened the form once the form closes.
+  useEffect(() => {
+    if (wasOpen.current && !open) trigger.current?.focus();
+    wasOpen.current = open;
+  }, [open]);
 
   if (!open) {
     return (
-      <Button size="sm" variant={variant} onClick={() => setOpen(true)}>
+      <Button ref={trigger} size="sm" variant={variant} onClick={() => setOpen(true)}>
         {label}
+        <Ellipsis />
       </Button>
     );
+  }
+
+  function cancel() {
+    setOpen(false);
+    setError(null);
+  }
+  function onKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && !busy) {
+      event.stopPropagation();
+      cancel();
+    }
   }
 
   async function submit(event: FormEvent) {
@@ -77,7 +104,7 @@ export function ReasonAction({
   }
 
   return (
-    <form className={styles.inlineForm} onSubmit={submit} aria-label={label}>
+    <form className={styles.inlineForm} onSubmit={submit} onKeyDown={onKeyDown} aria-label={label}>
       <Textarea
         label={reasonLabel}
         hint={hint}
@@ -96,7 +123,7 @@ export function ReasonAction({
         >
           {confirmLabel ?? label}
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+        <Button size="sm" variant="ghost" onClick={cancel}>
           Cancel
         </Button>
       </div>
@@ -104,9 +131,15 @@ export function ReasonAction({
   );
 }
 
+/** The "…" that says a button opens one more step (kept out of the accessible name). */
+function Ellipsis() {
+  return <span aria-hidden="true">…</span>;
+}
+
 /**
- * A destructive action that asks once more inline (no modal): the first press reveals the
- * question with Confirm and Cancel.
+ * An action that asks once more inline (no modal): the first press reveals the question with
+ * Confirm and Cancel. Escape cancels, and focus goes back to the button that asked. A `danger`
+ * action is an outline until it is confirmed.
  */
 export function ConfirmButton({
   children,
@@ -125,20 +158,38 @@ export function ConfirmButton({
 }) {
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const group = useRef<HTMLSpanElement>(null);
+  const wasAsking = useRef(false);
+
+  useEffect(() => {
+    if (asking) group.current?.focus();
+    else if (wasAsking.current) trigger.current?.focus();
+    wasAsking.current = asking;
+  }, [asking]);
 
   if (!asking) {
     return (
-      <Button
-        variant={variant === 'danger' ? 'secondary' : variant}
-        size={size}
-        onClick={() => setAsking(true)}
-      >
+      <Button ref={trigger} variant={variant} size={size} onClick={() => setAsking(true)}>
         {children}
+        <Ellipsis />
       </Button>
     );
   }
   return (
-    <span className="cluster" role="group" aria-label="Confirm">
+    <span
+      ref={group}
+      className="cluster"
+      role="group"
+      aria-label="Confirm"
+      tabIndex={-1}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !busy) {
+          event.stopPropagation();
+          setAsking(false);
+        }
+      }}
+    >
       <span>{question}</span>
       <Button
         variant={variant}

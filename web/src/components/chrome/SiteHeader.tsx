@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AccountMenu } from './AccountMenu';
+import { AccountMenu, QuickSignIn } from './AccountMenu';
 import { BrandMark } from './BrandMark';
 import { HeaderMenu } from './HeaderMenu';
 import { MfaBanner } from './MfaBanner';
@@ -11,7 +11,7 @@ import styles from './SiteHeader.module.css';
 export function SiteHeader() {
   return (
     <header className={styles.header}>
-      <HeaderMenu brand={<BrandMark />}>
+      <HeaderMenu brand={<BrandMark />} quick={<QuickSignIn />}>
         <nav aria-label="Main" className={styles.nav}>
           <Link href="/courses">Courses</Link>
           <RoleNav />

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
-import { Alert, Badge, Button, ButtonLink } from '@/components/ui';
+import { Alert, Badge, Button, ButtonLink, Forbidden, SignInGate, Skeleton } from '@/components/ui';
 import { adminAccess, canSwitchContext } from '@/lib/admin/access';
 import { adminApi, type AdminDashboard, type MeWithContext } from '@/lib/api/admin';
 import { errorMessage } from '@/lib/api/errors';
@@ -43,7 +43,7 @@ export const ADMIN_NAV: Array<{ group: string; items: AdminNavItem[] }> = [
     group: 'Manage',
     items: [
       { href: '/admin/users', label: 'Users and teachers' },
-      { href: '/admin/enrollments', label: 'Enrollments' },
+      { href: '/admin/enrollments', label: 'Enrolments' },
       { href: '/admin/orders', label: 'Orders' },
     ],
   },
@@ -84,6 +84,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
     enabled: access === 'ok',
   });
   const counts = dashboard.status === 'success' ? dashboard.data.queues : null;
+  // Beside the page on a wide screen; on a phone the menu is one closed line, not 300px of links.
+  const [navOpen, setNavOpen] = useState(
+    () =>
+      typeof window === 'undefined' ||
+      typeof window.matchMedia !== 'function' ||
+      window.matchMedia('(min-width: 64rem)').matches,
+  );
+  const currentLabel =
+    ADMIN_NAV.flatMap((g) => g.items).find((item) => isCurrent(pathname, item.href))?.label ??
+    'Dashboard';
 
   return (
     <div className={styles.ground}>
@@ -92,40 +102,49 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <>
             <aside className={styles.sidebar}>
               <ContextBar user={user} />
-              <nav aria-label="Admin">
-                {ADMIN_NAV.map((group) => (
-                  <div key={group.group} className={styles.group}>
-                    <p className={styles.groupLabel}>{group.group}</p>
-                    <ul className={styles.navList}>
-                      {group.items.map((item) => {
-                        const count = item.queue && counts ? counts[item.queue] : null;
-                        return (
-                          <li key={item.href}>
-                            <Link
-                              href={item.href}
-                              className={styles.navLink}
-                              aria-current={isCurrent(pathname, item.href) ? 'page' : undefined}
-                            >
-                              <span>{item.label}</span>
-                              {typeof count === 'number' && count > 0 && (
-                                <Badge tone="highlight" aria-label={`${count} waiting`}>
-                                  {count}
-                                </Badge>
-                              )}
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))}
-              </nav>
+              <details
+                className={styles.navDrawer}
+                open={navOpen}
+                onToggle={(event) => setNavOpen(event.currentTarget.open)}
+              >
+                <summary className={styles.navSummary}>Admin menu · {currentLabel}</summary>
+                <nav aria-label="Admin">
+                  {ADMIN_NAV.map((group) => (
+                    <div key={group.group} className={styles.group}>
+                      <p className={styles.groupLabel}>{group.group}</p>
+                      <ul className={styles.navList}>
+                        {group.items.map((item) => {
+                          const count = item.queue && counts ? counts[item.queue] : null;
+                          return (
+                            <li key={item.href}>
+                              <Link
+                                href={item.href}
+                                className={styles.navLink}
+                                aria-current={isCurrent(pathname, item.href) ? 'page' : undefined}
+                              >
+                                <span>{item.label}</span>
+                                {typeof count === 'number' && count > 0 && (
+                                  <Badge tone="highlight" aria-label={`${count} waiting`}>
+                                    {count}
+                                  </Badge>
+                                )}
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))}
+                </nav>
+              </details>
             </aside>
             <div className={styles.content}>{children}</div>
           </>
         ) : (
           <div className={styles.gate}>
-            <h1 className="visually-hidden">Admin area</h1>
+            {access !== 'signed-out' && access !== 'not-admin' && (
+              <h1 className="visually-hidden">Admin area</h1>
+            )}
             <Gate access={access} user={user} />
           </div>
         )}
@@ -188,21 +207,16 @@ function Gate({
   const [error, setError] = useState<string | null>(null);
   switch (access) {
     case 'loading':
-      return <p role="status">Loading…</p>;
+      return <Skeleton label="Loading…" />;
     case 'signed-out':
-      return (
-        <Alert tone="info" title="Sign in to continue">
-          <p>The admin area is for staff accounts.</p>
-          <ButtonLink href="/login?next=/admin" size="sm">
-            Sign in
-          </ButtonLink>
-        </Alert>
-      );
+      return <SignInGate next="/admin">The admin area is for staff accounts.</SignInGate>;
     case 'not-admin':
       return (
-        <Alert tone="warning" title="Admins only">
-          <p>Your account does not have the Admin role.</p>
-        </Alert>
+        <Forbidden title="Admins only">
+          {user
+            ? `You are signed in as ${user.email}, which does not have the Admin role.`
+            : 'Your account does not have the Admin role.'}
+        </Forbidden>
       );
     case 'mfa-setup':
       return (

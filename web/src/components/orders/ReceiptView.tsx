@@ -1,7 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import { Alert, Button, Icon, Money } from '@/components/ui';
+import { Alert, BackLink, Button, Money, Skeleton } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { orders as defaultOrders, type OrdersApi } from '@/lib/api/orders';
 import { formatDateTime } from '@/lib/format';
@@ -21,19 +20,13 @@ export function ReceiptView({
     queryFn: () => client.receipt(orderId),
   });
   const back = (
-    <p className={styles.noPrint}>
-      <Link href={`/orders/${encodeURIComponent(orderId)}`}>
-        <Icon name="arrowLeft" /> Back to the order
-      </Link>
-    </p>
+    <div className={styles.noPrint}>
+      <BackLink href={`/orders/${encodeURIComponent(orderId)}`}>The order</BackLink>
+    </div>
   );
 
   if (receipt.status === 'pending') {
-    return (
-      <p className="muted" role="status">
-        Loading receipt…
-      </p>
-    );
+    return <Skeleton label="Loading receipt…" />;
   }
   if (receipt.status === 'error') {
     return (
@@ -53,12 +46,11 @@ export function ReceiptView({
     <div className="stack">
       {back}
       <article className={styles.receipt} aria-labelledby="receipt-heading">
-        <header className={styles.titleRow}>
-          <div>
-            <p className="eyebrow">Payment confirmed</p>
-            <h1 id="receipt-heading">Receipt</h1>
-          </div>
-          <span className="mono muted">No. {r.receiptNumber}</span>
+        <header>
+          <p className="eyebrow">
+            Payment confirmed · No. <span className="mono">{r.receiptNumber}</span>
+          </p>
+          <h1 id="receipt-heading">Receipt</h1>
         </header>
         <dl className={`${styles.receiptFacts} eyebrow-terms`}>
           <div>
@@ -74,7 +66,12 @@ export function ReceiptView({
           <div>
             <dt>Billed to</dt>
             <dd>
-              {r.student.fullName && <>{r.student.fullName}, </>}
+              {r.student.fullName && (
+                <>
+                  {r.student.fullName}
+                  <br />
+                </>
+              )}
               {r.student.email}
             </dd>
           </div>

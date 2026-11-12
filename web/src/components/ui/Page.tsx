@@ -14,12 +14,12 @@ export interface PageHeaderProps {
 export function PageHeader({ title, eyebrow, description, actions }: PageHeaderProps) {
   return (
     <div className={styles.pageHeader}>
-      <div className={styles.heading}>
-        {eyebrow && <div className="eyebrow">{eyebrow}</div>}
+      {eyebrow && <div className="eyebrow">{eyebrow}</div>}
+      <div className={styles.titleRow}>
         <h1 className={styles.title}>{title}</h1>
-        {description && <p className={styles.description}>{description}</p>}
+        {actions && <div className="cluster">{actions}</div>}
       </div>
-      {actions && <div className="cluster">{actions}</div>}
+      {description && <p className={styles.description}>{description}</p>}
     </div>
   );
 }

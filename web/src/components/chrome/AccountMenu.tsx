@@ -31,12 +31,22 @@ export function AccountMenu() {
       pathname && !AUTH_PAGES.some((page) => pathname.startsWith(page))
         ? `?next=${encodeURIComponent(pathname)}`
         : '';
+    // On the sign-in page the "Sign in" link is where you already are, and on the sign-up page
+    // "Create account" is: showing each one there only points at the page you are on.
+    const onLogin = pathname?.startsWith('/login') ?? false;
+    const onRegister = pathname?.startsWith('/register') ?? false;
     return (
       <div className={styles.account}>
-        <Link href={`/login${next}`}>Sign in</Link>
-        <ButtonLink href={`/register${next}`} size="sm">
-          Create account
-        </ButtonLink>
+        {!onLogin && (
+          <ButtonLink href={`/login${next}`} size="sm" variant="ghost">
+            Sign in
+          </ButtonLink>
+        )}
+        {!onRegister && (
+          <ButtonLink href={`/register${next}`} size="sm">
+            Create account
+          </ButtonLink>
+        )}
       </div>
     );
   }
@@ -76,5 +86,25 @@ export function AccountMenu() {
         Sign out
       </Button>
     </div>
+  );
+}
+
+/**
+ * On a phone the account controls sit behind the Menu button, which would bury the one thing a
+ * visitor came to do. This puts "Sign in" next to the button for a signed-out visitor, and
+ * nothing for anyone else (the rest of the account controls stay in the menu).
+ */
+export function QuickSignIn() {
+  const { status, user } = useSession();
+  const pathname = usePathname();
+  if (status === 'loading' || user || pathname?.startsWith('/login')) return null;
+  const next =
+    pathname && !AUTH_PAGES.some((page) => pathname.startsWith(page))
+      ? `?next=${encodeURIComponent(pathname)}`
+      : '';
+  return (
+    <ButtonLink href={`/login${next}`} size="sm" className={styles.quickSignIn}>
+      Sign in
+    </ButtonLink>
   );
 }

@@ -4,6 +4,7 @@ import { Icon } from './Icon';
 
 import {
   useId,
+  useState,
   type InputHTMLAttributes,
   type ReactNode,
   type SelectHTMLAttributes,
@@ -88,18 +89,40 @@ export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'children'>
 
 export function Input({ label, hint, error, hideLabel, id, className, ...rest }: InputProps) {
   const { controlId, hintId, errorId, describedBy } = useFieldIds(id, hint, error);
+  // A password box can show what was typed: on a phone a hidden typo is the usual reason to fail.
+  const [revealed, setRevealed] = useState(false);
+  const isPassword = rest.type === 'password';
+  const control = (
+    <input
+      {...rest}
+      type={isPassword && revealed ? 'text' : rest.type}
+      id={controlId}
+      className={cx(styles.control, isPassword && styles.withReveal)}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={describedBy}
+    />
+  );
   return (
     <div className={cx(styles.field, className)}>
       <Label htmlFor={controlId} required={rest.required} hidden={hideLabel}>
         {label}
       </Label>
-      <input
-        {...rest}
-        id={controlId}
-        className={styles.control}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy}
-      />
+      {isPassword ? (
+        <div className={styles.revealWrap}>
+          {control}
+          <button
+            type="button"
+            className={styles.reveal}
+            aria-pressed={revealed}
+            aria-controls={controlId}
+            onClick={() => setRevealed((r) => !r)}
+          >
+            {revealed ? 'Hide' : 'Show'} <span className="visually-hidden">password</span>
+          </button>
+        </div>
+      ) : (
+        control
+      )}
       <FieldText hint={hint} hintId={hintId} error={error} errorId={errorId} />
     </div>
   );
@@ -159,6 +182,45 @@ export function Checkbox({ label, hint, error, id, className, ...rest }: Checkbo
       </div>
       <FieldText hint={hint} hintId={hintId} error={error} errorId={errorId} />
     </div>
+  );
+}
+
+export interface RadioGroupProps<T extends string> {
+  legend: ReactNode;
+  name: string;
+  value: T;
+  onChange: (value: T) => void;
+  options: Array<{ value: T; label: ReactNode }>;
+  hint?: ReactNode;
+}
+
+/** A set of mutually exclusive choices, each row a full-size tap target. */
+export function RadioGroup<T extends string>({
+  legend,
+  name,
+  value,
+  onChange,
+  options,
+  hint,
+}: RadioGroupProps<T>) {
+  return (
+    <fieldset className={styles.radioGroup}>
+      <legend className={styles.label}>{legend}</legend>
+      {options.map((option) => (
+        <label key={option.value} className={styles.radioRow}>
+          <input
+            type="radio"
+            name={name}
+            value={option.value}
+            checked={value === option.value}
+            onChange={() => onChange(option.value)}
+            className={styles.checkbox}
+          />
+          <span className={styles.checkboxLabel}>{option.label}</span>
+        </label>
+      ))}
+      {hint && <p className={styles.hint}>{hint}</p>}
+    </fieldset>
   );
 }
 

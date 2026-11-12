@@ -139,9 +139,14 @@ describe('cart and checkout (#54, #55)', () => {
       }),
     );
     apiMock.post.mockResolvedValue({ ...quote, items: [quote.items[0]!], teacherCount: 1 });
-    renderWithSession(<CartView />, STUDENT);
+    renderWithSession(<CartView />, STUDENT, (path) => {
+      // The refused course, named for the student.
+      if (path.startsWith('/catalogue/courses/')) return { title: 'Waves' };
+      throw new Error(`unexpected GET ${path}`);
+    });
     expect(await screen.findByText('You already have access to Waves')).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Remove that course' }));
+    expect(await screen.findByRole('link', { name: 'Waves' })).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Remove it from the cart' }));
     expect(await screen.findByText('Mechanics')).toBeVisible();
     expect(JSON.parse(window.localStorage.getItem(CART_STORAGE_KEY)!)).toEqual([C1]);
   });
@@ -179,7 +184,7 @@ describe('order detail (#58, #60, #65, #66)', () => {
 
   it('shows the reference, amount, deadline and bank details, with readable guidance', async () => {
     renderOrder(order(), true);
-    expect(await screen.findByText('Order placed')).toBeVisible();
+    expect(await screen.findByText('Your order is in')).toBeVisible();
     const pay = screen.getByRole('region', { name: 'How to pay' });
     expect(within(pay).getByText('PKR 15,000.00')).toBeVisible();
     expect(within(pay).getByText('LMS-7Q2K9')).toBeVisible();
@@ -216,7 +221,10 @@ describe('order detail (#58, #60, #65, #66)', () => {
     });
     renderOrder(order());
     await userEvent.type(await screen.findByLabelText(/Transaction ID/), 'TX-1');
-    await userEvent.type(screen.getByLabelText(/Amount you transferred/), '15,000');
+    const amount = screen.getByLabelText(/Amount you transferred/);
+    expect(amount).toHaveValue('15000'); // prefilled from the order total
+    await userEvent.clear(amount);
+    await userEvent.type(amount, '15,000');
     await userEvent.click(screen.getByRole('button', { name: 'Submit payment details' }));
 
     await waitFor(() => expect(apiMock.postForm).toHaveBeenCalled());
@@ -328,7 +336,7 @@ describe('orders list and receipt (#60, #62)', () => {
       }
       throw new Error(`unexpected GET ${path}`);
     });
-    expect(await screen.findByText('No. R-2026-0001')).toBeVisible();
+    expect(await screen.findByText('R-2026-0001')).toBeVisible();
     expect(screen.getByText(/Ayesha Khan/)).toBeVisible();
     expect(screen.getAllByText('PKR 15,000.00').length).toBeGreaterThan(0);
   });

@@ -141,7 +141,10 @@ export const reasonForm = (minLength: number, optional: boolean) =>
   });
 
 /** A platform setting's value, typed into a box, for the setting's type. */
-export const settingValue = (defaultValue: number | string | boolean) =>
+export const settingValue = (
+  defaultValue: number | string | boolean,
+  bounds?: { min?: number; max?: number; unit?: string },
+) =>
   typeof defaultValue === 'boolean'
     ? z.boolean()
     : typeof defaultValue === 'number'
@@ -150,6 +153,12 @@ export const settingValue = (defaultValue: number | string | boolean) =>
           .trim()
           .regex(/^-?\d+(\.\d+)?$/, 'Enter a number.')
           .transform(Number)
+          .refine(
+            (n) =>
+              (bounds?.min === undefined || n >= bounds.min) &&
+              (bounds?.max === undefined || n <= bounds.max),
+            `Enter a number from ${bounds?.min ?? '…'} to ${bounds?.max ?? '…'}${bounds?.unit ? ` ${bounds.unit}` : ''}.`,
+          )
       : z.string();
 
 /** Create a staff account (#15): who they are, and at least one role. */

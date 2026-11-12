@@ -52,7 +52,7 @@
 
 .question {
   font-family: var(--font-serif);
-  font-size: 1.0625rem;
+  font-size: var(--text-question);
   font-weight: var(--weight-semibold);
   line-height: 1.5;
 }

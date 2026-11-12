@@ -16,6 +16,7 @@ import {
   type BadgeTone,
   type Column,
   Money,
+  Skeleton,
 } from '@/components/ui';
 import {
   canRaiseConcern,
@@ -30,7 +31,7 @@ import {
 } from '@/lib/api/earnings';
 import { errorMessage } from '@/lib/api/errors';
 import { useMutation } from '@/lib/use-mutation';
-import { formatDate } from '@/lib/format';
+import { formatDate, formatPeriod } from '@/lib/format';
 import { formatMoney } from '@/lib/money';
 import { useQuery } from '@tanstack/react-query';
 import styles from './Teacher.module.css';
@@ -90,7 +91,15 @@ const saleColumns: Array<Column<SaleItem>> = [
 const ledgerColumns: Array<Column<LedgerEntry>> = [
   { key: 'date', header: 'Date', cell: (e) => formatDate(e.createdAt) },
   { key: 'type', header: 'Type', rowHeader: true, cell: (e) => ENTRY_LABEL[e.type] ?? e.type },
-  { key: 'desc', header: 'Details', cell: (e) => e.description ?? '—' },
+  {
+    key: 'desc',
+    header: 'Details',
+    // "Sale" under a Type of "Sale" says nothing twice.
+    cell: (e) =>
+      e.description && e.description.toLowerCase() !== (ENTRY_LABEL[e.type] ?? '').toLowerCase()
+        ? e.description
+        : '—',
+  },
   {
     key: 'amount',
     header: 'Amount',
@@ -98,6 +107,12 @@ const ledgerColumns: Array<Column<LedgerEntry>> = [
     cell: (e) => <Money minor={e.amountMinor} currency={e.currency} />,
   },
 ];
+
+/** The ledger shows this many rows before "Show more": a busy teacher has thousands. */
+const LEDGER_PAGE = 25;
+
+/** Money paid out is stored as a negative ledger amount; the tile says how much, not which way. */
+const absMinor = (minor: string) => minor.replace(/^-/, '');
 
 /** #84: balance, pending vs confirmed sales, statement and payouts (#85–#88). */
 export function Earnings() {
@@ -111,7 +126,7 @@ export function Earnings() {
       <PageHeader
         eyebrow="Ledger · after commission"
         title="Earnings"
-        description="A sale counts once an admin confirms the student’s bank transfer. After each payout you have a few days to raise a concern; after that it is accepted automatically."
+        description="A sale counts once an admin confirms the student’s bank transfer. After each payout you can raise a concern until the date shown on it; after that it is accepted automatically."
       />
       <Loadable state={dashboard} what="your earnings">
         {(data) => {
@@ -130,11 +145,7 @@ export function Earnings() {
               ) : (
                 data.balances.map((b) => (
                   <StatGrid key={b.currency} label={`Balance in ${b.currency}`}>
-                    <StatTile
-                      tone="primary"
-                      label="Owed to you"
-                      value={formatMoney(b.balanceMinor, b.currency)}
-                    />
+                    <StatTile label="Owed to you" value={formatMoney(b.balanceMinor, b.currency)} />
                     <StatTile label="Earned" value={formatMoney(b.earningsMinor, b.currency)} />
                     <StatTile
                       tone={pendingNet(b.currency) === '0' ? 'neutral' : 'warning'}
@@ -143,66 +154,90 @@ export function Earnings() {
                     />
                     <StatTile
                       label="Paid out"
-                      value={formatMoney(b.payoutsMinor, b.currency)}
+                      value={formatMoney(absMinor(b.payoutsMinor), b.currency)}
                       note={`Refunds ${formatMoney(b.refundsMinor, b.currency)} · adjustments ${formatMoney(b.adjustmentsMinor, b.currency)}`}
                     />
                   </StatGrid>
                 ))
               )}
 
-              <SplitLayout
-                main={
-                  <>
-                    <Section flush title="Statement">
-                      <Table
-                        caption="Every entry in your account, newest last"
-                        hideCaption
-                        columns={ledgerColumns}
-                        rows={data.ledgerEntries}
-                        rowKey={(e) => e.id}
-                        empty="No entries yet."
+              {data.ledgerEntries.length === 0 &&
+              data.payouts.length === 0 &&
+              data.pendingSales.items.length === 0 &&
+              data.confirmedSales.items.length === 0 ? (
+                <p className="muted">
+                  No sales yet. Earnings appear here once an admin confirms a student’s payment.
+                </p>
+              ) : (
+                <SplitLayout
+                  main={
+                    <>
+                      <LedgerSection entries={data.ledgerEntries} />
+                      <SalesSection
+                        title="Pending sales"
+                        intro="Orders whose payment is not verified yet."
+                        items={data.pendingSales.items}
+                        totals={data.pendingSales.totalsByCurrency}
                       />
+                      <SalesSection
+                        title="Confirmed sales"
+                        intro="Verified payments. Your share is in your balance."
+                        items={data.confirmedSales.items}
+                        totals={data.confirmedSales.totalsByCurrency}
+                      />
+                    </>
+                  }
+                  aside={
+                    <Section title="Payouts">
+                      {data.payouts.length === 0 ? (
+                        <p className="muted">No payouts yet.</p>
+                      ) : (
+                        <ul className={styles.payouts}>
+                          {data.payouts.map((p) => (
+                            <li key={p.id}>
+                              <PayoutCard
+                                payout={p}
+                                currency={payoutCurrency(p.id, data.ledgerEntries, onlyCurrency)}
+                                onChanged={() => void dashboard.refetch()}
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </Section>
-                    <SalesSection
-                      title="Pending sales"
-                      intro="Orders whose payment is not verified yet."
-                      items={data.pendingSales.items}
-                      totals={data.pendingSales.totalsByCurrency}
-                    />
-                    <SalesSection
-                      title="Confirmed sales"
-                      intro="Verified payments. Your share is in your balance."
-                      items={data.confirmedSales.items}
-                      totals={data.confirmedSales.totalsByCurrency}
-                    />
-                  </>
-                }
-                aside={
-                  <section aria-labelledby="payouts-heading" className="stack">
-                    <h2 id="payouts-heading">Payouts</h2>
-                    {data.payouts.length === 0 ? (
-                      <p className="muted">No payouts yet.</p>
-                    ) : (
-                      <ul className={styles.payouts}>
-                        {data.payouts.map((p) => (
-                          <li key={p.id}>
-                            <PayoutCard
-                              payout={p}
-                              currency={payoutCurrency(p.id, data.ledgerEntries, onlyCurrency)}
-                              onChanged={() => void dashboard.refetch()}
-                            />
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </section>
-                }
-              />
+                  }
+                />
+              )}
             </>
           );
         }}
       </Loadable>
     </div>
+  );
+}
+
+/** The statement, newest first, 25 at a time. */
+function LedgerSection({ entries }: { entries: LedgerEntry[] }) {
+  const [shown, setShown] = useState(LEDGER_PAGE);
+  const newestFirst = [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return (
+    <Section flush title="Statement · newest first">
+      <Table
+        caption="Every entry in your account, newest first"
+        hideCaption
+        columns={ledgerColumns}
+        rows={newestFirst.slice(0, shown)}
+        rowKey={(e) => e.id}
+        empty="No entries yet."
+      />
+      {newestFirst.length > shown && (
+        <p className={styles.salesIntro}>
+          <Button variant="secondary" size="sm" onClick={() => setShown((n) => n + LEDGER_PAGE)}>
+            Show {Math.min(LEDGER_PAGE, newestFirst.length - shown)} more
+          </Button>
+        </p>
+      )}
+    </Section>
   );
 }
 
@@ -240,7 +275,7 @@ function SalesSection({
         columns={saleColumns}
         rows={items}
         rowKey={(s) => s.id}
-        empty="None."
+        empty="No sales here yet."
       />
     </Section>
   );
@@ -259,7 +294,7 @@ function PayoutCard({
   const status = PAYOUT_STATUS[payout.status];
   const panelId = `payout-${payout.id}`;
   return (
-    <article className={styles.panel} aria-labelledby={`${panelId}-title`}>
+    <article className={styles.payoutRow} aria-labelledby={`${panelId}-title`}>
       <div className={styles.titleRow}>
         <h3 id={`${panelId}-title`} className={styles.panelTitle}>
           <Money minor={payout.amountMinor} currency={currency} />{' '}
@@ -285,9 +320,7 @@ function PayoutCard({
         {payout.periodStart && (
           <div>
             <dt>Covers</dt>
-            <dd>
-              {formatDate(payout.periodStart)} – {formatDate(payout.periodEnd)}
-            </dd>
+            <dd>{formatPeriod(payout.periodStart, payout.periodEnd)}</dd>
           </div>
         )}
         {payout.status === 'PENDING' && (
@@ -322,7 +355,7 @@ function PayoutDetails({ payout, onChanged }: { payout: PayoutSummary; onChanged
     queryKey: ['payout', payout.id],
     queryFn: ({ signal }) => earningsApi.payout(payout.id, signal),
   });
-  if (detail.status === 'pending') return <p role="status">Loading…</p>;
+  if (detail.status === 'pending') return <Skeleton label="Loading…" />;
   if (detail.status === 'error') return <Alert tone="danger">{errorMessage(detail.error)}</Alert>;
   const { coveredSales, payout: full } = detail.data;
   return (

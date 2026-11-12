@@ -134,7 +134,7 @@ describe('CoursePlayer (#53)', () => {
     render(<CoursePlayer courseId="c" client={fakeClient()} />);
     const nav = await screen.findByRole('navigation', { name: 'Lessons' });
     expect(nav).toHaveTextContent(/Lesson a.*completed/);
-    expect(nav).toHaveTextContent(/locked: Pass the checkpoint quiz/);
+    expect(nav).toHaveTextContent(/Pass the checkpoint quiz.*locked/);
   });
 
   it('shows staff a preview badge and no completion button', async () => {

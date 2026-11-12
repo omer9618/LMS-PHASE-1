@@ -29,7 +29,7 @@
 
 .item[data-selected] {
   background: var(--color-primary-subtle);
-  box-shadow: inset 3px 0 0 var(--color-primary);
+  box-shadow: var(--shadow-selected);
 }
 
 .itemButton {
@@ -127,8 +127,8 @@
 
 .option > input[type='radio'] {
   flex: none;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: var(--check-size);
+  height: var(--check-size);
   margin: 0 0 var(--space-2);
   accent-color: var(--color-primary);
 }
@@ -181,7 +181,7 @@
 
 .questionText {
   font-family: var(--font-serif);
-  font-size: 1.0625rem;
+  font-size: var(--text-question);
   font-weight: var(--weight-semibold);
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -221,4 +221,10 @@
 .itemButton > :not(.itemText) {
   flex: none;
   white-space: nowrap;
+}
+
+.builderHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }

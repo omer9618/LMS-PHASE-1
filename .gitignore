@@ -33,3 +33,6 @@ deploy/edge/sites/*.caddy
 
 # Local Claude Code state (worktrees, settings, launch config)
 .claude/
+
+# UI review screenshots (38 MB): kept locally, referenced from docs/UI_UX_REVIEW.md
+docs/ui-review/

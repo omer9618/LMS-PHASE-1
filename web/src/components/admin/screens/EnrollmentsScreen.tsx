@@ -49,7 +49,7 @@ export function EnrollmentsScreen() {
     <>
       <PageHeader
         eyebrow="Access to courses · newest first"
-        title="Enrollments"
+        title="Enrolments"
         description="Who can open which course, and how they got access."
       />
       <MutationStatus mutation={mutation} />
@@ -84,14 +84,14 @@ export function EnrollmentsScreen() {
           Filter
         </Button>
       </form>
-      <Loadable state={enrollments} what="enrollments">
+      <Loadable state={enrollments} what="enrolments">
         {(page) => (
           <>
             <Table<AdminEnrollment>
               caption={`${page.total} enrollment${page.total === 1 ? '' : 's'}`}
               rows={page.items}
               rowKey={(e) => e.id}
-              empty="No enrollments match."
+              empty="No enrolments match."
               columns={[
                 {
                   key: 'student',

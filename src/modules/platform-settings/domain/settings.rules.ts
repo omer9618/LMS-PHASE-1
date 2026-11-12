@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { DomainError } from '../../../common/errors/domain.error';
 
+/** Marks bank details that were never filled in (the shipped default is all placeholders). */
+const BANK_PLACEHOLDER = /\[to be confirmed\]/i;
+
 /**
  * Every admin-editable platform setting (#8): its type, bounds, default and meaning.
  * Values are stored as strings in platform_settings and parsed through these schemas on read,
@@ -33,7 +36,15 @@ export const SETTING_DEFINITIONS = {
   // ── Orders and verification (#55, #67) ──
   BANK_TRANSFER_INSTRUCTIONS: {
     // Multi-line text shown on checkout and in the order email. Client question #127.
-    schema: z.string().trim().min(1).max(4000),
+    schema: z
+      .string()
+      .trim()
+      .min(1)
+      .max(4000)
+      // The default text is a placeholder; an admin cannot save it back as if it were real.
+      .refine((text) => !BANK_PLACEHOLDER.test(text), {
+        message: 'Replace every [to be confirmed] with the real bank details.',
+      }),
     defaultValue:
       'Bank: [to be confirmed]\nAccount title: [to be confirmed]\nAccount number / IBAN: [to be confirmed]\nUse your payment reference as the transfer remark.',
     description:

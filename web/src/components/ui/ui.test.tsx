@@ -1,7 +1,20 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { Alert, Badge, Button, Checkbox, Input, Select, Table, type Column } from './index';
+import {
+  Alert,
+  Badge,
+  Breadcrumb,
+  Button,
+  Checkbox,
+  ConfirmButton,
+  Input,
+  ProgressBar,
+  RadioGroup,
+  Select,
+  Table,
+  type Column,
+} from './index';
 
 describe('Button', () => {
   it('is a type=button by default and fires clicks', async () => {
@@ -188,5 +201,85 @@ describe('Table', () => {
     expect(
       screen.getByRole('table', { name: 'Compact' }).closest('[data-density]'),
     ).toHaveAttribute('data-density', 'compact');
+  });
+});
+
+describe('ConfirmButton', () => {
+  it('asks first, closes on Escape and gives focus back to the button', async () => {
+    const onConfirm = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ConfirmButton question="Delete this?" confirmLabel="Delete" onConfirm={onConfirm}>
+        Delete course
+      </ConfirmButton>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Delete course' });
+    // The "…" says one more step follows, but is not part of the button's name.
+    expect(trigger).toHaveTextContent('Delete course…');
+    await userEvent.click(trigger);
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.getByText('Delete this?')).toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByText('Delete this?')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete course' })).toHaveFocus();
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete course' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('password field', () => {
+  it('can show what was typed, and hides it again', async () => {
+    render(<Input label="Password" type="password" defaultValue="hunter2" />);
+    const field = screen.getByLabelText('Password');
+    expect(field).toHaveAttribute('type', 'password');
+    await userEvent.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(field).toHaveAttribute('type', 'text');
+    await userEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(field).toHaveAttribute('type', 'password');
+  });
+});
+
+describe('RadioGroup, ProgressBar and Breadcrumb', () => {
+  it('chooses one option at a time', async () => {
+    const onChange = vi.fn();
+    render(
+      <RadioGroup
+        legend="Decision"
+        name="d"
+        value="a"
+        onChange={onChange}
+        options={[
+          { value: 'a', label: 'Confirm' },
+          { value: 'b', label: 'Reject' },
+        ]}
+      />,
+    );
+    expect(screen.getByRole('radio', { name: 'Confirm' })).toBeChecked();
+    await userEvent.click(screen.getByRole('radio', { name: 'Reject' }));
+    expect(onChange).toHaveBeenCalledWith('b');
+    expect(screen.getByRole('group', { name: 'Decision' })).toBeVisible();
+  });
+
+  it('draws a progress bar that never leaves 0–100', () => {
+    render(<ProgressBar value={140} label="Course" />);
+    expect(screen.getByRole('progressbar', { name: 'Course' })).toHaveAttribute(
+      'aria-valuenow',
+      '100',
+    );
+  });
+
+  it('keeps people’s words as they were typed and marks the page you are on', () => {
+    render(
+      <Breadcrumb
+        items={[{ label: 'My courses', href: '/teacher/courses' }, { label: 'AS Maths' }]}
+      />,
+    );
+    expect(screen.getByRole('link', { name: 'My courses' })).toHaveAttribute(
+      'href',
+      '/teacher/courses',
+    );
+    expect(screen.getByText('AS Maths')).toHaveAttribute('aria-current', 'page');
   });
 });

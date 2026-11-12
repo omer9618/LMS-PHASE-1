@@ -1,6 +1,5 @@
 .ground {
   background: var(--color-surface);
-  min-height: 100vh;
 }
 
 .shell {
@@ -34,7 +33,10 @@
 }
 
 .gate {
-  max-width: 36rem;
+  /* Lines up with the header's content column, not the page edge. */
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin-inline: auto;
 }
 
 .context {
@@ -120,5 +122,21 @@
   .navList {
     flex-direction: column;
     flex-wrap: nowrap;
+  }
+}
+
+.navSummary {
+  display: flex;
+  align-items: center;
+  min-height: var(--target-min);
+  color: var(--color-text-inverse);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+@media (min-width: 64rem) {
+  /* Beside the page the menu is always open, so its summary line is not needed. */
+  .navSummary {
+    display: none;
   }
 }

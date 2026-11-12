@@ -7,10 +7,12 @@ import {
   Button,
   ButtonLink,
   Checkbox,
+  ConfirmButton,
   Input,
   Select,
   Textarea,
   Icon,
+  Skeleton,
 } from '@/components/ui';
 import { errorMessage } from '@/lib/api/errors';
 import { moveItem, teacherApi } from '@/lib/api/teacher';
@@ -59,7 +61,7 @@ export function OutlineEditor() {
   const [error, setError] = useState<string | null>(null);
   const editable = contentEditable(course.status);
 
-  if (loaded.status === 'pending') return <p role="status">Loading the content…</p>;
+  if (loaded.status === 'pending') return <Skeleton label="Loading the content…" />;
   if (loaded.status === 'error') {
     return (
       <Alert tone="danger" title="Could not load the content">
@@ -137,7 +139,7 @@ function SectionCard({
     <section className={styles.section} aria-labelledby={headingId}>
       <div className={styles.sectionHead}>
         <h2 id={headingId} className={styles.sectionTitle}>
-          <span className="muted">Section {index + 1}: </span>
+          <span className="muted">Section {index + 1}</span>
           {section.title}
         </h2>
         {editable && (
@@ -173,25 +175,22 @@ function SectionCard({
             <Button size="sm" variant="ghost" onClick={() => setRenaming((r) => !r)}>
               Rename
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                if (
-                  section.lessons.length === 0 ||
-                  window.confirm(
-                    `Delete “${section.title}” and its ${section.lessons.length} lesson${section.lessons.length === 1 ? '' : 's'}?`,
-                  )
-                ) {
-                  void run(
-                    () => teacherApi.deleteSection(courseId, section.id),
-                    `Deleted “${section.title}”`,
-                  );
-                }
+            <ConfirmButton
+              question={
+                section.lessons.length === 0
+                  ? `Delete “${section.title}”?`
+                  : `Delete “${section.title}” and its ${section.lessons.length} lesson${section.lessons.length === 1 ? '' : 's'}?`
+              }
+              confirmLabel="Delete"
+              onConfirm={async () => {
+                await run(
+                  () => teacherApi.deleteSection(courseId, section.id),
+                  `Deleted “${section.title}”`,
+                );
               }}
             >
               Delete
-            </Button>
+            </ConfirmButton>
           </div>
         )}
       </div>
@@ -349,20 +348,18 @@ function LessonRow({
           )}
           {editable && (
             <div>
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={() => {
-                  if (window.confirm(`Delete the lesson “${lesson.title}”?`)) {
-                    void run(
-                      () => teacherApi.deleteLesson(courseId, lesson.id),
-                      `Deleted “${lesson.title}”`,
-                    );
-                  }
+              <ConfirmButton
+                question={`Delete the lesson “${lesson.title}”?`}
+                confirmLabel="Delete"
+                onConfirm={async () => {
+                  await run(
+                    () => teacherApi.deleteLesson(courseId, lesson.id),
+                    `Deleted “${lesson.title}”`,
+                  );
                 }}
               >
                 Delete lesson
-              </Button>
+              </ConfirmButton>
             </div>
           )}
         </div>

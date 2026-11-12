@@ -258,7 +258,7 @@ describe('VerifyEmail', () => {
 
   it('handles a missing token without calling the API', async () => {
     renderWithSession(<VerifyEmail />);
-    expect(await screen.findByText('This link is invalid or has expired')).toBeVisible();
+    expect(await screen.findByText('Open the link from your email')).toBeVisible();
     expect(screen.getByRole('link', { name: 'Sign in' })).toBeVisible();
     expect(apiMock.post).not.toHaveBeenCalled();
   });

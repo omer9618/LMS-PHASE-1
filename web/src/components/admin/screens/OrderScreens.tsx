@@ -26,6 +26,7 @@ import { useMutation } from '@/lib/use-mutation';
 import { formatDateTime } from '@/lib/format';
 import { DecisionPanel, OrderLookup, ProofList } from './VerificationScreen';
 import { humanize } from '@/lib/format';
+import { ORDER_STATUS_LABELS, statusLabel } from '@/lib/status';
 import { refundForm } from '@/lib/forms/admin';
 import { useZodForm } from '@/lib/forms/use-zod-form';
 
@@ -67,7 +68,9 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
                 · placed {formatDateTime(o.createdAt)}
               </>
             }
-            actions={<StatusBadge status={o.status} />}
+            actions={
+              <StatusBadge status={o.status} label={statusLabel(o.status, ORDER_STATUS_LABELS)} />
+            }
           />
           <Section title="Summary">
             <Facts

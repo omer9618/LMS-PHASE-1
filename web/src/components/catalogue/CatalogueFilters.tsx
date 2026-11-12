@@ -180,7 +180,7 @@ function PriceRange({ filters, onChange }: Pick<PanelProps, 'filters' | 'onChang
   return (
     <form className={styles.priceForm} onSubmit={submit} noValidate>
       <fieldset className={styles.priceFieldset} disabled={disabled}>
-        <legend className={styles.legend}>Price range</legend>
+        <legend className={styles.legend}>Price range (PKR)</legend>
         {disabled && <p className="muted">Not used with “Free courses only”.</p>}
         <div className={styles.priceInputs}>
           <Input

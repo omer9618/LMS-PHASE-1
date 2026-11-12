@@ -29,10 +29,11 @@ import { formatDate, PACING_LABELS } from '@/lib/format';
 import { minorToMajorInput, minorUnitExponent } from '@/lib/money';
 import { useQuery } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
-import { MutationStatus, ReasonAction } from '@/components/ui';
+import { ConfirmButton, MutationStatus, ReasonAction } from '@/components/ui';
 import { useMutation, type Mutation } from '@/lib/use-mutation';
 import { formatDateTime } from '@/lib/format';
 import { humanize } from '@/lib/format';
+import { statusLabel } from '@/lib/status';
 import { pricingForm } from '@/lib/forms/admin';
 import { useZodForm } from '@/lib/forms/use-zod-form';
 
@@ -66,7 +67,7 @@ export function CoursesScreen() {
         >
           {STATUSES.map((s) => (
             <option key={s} value={s}>
-              {humanize(s)}
+              {statusLabel(s)}
             </option>
           ))}
         </Select>
@@ -75,7 +76,7 @@ export function CoursesScreen() {
         {(rows) => (
           <>
             <Table<AdminCourse>
-              caption={`${humanize(status)} courses`}
+              caption={`${statusLabel(status)} courses`}
               rows={rows}
               rowKey={(c) => c.id}
               empty="Nothing here."
@@ -146,7 +147,7 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
           <PageHeader
             eyebrow={
               <>
-                <Link href="/admin/courses">Course review</Link> / {humanize(c.status)}
+                <Link href="/admin/courses">Course review</Link> / {statusLabel(c.status)}
                 {c.status === 'PENDING_APPROVAL' && ` · submitted ${formatDate(c.createdAt)}`}
               </>
             }
@@ -196,7 +197,13 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                               <ol className={styles.list}>
                                 {s.lessons.map((l) => (
                                   <li key={l.id}>
-                                    {l.title} <span className="muted">({humanize(l.type)}</span>
+                                    {/* The player opens in staff preview: nothing is recorded. */}
+                                    <Link
+                                      href={`/learn/${encodeURIComponent(c.id)}?lesson=${encodeURIComponent(l.id)}`}
+                                    >
+                                      {l.title}
+                                    </Link>{' '}
+                                    <span className="muted">({humanize(l.type)}</span>
                                     {l.isFreePreview && (
                                       <span className="muted">, free preview</span>
                                     )}
@@ -232,7 +239,7 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                       ],
                       ['Commission', formatBps(c.commissionRateBps)],
                       ['Teacher proposed', formatBps(c.teacherProposedBps)],
-                      ['Enrollment', c.isEnrollmentOpen ? 'Open' : 'Closed'],
+                      ['Enrolment', c.isEnrollmentOpen ? 'Open' : 'Closed'],
                       ['Created', formatDateTime(c.createdAt)],
                       ['Published', formatDateTime(c.publishedAt)],
                       ['Rejection reason', c.rejectionReason],
@@ -245,22 +252,35 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
             }
             aside={
               <>
+                {(c.status === 'PENDING_APPROVAL' || c.status === 'PUBLISHED') && (
+                  <PricingForm
+                    course={c}
+                    mutation={mutation}
+                    onSaved={() => void course.refetch()}
+                  />
+                )}
                 <Section raised title="Decision">
                   <div className={styles.actions}>
                     {c.status === 'PENDING_APPROVAL' && (
                       <>
-                        <Button
-                          size="sm"
-                          loading={mutation.pending}
-                          onClick={() =>
-                            act(
+                        <ConfirmButton
+                          variant="primary"
+                          question={
+                            <ApproveQuestion
+                              course={c}
+                              open={outline.data ? openChecklistItems(outline.data) : []}
+                            />
+                          }
+                          confirmLabel="Approve and publish"
+                          onConfirm={async () => {
+                            await act(
                               () => adminApi.approveCourse(c.id),
                               'Course approved and published.',
-                            )
-                          }
+                            );
+                          }}
                         >
                           Approve and publish
-                        </Button>
+                        </ConfirmButton>
                         <ReasonAction
                           label="Reject"
                           variant="danger"
@@ -303,31 +323,53 @@ export function CourseDetailScreen({ courseId }: { courseId: string }) {
                       onClick={() =>
                         act(
                           () => adminApi.setCourseEnrollment(c.id, !c.isEnrollmentOpen),
-                          c.isEnrollmentOpen ? 'Enrollment closed.' : 'Enrollment opened.',
+                          c.isEnrollmentOpen ? 'Enrolment closed.' : 'Enrolment opened.',
                         )
                       }
                     >
-                      {c.isEnrollmentOpen ? 'Close enrollment' : 'Open enrollment'}
+                      {c.isEnrollmentOpen ? 'Close enrolment' : 'Open enrolment'}
                     </Button>
                   </div>
                 </Section>
-                {(c.status === 'PENDING_APPROVAL' || c.status === 'PUBLISHED') && (
-                  <PricingForm
-                    course={c}
-                    mutation={mutation}
-                    onSaved={() => void course.refetch()}
-                  />
-                )}
               </>
             }
           />
           <p className="muted">
-            <Link href={`/admin/enrollments?courseId=${c.id}`}>Enrollments in this course</Link> ·{' '}
+            <Link href={`/admin/enrollments?courseId=${c.id}`}>Enrolments in this course</Link> ·{' '}
             <Link href={`/admin/audit?entityId=${c.id}`}>Audit history</Link>
           </p>
         </>
       )}
     </Loadable>
+  );
+}
+
+/** The checklist items still open, by label. */
+function openChecklistItems(outline: Outline): string[] {
+  return reviewChecklist(outline)
+    .filter((item) => !item.done)
+    .map((item) => item.label);
+}
+
+/**
+ * What approving will do, in the reviewer's own terms: the saved price (or "free") and anything on
+ * the checklist still open. Approval publishes at the price *saved* on this page.
+ */
+function ApproveQuestion({ course, open }: { course: AdminCourse; open: string[] }) {
+  return (
+    <span>
+      {course.isFree ? (
+        <>
+          Publish <strong>as a free course</strong>?
+        </>
+      ) : (
+        <>
+          Publish at <Money minor={course.priceMinor} currency={course.currency} /> with{' '}
+          {formatBps(course.commissionRateBps)} commission?
+        </>
+      )}
+      {open.length > 0 && <> Still open: {open.join('; ')}.</>}
+    </span>
   );
 }
 

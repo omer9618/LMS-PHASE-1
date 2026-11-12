@@ -1,4 +1,5 @@
 import type { BadgeTone } from '@/components/ui';
+import { humanize } from './format';
 
 /**
  * The tone of every status the API returns, in one place (Paperlane status chips: a signal is a
@@ -40,4 +41,33 @@ export const STATUS_TONES: Record<string, BadgeTone> = {
 
 export function statusTone(status: string): BadgeTone {
   return STATUS_TONES[status] ?? 'neutral';
+}
+
+/**
+ * The words for a status, the same on every screen and for every role. Only the statuses whose
+ * plain wording differs from "Pending approval"-style humanising are listed.
+ *
+ *   orders   Awaiting payment · Proof submitted · Confirmed · Rejected · Expired
+ *   courses  Draft · In review · Published · Rejected · Archived
+ *   payouts  Pending · Accepted · Concern raised · Resolved
+ */
+export const STATUS_LABELS: Record<string, string> = {
+  PENDING_APPROVAL: 'In review',
+  PROOF_SUBMITTED: 'Proof submitted',
+  VERIFIED: 'Confirmed',
+  DISPUTED: 'Concern raised',
+  LAPSED: 'Expired',
+};
+
+/** Orders: PENDING is "Awaiting payment" here, though payouts use the same word for something else. */
+export const ORDER_STATUS_LABELS: Record<string, string> = {
+  ...STATUS_LABELS,
+  PENDING: 'Awaiting payment',
+};
+
+export function statusLabel(
+  status: string,
+  labels: Record<string, string> = STATUS_LABELS,
+): string {
+  return labels[status] ?? humanize(status);
 }
