@@ -5,6 +5,7 @@ import {
   buildPayoutCoverageEmailLines,
   buildPayoutRecordingPlan,
   isPayoutDueToAutoAccept,
+  payoutRunStatus,
   computePayoutDisputeDeadline,
   CoveredSaleItem,
   PayoutRefusedError,
@@ -295,5 +296,27 @@ describe('payout rules (#85, #86, #87, #88, #89, #113)', () => {
       ageHours: 2,
       ageDays: 0,
     });
+  });
+});
+
+describe('payoutRunStatus', () => {
+  const owed = [{ balanceMinor: 5000n }];
+  const clear = [{ balanceMinor: 0n }, { balanceMinor: -200n }];
+
+  it('is DUE when any currency has a positive balance', () => {
+    expect(payoutRunStatus({ balances: owed, hasDisputedPayout: false })).toBe('DUE');
+    expect(payoutRunStatus({ balances: [...clear, ...owed], hasDisputedPayout: false })).toBe(
+      'DUE',
+    );
+  });
+
+  it('is CLEAR with no balance, a zero balance, or only negative ones', () => {
+    expect(payoutRunStatus({ balances: [], hasDisputedPayout: false })).toBe('CLEAR');
+    expect(payoutRunStatus({ balances: clear, hasDisputedPayout: false })).toBe('CLEAR');
+  });
+
+  it('puts a payout in dispute ahead of everything else', () => {
+    expect(payoutRunStatus({ balances: owed, hasDisputedPayout: true })).toBe('DISPUTED');
+    expect(payoutRunStatus({ balances: [], hasDisputedPayout: true })).toBe('DISPUTED');
   });
 });

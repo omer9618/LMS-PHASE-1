@@ -5,8 +5,7 @@ import {
   decidePaymentConfirmation,
   DecisionFacts,
   minutesBetween,
-  sortQueue,
-  summariseQueue,
+  queueMetrics,
   VerificationRefusedError,
   waitingSince,
 } from './verification.rules';
@@ -210,21 +209,12 @@ describe('queue facts (#63)', () => {
       mismatch: false,
     });
   });
-
-  it('sorts oldest first, stably', () => {
-    const sorted = sortQueue([
-      { orderId: 'b', waitingSince: at('2026-11-02T00:00:00Z') },
-      { orderId: 'c', waitingSince: at('2026-11-01T00:00:00Z') },
-      { orderId: 'a', waitingSince: at('2026-11-02T00:00:00Z') },
-    ]);
-    expect(sorted.map((e) => e.orderId)).toEqual(['c', 'a', 'b']);
-  });
 });
 
 describe('metrics (#67)', () => {
   it('reports size, oldest wait and how many are over the turnaround', () => {
-    const metrics = summariseQueue(
-      [at('2026-10-30T10:00:00Z'), at('2026-11-01T10:00:00Z'), at('2026-11-02T09:00:00Z')],
+    const metrics = queueMetrics(
+      { size: 3, oldestWaitingSince: at('2026-10-30T10:00:00Z'), overTurnaround: 1 },
       48,
       NOW,
     );
@@ -239,20 +229,26 @@ describe('metrics (#67)', () => {
   });
 
   it('counts exactly the turnaround as within it', () => {
-    const m = summariseQueue([at('2026-10-31T10:00:00Z')], 48, NOW);
+    const m = queueMetrics(
+      { size: 1, oldestWaitingSince: at('2026-10-31T10:00:00Z'), overTurnaround: 0 },
+      48,
+      NOW,
+    );
     expect(m.oldestOverTurnaround).toBe(false);
     expect(m.overTurnaroundCount).toBe(0);
   });
 
   it('handles an empty queue', () => {
-    expect(summariseQueue([], 24, NOW)).toEqual({
-      queueSize: 0,
-      turnaroundHours: 24,
-      oldestWaitingSince: null,
-      oldestWaitingMinutes: null,
-      oldestOverTurnaround: false,
-      overTurnaroundCount: 0,
-    });
+    expect(queueMetrics({ size: 0, oldestWaitingSince: null, overTurnaround: 0 }, 24, NOW)).toEqual(
+      {
+        queueSize: 0,
+        turnaroundHours: 24,
+        oldestWaitingSince: null,
+        oldestWaitingMinutes: null,
+        oldestOverTurnaround: false,
+        overTurnaroundCount: 0,
+      },
+    );
   });
 
   it('never reports negative minutes', () => {

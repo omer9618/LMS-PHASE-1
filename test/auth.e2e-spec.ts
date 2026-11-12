@@ -79,6 +79,25 @@ describe('Auth: login, session, logout (#12, #10, #14)', () => {
     await request(app.getHttpServer()).get('/auth/me').set('Cookie', cookie).expect(401);
   });
 
+  it('GET /auth/session answers 200 for everyone: the user when signed in, null for a visitor', async () => {
+    const visitor = await request(app.getHttpServer()).get('/auth/session').expect(200);
+    expect(visitor.body).toEqual({ success: true, data: { user: null } });
+
+    const stale = await request(app.getHttpServer())
+      .get('/auth/session')
+      .set('Cookie', 'lms_session=not-a-real-session')
+      .expect(200);
+    expect(stale.body.data).toEqual({ user: null });
+
+    const cookie = await loginAs(app, SEEDED.admin);
+    const signedIn = await request(app.getHttpServer())
+      .get('/auth/session')
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(signedIn.body.data.user).toMatchObject({ email: SEEDED.admin.email });
+    expect(JSON.stringify(signedIn.body)).not.toMatch(/passwordHash|mfaSecret/);
+  });
+
   it('one account can hold ADMIN and TEACHER at once (#10)', async () => {
     const prisma = app.get(PrismaService);
     const email = 'multi-role@test.local';

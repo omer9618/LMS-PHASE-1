@@ -8,7 +8,8 @@ import type { Env } from '../../../config/env.schema';
 import type { TransactionClient } from '../../../prisma/prisma.types';
 import { TransactionService } from '../../../prisma/transaction.service';
 import { AuditService } from '../../audit/services/audit.service';
-import { AuthTokenDao } from '../dao/auth-token.dao';
+import { EmailService } from '../../email/services/email.service';
+import { AuthTokenDao, AuthTokenRecord } from '../dao/auth-token.dao';
 import { MfaRecoveryCodeDao } from '../dao/mfa-recovery-code.dao';
 import { UserDao, UserMfaState } from '../dao/user.dao';
 import {
@@ -22,6 +23,12 @@ import { hashOpaqueToken, isWellFormedOpaqueToken } from '../domain/opaque-token
 import { generateTotpSecret, otpauthUri, verifyTotp } from '../domain/totp';
 import type { MfaCodeInput, MfaLoginInput } from '../schemas/mfa.schema';
 import { AuthService, ClientContext, SessionGrant } from './auth.service';
+
+/** Wrong guesses a sign-in challenge survives; it is single-use and dies after this many tries. */
+export const MAX_CHALLENGE_ATTEMPTS = 5;
+/** Wrong codes in the window below that pause two-step sign-in for the whole account. */
+export const ACCOUNT_LOCK_FAILURES = 10;
+export const ACCOUNT_LOCK_MINUTES = 15;
 
 export interface MfaStatus {
   enabled: boolean;
@@ -46,6 +53,7 @@ export class MfaService {
     private readonly authService: AuthService,
     private readonly transactions: TransactionService,
     private readonly audit: AuditService,
+    private readonly email: EmailService,
     @Inject(ENV) env: Env,
   ) {
     this.key = parseMfaKey(env.MFA_ENCRYPTION_KEY);
@@ -171,6 +179,40 @@ export class MfaService {
       });
     }
 
+    // Account-wide brake: many wrong codes across challenges pause two-step sign-in for a while.
+    const windowStart = new Date(Date.now() - ACCOUNT_LOCK_MINUTES * 60_000);
+    const recentFailures = await this.audit.countSince(
+      'MFA_LOGIN_FAILED',
+      challenge.userId,
+      windowStart,
+    );
+    if (recentFailures >= ACCOUNT_LOCK_FAILURES) {
+      throw new AppException(ErrorCode.RATE_LIMITED, undefined, undefined, {
+        message: `Too many incorrect codes. Two-step sign-in is paused for ${ACCOUNT_LOCK_MINUTES} minutes.`,
+      });
+    }
+    // Per-challenge brake: spend a guess before checking, so parallel requests cannot out-guess it.
+    if (!(await this.authTokenDao.reserveAttempt(challenge.id, MAX_CHALLENGE_ATTEMPTS))) {
+      throw new AppException(ErrorCode.INVALID_TOKEN, undefined, undefined, {
+        message: 'This sign-in attempt has expired. Sign in again.',
+      });
+    }
+
+    try {
+      return await this.verifyAndStartSession(challenge, input, client);
+    } catch (error) {
+      if (error instanceof AppException && error.code === ErrorCode.INVALID_MFA_CODE) {
+        await this.recordFailure(challenge.userId, challenge.user.email, input, recentFailures + 1);
+      }
+      throw error;
+    }
+  }
+
+  private async verifyAndStartSession(
+    challenge: AuthTokenRecord,
+    input: MfaLoginInput,
+    client: ClientContext,
+  ): Promise<SessionGrant> {
     return this.transactions.run(async (tx) => {
       const state = await this.loadEnabledState(challenge.userId, tx);
       if (input.recoveryCode) {
@@ -201,6 +243,35 @@ export class MfaService {
       if (!user) throw new AppException(ErrorCode.NOT_FOUND);
       return this.authService.startSession(user, client, tx, { mfaVerified: true });
     });
+  }
+
+  /** A wrong second factor is audited (outside the rolled-back transaction); the 10th locks. */
+  private async recordFailure(
+    userId: string,
+    email: string,
+    input: MfaLoginInput,
+    failuresInWindow: number,
+  ): Promise<void> {
+    await this.audit.record({
+      actorUserId: userId,
+      action: 'MFA_LOGIN_FAILED',
+      entityType: 'user',
+      entityId: userId,
+      details: { method: input.recoveryCode ? 'recovery_code' : 'totp', failuresInWindow },
+    });
+    if (failuresInWindow === ACCOUNT_LOCK_FAILURES) {
+      await this.audit.record({
+        actorUserId: userId,
+        action: 'MFA_LOCKED',
+        entityType: 'user',
+        entityId: userId,
+        details: { minutes: ACCOUNT_LOCK_MINUTES },
+      });
+      await this.email.send(email, 'MFA_LOCKED', {
+        minutes: ACCOUNT_LOCK_MINUTES,
+        resetUrl: this.email.appUrl('/forgot-password'),
+      });
+    }
   }
 
   /** Verifies a TOTP code and records its step so it can never be used again. */

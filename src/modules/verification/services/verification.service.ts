@@ -26,9 +26,7 @@ import {
   decidePaymentConfirmation,
   minutesBetween,
   QueueMetrics,
-  sortQueue,
-  summariseQueue,
-  waitingSince,
+  queueMetrics,
 } from '../domain/verification.rules';
 import type {
   ConfirmPaymentInput,
@@ -91,39 +89,37 @@ export class VerificationService {
   async queue(admin: AuthUser, query: QueueQuery): Promise<Paged<VerificationQueueEntry>> {
     adminScope(admin);
     const now = new Date();
-    const [orders, turnaround] = await Promise.all([
-      this.orderService.listAwaitingVerification(),
+    // Sorting and paging happen in the database: the queue can hold thousands of orders, and
+    // only one page of them is ever loaded.
+    const [rows, total, turnaround] = await Promise.all([
+      this.verificationDao.getQueuePage(query.limit, query.offset),
+      this.verificationDao.countQueue(),
       this.platformSettings.get('VERIFICATION_TURNAROUND_HOURS'),
     ]);
-    const sorted = sortQueue(
-      orders.map((order) => ({
-        orderId: order.id,
-        order,
-        waitingSince: waitingSince(order.proofs, order.verifications),
-      })),
+    const orders = new Map(
+      (await this.orderService.listByIds(rows.map((row) => row.orderId))).map((o) => [o.id, o]),
     );
-    const page = sorted.slice(query.offset, query.offset + query.limit);
+    // An order decided since the page was cut is simply no longer in the queue.
+    const page = rows.flatMap((row) => {
+      const order = orders.get(row.orderId);
+      return order ? [{ order, waitingSince: row.waitingSince }] : [];
+    });
     const warnings = await this.orderService.duplicateWarnings(page.map((e) => e.order));
     const items = await Promise.all(
       page.map((entry) =>
         this.toQueueEntry(entry.order, entry.waitingSince, warnings, turnaround, now),
       ),
     );
-    return { items, total: sorted.length, limit: query.limit, offset: query.offset };
+    return { items, total, limit: query.limit, offset: query.offset };
   }
 
   /** #67: queue size and the oldest waiting order against the published turnaround. */
   async metrics(admin: AuthUser): Promise<QueueMetrics> {
     adminScope(admin);
-    const [orders, turnaround] = await Promise.all([
-      this.orderService.listAwaitingVerification(),
-      this.platformSettings.get('VERIFICATION_TURNAROUND_HOURS'),
-    ]);
-    return summariseQueue(
-      orders.map((o) => waitingSince(o.proofs, o.verifications)),
-      turnaround,
-      new Date(),
-    );
+    const now = new Date();
+    const turnaround = await this.platformSettings.get('VERIFICATION_TURNAROUND_HOURS');
+    const stats = await this.verificationDao.getQueueStats(now, turnaround * 60);
+    return queueMetrics(stats, turnaround, now);
   }
 
   /**

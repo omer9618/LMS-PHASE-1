@@ -44,7 +44,7 @@ export function SearchBox({
         hideLabel
         type="search"
         name="q"
-        placeholder="Search by title, subject, syllabus or teacher"
+        placeholder="Search courses or teachers"
         value={draft}
         maxLength={100}
         onChange={(e) => setDraft(e.target.value)}

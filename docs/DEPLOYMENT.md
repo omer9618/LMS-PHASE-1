@@ -45,6 +45,7 @@ How the API is built, shipped and run on a VPS (#5, #6, #121, #122). Environment
 **Web app.** `web/Dockerfile` builds the Next.js standalone server. It runs in the `web` service (on when `.env` has `COMPOSE_PROFILES=web`, the template default) with the network alias `<STACK_NAME>-web`, which the web block of `sites/<env>.caddy` points at. `deploy.sh` rolls it right after the API, with the same tag. Two values are fixed when the image is built, not when it starts:
 
 - **`API_URL`** (default `http://api:3000`, the API's address inside every environment). Next.js resolves `rewrites()` at build time and writes the target into the build output, so a different runtime `API_URL` has no effect. The container checks the runtime `API_URL` against the built one and refuses to start on a mismatch. To use another address, rebuild with `--build-arg API_URL=...`.
+- **`SITE_URL`** is read when the container starts, not when the image is built: set it in the stack `.env` (`https://<web-domain>`). It lets `/sitemap.xml` use absolute links and `robots.txt` point at it.
 - **`NEXT_PUBLIC_TURNSTILE_SITE_KEY`**, inlined into the browser bundle. It comes from the repository variable `TURNSTILE_SITE_KEY`. Use one Turnstile widget that lists every environment's web hostname, so a single image serves staging and production.
 
 Nothing secret is in the repository. Every secret lives in a `chmod 600` file on the server or in GitHub secrets.

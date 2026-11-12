@@ -57,9 +57,26 @@ At the time of review the matrix has 114 routes: 17 public, 1 optional-auth, 33 
 - `package.json`: nodemailer ^10.3.1; `overrides.multer` ^2.5.0; lockfile refreshed with `npm audit fix`.
 - Tests: `test/access-control.e2e-spec.ts` (the matrix), `test/http-security.e2e-spec.ts` (headers, CORS, Origin check), and unit tests for redaction, the webhook compare and the env rules.
 
+## QA review, November 2026
+
+A second pass on the running system (probes against the API, a browser crawl, volume timings). What it found and what was done:
+
+- **Two-step sign-in could be out-guessed.** A wrong code never used up the challenge, so the per-IP limit was the only brake. Now: five guesses per challenge (spent atomically before checking), ten wrong codes per account in 15 minutes pause two-step sign-in, email the owner and are audited.
+- **Open redirect after sign-in.** `safeNextPath` accepted `/<tab>/evil.example`, which browsers read as `//evil.example`. It now refuses control characters and backslashes and resolves the path the way a browser would.
+- **NUL bytes gave 500s.** Postgres cannot store `\u0000`. One check in `ZodValidationPipe` refuses it everywhere with a 400, and the exception filter maps the database error (`22021`) to 400 as a backstop.
+- **LIKE wildcards in search** are escaped (`common/like.ts`).
+- **Names** refuse control characters, bidirectional overrides and zero-width characters (`displayText`); zero-width non-joiner stays, because Urdu and Persian need it.
+- **Rate limits** key sign-in by email as well as IP, count only searches against the search limit, and send `Retry-After` on every 429. Email verification has a limit. Counters stay in memory (one API container).
+- **Logs**: a rejected request logs its field names, never the values; 5xx logs keep the body with emails, phone numbers, names and bank references redacted.
+- **An unconfigured video webhook** answers 404, not 500.
+- **Web**: a static CSP baseline (`object-src 'none'`, `base-uri`, `form-action`, `frame-ancestors`). A script policy needs a per-request nonce and dynamic rendering of every page, so it is a separate decision (see the comment in `web/next.config.ts`).
+- **Caddy** is pinned to a minor version, because the two-hop `TRUST_PROXY_HOPS` relies on Caddy replacing a client's `X-Forwarded-For`.
+
+Accepted: registration still answers 409 for an existing email (see finding list above); the registration limit keeps enumeration slow.
+
 ## For deployment (#120–#122)
 
 - Terminate TLS at the reverse proxy. Set `TRUST_PROXY_HOPS=1`, `SESSION_COOKIE_NAME=__Host-lms_session` (now enforced), and `APP_PUBLIC_URL` / `API_PUBLIC_URL` to the real origins (they drive the CORS allowlist and the Origin check).
 - Keep HSTS on, and consider HSTS preload once the domain is final.
 - Add `npm audit --omit=dev --audit-level=high` to CI, and enable Dependabot or Renovate.
-- The rate-limit store is in-process: run one API instance, or move it to a shared store before scaling out.
+- The rate-limit store is in-process: run one API instance in steady state (a deploy briefly runs two), or move it to a shared store before scaling out for good.

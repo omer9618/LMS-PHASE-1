@@ -73,6 +73,7 @@ ul.actions {
 
 /* Verification queue rows. */
 .rowButton {
+  white-space: nowrap;
   padding: 0;
   border: 0;
   background: transparent;
@@ -93,6 +94,15 @@ ul.actions {
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+/* One line with an ellipsis; the full text goes in the title attribute. */
+.clip {
+  display: block;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bad {

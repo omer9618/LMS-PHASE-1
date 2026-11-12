@@ -4,6 +4,7 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { AuditModule } from '../audit/audit.module';
 import { AccountController } from './controllers/account.controller';
+import { AccountSettingsController } from './controllers/account-settings.controller';
 import { AdminUsersController } from './controllers/admin-users.controller';
 import { AuthController } from './controllers/auth.controller';
 import { MfaController } from './controllers/mfa.controller';
@@ -12,6 +13,7 @@ import { MfaRecoveryCodeDao } from './dao/mfa-recovery-code.dao';
 import { SessionDao } from './dao/session.dao';
 import { UserDao } from './dao/user.dao';
 import { AccountService } from './services/account.service';
+import { AccountSettingsService } from './services/account-settings.service';
 import { AuthService } from './services/auth.service';
 import { MfaService } from './services/mfa.service';
 import { UserAdminService } from './services/user-admin.service';
@@ -19,10 +21,17 @@ import { SessionCookie } from './session-cookie';
 
 @Module({
   imports: [AuditModule],
-  controllers: [AuthController, AccountController, MfaController, AdminUsersController],
+  controllers: [
+    AuthController,
+    AccountController,
+    AccountSettingsController,
+    MfaController,
+    AdminUsersController,
+  ],
   providers: [
     AuthService,
     AccountService,
+    AccountSettingsService,
     MfaService,
     UserAdminService,
     SessionCookie,

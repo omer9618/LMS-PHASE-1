@@ -1,11 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import {
   Badge,
+  Button,
   ButtonLink,
   Loadable,
   PageHeader,
+  Select,
   StatGrid,
   StatTile,
   type BadgeTone,
@@ -39,9 +42,79 @@ export function sortEntries(entries: DashboardEntry[]): DashboardEntry[] {
   });
 }
 
+export type DashboardSort = 'recent' | 'progress' | 'title';
+export type DashboardFilter = 'all' | 'in-progress' | 'not-started' | 'completed' | 'ended';
+
+export const SORT_LABELS: Record<DashboardSort, string> = {
+  recent: 'Recently enrolled',
+  progress: 'Continue first',
+  title: 'Title (A–Z)',
+};
+
+export const FILTER_LABELS: Record<DashboardFilter, string> = {
+  all: 'All courses',
+  'in-progress': 'In progress',
+  'not-started': 'Not started',
+  completed: 'Completed',
+  ended: 'Expired or removed',
+};
+
+/** How many course cards show before "Show more", so a long list stays easy to scan. */
+export const PAGE_SIZE = 12;
+
+const percentOf = (entry: DashboardEntry) => Math.round(entry.completionPercent ?? 0);
+
+function matchesFilter(entry: DashboardEntry, filter: DashboardFilter): boolean {
+  const active = entry.access === 'ACTIVE';
+  switch (filter) {
+    case 'all':
+      return true;
+    case 'ended':
+      return !active;
+    case 'completed':
+      return active && percentOf(entry) >= 100;
+    case 'in-progress':
+      return active && percentOf(entry) > 0 && percentOf(entry) < 100;
+    case 'not-started':
+      return active && percentOf(entry) === 0;
+  }
+}
+
+export function filterEntries(
+  entries: DashboardEntry[],
+  filter: DashboardFilter,
+): DashboardEntry[] {
+  return entries.filter((entry) => matchesFilter(entry, filter));
+}
+
+/**
+ * The cards in the order asked for. "Continue first" puts courses under way ahead of ones not
+ * started, then finished ones and ended access, with the furthest along first, so the course to
+ * pick up is at the top.
+ */
+export function orderEntries(entries: DashboardEntry[], sort: DashboardSort): DashboardEntry[] {
+  if (sort === 'title') {
+    return [...entries].sort((a, b) => a.course.title.localeCompare(b.course.title));
+  }
+  if (sort === 'progress') {
+    const rank = (entry: DashboardEntry) => {
+      if (entry.access !== 'ACTIVE') return 3;
+      const percent = percentOf(entry);
+      return percent >= 100 ? 2 : percent > 0 ? 0 : 1;
+    };
+    return sortEntries(entries).sort(
+      (a, b) => rank(a) - rank(b) || (rank(a) === 0 ? percentOf(b) - percentOf(a) : 0),
+    );
+  }
+  return sortEntries(entries);
+}
+
 /** #52: the student's courses with completion. */
 export function StudentDashboard() {
   const { status, user } = useSession();
+  const [sort, setSort] = useState<DashboardSort>('recent');
+  const [filter, setFilter] = useState<DashboardFilter>('all');
+  const [shown, setShown] = useState(PAGE_SIZE);
   const enrollments = useQuery({
     queryKey: ['enrollments', user?.id],
     queryFn: ({ signal }) => enrollmentApi.mine(signal),
@@ -83,6 +156,7 @@ export function StudentDashboard() {
             );
           }
           const summary = summarise(entries);
+          const visible = orderEntries(filterEntries(entries, filter), sort);
           return (
             <>
               <StatGrid label="Your progress">
@@ -93,13 +167,53 @@ export function StudentDashboard() {
                   value={`${summary.lessonsDone} / ${summary.lessonsTotal}`}
                 />
               </StatGrid>
-              <ul className={styles.list}>
-                {sortEntries(entries).map((entry) => (
-                  <li key={entry.id}>
-                    <EnrollmentCard entry={entry} />
-                  </li>
-                ))}
-              </ul>
+              {entries.length > 1 && (
+                <div className={styles.controls}>
+                  <Select
+                    label="Show"
+                    value={filter}
+                    onChange={(e) => {
+                      setFilter(e.target.value as DashboardFilter);
+                      setShown(PAGE_SIZE);
+                    }}
+                  >
+                    {Object.entries(FILTER_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </Select>
+                  <Select
+                    label="Sort by"
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value as DashboardSort)}
+                  >
+                    {Object.entries(SORT_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              )}
+              {visible.length === 0 ? (
+                <p className="muted">No courses match this filter.</p>
+              ) : (
+                <ul className={styles.list}>
+                  {visible.slice(0, shown).map((entry) => (
+                    <li key={entry.id}>
+                      <EnrollmentCard entry={entry} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {visible.length > shown && (
+                <div>
+                  <Button variant="secondary" onClick={() => setShown((n) => n + PAGE_SIZE)}>
+                    Show more ({visible.length - shown} more)
+                  </Button>
+                </div>
+              )}
             </>
           );
         }}

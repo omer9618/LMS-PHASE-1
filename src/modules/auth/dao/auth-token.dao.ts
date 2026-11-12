@@ -44,6 +44,18 @@ export class AuthTokenDao {
     return count === 1;
   }
 
+  /**
+   * Spends one guess on a challenge, atomically, before the code is checked: parallel requests
+   * cannot get more than `maxAttempts` guesses between them. False once they are used up.
+   */
+  async reserveAttempt(id: string, maxAttempts: number): Promise<boolean> {
+    const { count } = await this.prisma.authToken.updateMany({
+      where: { id, usedAt: null, attempts: { lt: maxAttempts } },
+      data: { attempts: { increment: 1 } },
+    });
+    return count === 1;
+  }
+
   /** Retires every unused token of a purpose for a user (e.g. when a new one is issued). */
   async retireAuthTokensBy(
     userId: string,

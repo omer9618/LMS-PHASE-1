@@ -58,6 +58,12 @@
 .userName {
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.userName:hover {
+  text-decoration: underline;
 }
 
 .banner {
@@ -74,4 +80,65 @@
   margin: 0 auto;
   padding: var(--space-2) var(--page-gutter);
   font-size: var(--text-sm);
+}
+
+/* The links and account controls. On wide screens the wrapper disappears from layout. */
+.panel {
+  display: contents;
+}
+
+.menuButton {
+  display: none;
+  min-height: var(--control-height);
+  margin-left: auto;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+/* Narrow screens: brand and Menu on one row; the rest drops below when opened. */
+@media (max-width: 40rem) {
+  .inner {
+    flex-wrap: wrap;
+    min-height: 0;
+  }
+
+  .menuButton {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .panel {
+    display: none;
+    flex: 1 1 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+    padding-bottom: var(--space-3);
+  }
+
+  .panel[data-open='true'] {
+    display: flex;
+  }
+
+  .nav {
+    flex-direction: column;
+    flex: 0 0 auto;
+  }
+
+  .nav a {
+    min-height: 2.75rem;
+  }
+
+  .account {
+    margin-left: 0;
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-border);
+  }
 }

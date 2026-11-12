@@ -14,6 +14,7 @@ import {
   updateFilters,
   type CatalogueFilters,
 } from '@/lib/catalogue-url';
+import { pageWindow } from '@/lib/pagination';
 import { useQuery } from '@tanstack/react-query';
 import { CourseCard } from './CourseCard';
 import { CatalogueFiltersPanel, SearchBox, SortSelect } from './CatalogueFilters';
@@ -101,24 +102,22 @@ export function CatalogueBrowser() {
 
       <section className={styles.results} aria-labelledby="results-heading">
         <div className={styles.resultsBar}>
-          <div>
-            <h2 id="results-heading" className={styles.resultsHeading} aria-live="polite">
-              {listing.status === 'success'
-                ? `${listing.data.total} ${listing.data.total === 1 ? 'course' : 'courses'}`
-                : listing.status === 'pending'
-                  ? 'Loading courses…'
-                  : 'Courses'}
-            </h2>
-            {listing.status === 'success' && (
-              // #44: the backend states its ordering criterion; show it with the results.
-              <p className="hint">
-                <span className="visually-hidden">Ordering: </span>
-                {listing.data.ordering}
-              </p>
-            )}
-          </div>
+          <h2 id="results-heading" className={styles.resultsHeading} aria-live="polite">
+            {listing.status === 'success'
+              ? `${listing.data.total} ${listing.data.total === 1 ? 'course' : 'courses'}`
+              : listing.status === 'pending'
+                ? 'Loading courses…'
+                : 'Courses'}
+          </h2>
           <SortSelect value={filters.sort} onChange={(sort) => apply({ sort })} />
         </div>
+        {listing.status === 'success' && (
+          // #44: the backend states its ordering criterion; show it with the results.
+          <p className="hint">
+            <span className="visually-hidden">Ordering: </span>
+            {listing.data.ordering}
+          </p>
+        )}
 
         {listing.status === 'error' && (
           <Alert tone="danger" title="Could not load courses">
@@ -148,22 +147,42 @@ export function CatalogueBrowser() {
             {pageCount > 1 && (
               <nav className={styles.pagination} aria-label="Pages">
                 {filters.page > 1 ? (
-                  <Link href={pageHref(filters.page - 1)} rel="prev">
+                  <Link href={pageHref(filters.page - 1)} rel="prev" className={styles.pageStep}>
                     <Icon name="arrowLeft" /> Previous
                   </Link>
                 ) : (
                   <span />
                 )}
-                <span>
+                <p className={styles.pageStatus}>
                   Page {filters.page} of {pageCount}
-                </span>
+                </p>
                 {filters.page < pageCount ? (
-                  <Link href={pageHref(filters.page + 1)} rel="next">
+                  <Link href={pageHref(filters.page + 1)} rel="next" className={styles.pageStep}>
                     Next <Icon name="arrowRight" />
                   </Link>
                 ) : (
                   <span />
                 )}
+                <ol className={styles.pageNumbers}>
+                  {pageWindow(filters.page, pageCount).map((slot, index) =>
+                    slot === 'gap' ? (
+                      <li key={`gap-${index}`} aria-hidden="true" className={styles.pageGap}>
+                        …
+                      </li>
+                    ) : (
+                      <li key={slot}>
+                        <Link
+                          href={pageHref(slot)}
+                          className={styles.pageNumber}
+                          aria-current={slot === filters.page ? 'page' : undefined}
+                          aria-label={`Page ${slot}`}
+                        >
+                          {slot}
+                        </Link>
+                      </li>
+                    ),
+                  )}
+                </ol>
               </nav>
             )}
           </>

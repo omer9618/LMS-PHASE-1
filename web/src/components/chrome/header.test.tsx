@@ -86,6 +86,28 @@ describe('SiteHeader', () => {
     expect(await screen.findByRole('link', { name: 'Sign in' })).toBeVisible();
   });
 
+  it('hides the shopping links from an admin-only account', async () => {
+    renderWithSession(<SiteHeader />, { ...STUDENT, roles: ['ADMIN'], mfaEnabled: true });
+    expect(await screen.findByRole('link', { name: 'Admin' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'My orders' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^Cart/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps the links behind a Menu button that opens, closes and answers Escape', async () => {
+    renderWithSession(<SiteHeader />, STUDENT);
+    const menu = await screen.findByRole('button', { name: 'Menu' });
+    expect(menu).toHaveAttribute('aria-expanded', 'false');
+    expect(menu).toHaveAttribute('aria-controls');
+    expect(document.getElementById(menu.getAttribute('aria-controls') as string)).toContainElement(
+      screen.getByRole('link', { name: 'My learning' }),
+    );
+
+    await userEvent.click(menu);
+    expect(screen.getByRole('button', { name: 'Close' })).toHaveAttribute('aria-expanded', 'true');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByRole('button', { name: 'Menu' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('falls back to the email when there is no name', async () => {
     renderWithSession(<SiteHeader />, { ...STUDENT, fullName: null });
     expect(await screen.findByText('ayesha@example.com')).toBeVisible();

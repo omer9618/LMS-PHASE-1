@@ -192,17 +192,6 @@ export function minutesBetween(from: Date, to: Date): number {
   return Math.max(0, Math.floor((to.getTime() - from.getTime()) / 60_000));
 }
 
-/** #63: oldest first; ties broken by id so the order is stable. */
-export function sortQueue<T extends { orderId: string; waitingSince: Date | null }>(
-  entries: readonly T[],
-): T[] {
-  return [...entries].sort((a, b) => {
-    const at = a.waitingSince?.getTime() ?? 0;
-    const bt = b.waitingSince?.getTime() ?? 0;
-    return at - bt || a.orderId.localeCompare(b.orderId);
-  });
-}
-
 export interface QueueMetrics {
   queueSize: number;
   turnaroundHours: number;
@@ -213,23 +202,25 @@ export interface QueueMetrics {
   overTurnaroundCount: number;
 }
 
+/** What the database counted about the queue (see VerificationDao.getQueueStats). */
+export interface QueueStats {
+  size: number;
+  oldestWaitingSince: Date | null;
+  /** Orders waiting longer than the turnaround. */
+  overTurnaround: number;
+}
+
 /** #67: queue size, oldest waiting order, and how many are past the published turnaround. */
-export function summariseQueue(
-  waitingSinces: readonly (Date | null)[],
-  turnaroundHours: number,
-  now: Date,
-): QueueMetrics {
-  const known = waitingSinces.filter((d): d is Date => d !== null);
-  const oldest = known.length ? new Date(Math.min(...known.map((d) => d.getTime()))) : null;
-  const limitMinutes = turnaroundHours * 60;
-  const over = known.filter((d) => minutesBetween(d, now) > limitMinutes).length;
-  const oldestMinutes = oldest ? minutesBetween(oldest, now) : null;
+export function queueMetrics(stats: QueueStats, turnaroundHours: number, now: Date): QueueMetrics {
+  const oldestMinutes = stats.oldestWaitingSince
+    ? minutesBetween(stats.oldestWaitingSince, now)
+    : null;
   return {
-    queueSize: waitingSinces.length,
+    queueSize: stats.size,
     turnaroundHours,
-    oldestWaitingSince: oldest,
+    oldestWaitingSince: stats.oldestWaitingSince,
     oldestWaitingMinutes: oldestMinutes,
-    oldestOverTurnaround: oldestMinutes !== null && oldestMinutes > limitMinutes,
-    overTurnaroundCount: over,
+    oldestOverTurnaround: oldestMinutes !== null && oldestMinutes > turnaroundHours * 60,
+    overTurnaroundCount: stats.overTurnaround,
   };
 }

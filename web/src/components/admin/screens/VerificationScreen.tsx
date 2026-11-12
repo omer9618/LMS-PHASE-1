@@ -32,7 +32,7 @@ import {
   type VerificationQueueEntry,
 } from '@/lib/api/admin-finance';
 import { formatAgeHours, formatAgeMinutes, formatDateTime, humanize, todayIso } from '@/lib/format';
-import { minorToMajorInput, minorUnitExponent, parseMajorToMinor } from '@/lib/money';
+import { minorUnitExponent, parseMajorToMinor } from '@/lib/money';
 import { absMinor, checkReceived, MISMATCH_LABELS } from '@/lib/admin/verification';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import styles from '../Admin.module.css';
@@ -157,7 +157,10 @@ function queueColumns(
       cell: (e) => (
         <span className={styles.stacked}>
           <b>{e.student.fullName || e.student.email}</b>
-          <span className="muted">
+          <span
+            className={`muted ${styles.clip}`}
+            title={e.items.map((item) => item.courseTitle).join('; ')}
+          >
             {e.items.length === 1 ? e.items[0]!.courseTitle : `${e.items.length} courses`}
           </span>
         </span>
@@ -168,19 +171,6 @@ function queueColumns(
       header: 'Total',
       numeric: true,
       cell: (e) => <Money minor={e.totalMinor} currency={e.currency} />,
-    },
-    {
-      key: 'claimed',
-      header: 'Claimed',
-      numeric: true,
-      cell: (e) =>
-        e.claimed.claimedMinor ? (
-          <span className={e.claimed.mismatch ? styles.bad : undefined}>
-            <Money minor={e.claimed.claimedMinor} currency={e.currency} />
-          </span>
-        ) : (
-          '—'
-        ),
     },
     {
       key: 'waiting',
@@ -261,7 +251,7 @@ function ReviewPanel({
         orderId={entry.orderId}
         totalMinor={entry.totalMinor}
         currency={entry.currency}
-        suggestedMinor={entry.claimed.claimedMinor ?? entry.totalMinor}
+        claimedMinor={entry.claimed.claimedMinor}
         onDecided={onDecided}
       />
     </Section>
@@ -321,19 +311,22 @@ export function DecisionPanel({
   orderId,
   totalMinor,
   currency,
-  suggestedMinor,
+  claimedMinor,
   onDecided,
 }: {
   orderId: string;
   totalMinor: string;
   currency: string;
-  suggestedMinor: string;
+  /** What the student says they sent. Shown for comparison, never filled in for the admin. */
+  claimedMinor?: string | null;
   onDecided: () => void;
 }) {
   const exponent = minorUnitExponent(currency);
   const [mode, setMode] = useState<'confirm' | 'reject'>('confirm');
-  const [received, setReceived] = useState(minorToMajorInput(suggestedMinor, exponent));
-  const [valueDate, setValueDate] = useState(todayIso());
+  // Both start empty on purpose: the admin types what the bank statement shows. A pre-filled
+  // amount or date turns checking a transfer into clicking through it.
+  const [received, setReceived] = useState('');
+  const [valueDate, setValueDate] = useState('');
   const [action, setAction] = useState<MismatchAction | ''>('');
   const [reason, setReason] = useState<RejectionReason>('NO_PAYMENT_RECEIVED');
   const [notes, setNotes] = useState('');
@@ -409,7 +402,7 @@ export function DecisionPanel({
               label={`Amount received (${currency})`}
               inputMode="decimal"
               value={received}
-              hint="All transfers for this order together, as seen in the bank."
+              hint="Type what the bank statement shows: all transfers for this order together."
               onChange={(e) => setReceived(e.target.value)}
             />
             <Input
@@ -420,6 +413,14 @@ export function DecisionPanel({
               onChange={(e) => setValueDate(e.target.value)}
             />
           </div>
+          {claimedMinor && receivedMinor && receivedMinor !== claimedMinor && (
+            <Alert tone="info" title="Different from what the student claimed">
+              <p>
+                You entered <Money minor={receivedMinor} currency={currency} />; the student claimed{' '}
+                <Money minor={claimedMinor} currency={currency} />. Check the statement again.
+              </p>
+            </Alert>
+          )}
           {check && check.kind !== 'exact' && (
             <>
               <Alert tone="warning" title="Amount mismatch">

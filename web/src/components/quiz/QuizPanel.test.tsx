@@ -123,7 +123,7 @@ describe('QuizPanel (#75)', () => {
     expect(await screen.findByText(/Question 1 of 2/)).toBeInTheDocument();
     expect(screen.getByText(/Time left/).parentElement).toHaveTextContent(/\d+:\d\d/);
     // LaTeX is rendered by KaTeX.
-    expect(document.querySelector('.katex')).not.toBeNull();
+    await waitFor(() => expect(document.querySelector('.katex')).not.toBeNull());
 
     // Choosing an option saves at once.
     await userEvent.click(screen.getAllByRole('radio')[1]!);

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, VideoStatus } from '@prisma/client';
 import { AppException } from '../../../common/errors/app.exception';
 import { ErrorCode } from '../../../common/errors/error-codes';
+import { containsText } from '../../../common/like';
 import { CatalogueDao, CourseCardRecord, CourseDetailRecord } from '../dao/catalogue.dao';
 import { describePriceFilter, ORDERING_STATEMENTS, sortKeys } from '../domain/catalogue.rules';
 import type { CatalogueQuery } from '../schemas/catalogue.schema';
@@ -157,7 +158,7 @@ export class CatalogueService {
   private buildWhere(query: CatalogueQuery): Prisma.CourseWhereInput {
     const and: Prisma.CourseWhereInput[] = [];
     if (query.q) {
-      const contains = { contains: query.q, mode: 'insensitive' as const };
+      const contains = containsText(query.q);
       and.push({
         OR: [
           { title: contains },

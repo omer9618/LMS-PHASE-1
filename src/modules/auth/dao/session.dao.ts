@@ -49,6 +49,23 @@ export class SessionDao {
     await (tx ?? this.prisma).session.update({ where: { id }, data, select: { id: true } });
   }
 
+  /** The user's sessions that have not been signed out or run past their absolute expiry. */
+  listSessionsBy(userId: string, now: Date) {
+    return this.prisma.session.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: now } },
+      orderBy: { lastSeenAt: 'desc' },
+      select: {
+        id: true,
+        createdAt: true,
+        lastSeenAt: true,
+        expiresAt: true,
+        revokedAt: true,
+        ipAddress: true,
+        userAgent: true,
+      },
+    });
+  }
+
   /** Revokes every live session matching `where`. Used by logout and, later, password reset (#13). */
   async revokeSessionsBy(
     where: Prisma.SessionWhereInput,

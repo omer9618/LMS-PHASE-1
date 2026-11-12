@@ -4,7 +4,7 @@ import request from 'supertest';
 import { totpAt } from '../src/modules/auth/domain/totp';
 import { hashPassword } from '../src/modules/auth/services/passwords';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { uniqueEmail } from './utils/email';
+import { mailbox, uniqueEmail } from './utils/email';
 import { createTestApp } from './utils/test-app';
 
 const PASSWORD = 'admin passphrase for mfa tests';
@@ -129,7 +129,88 @@ describe('MFA for admin accounts (#16)', () => {
       where: { actor: { email }, action: { startsWith: 'MFA_' } },
       select: { action: true },
     });
-    expect(audit.map((a) => a.action).sort()).toEqual(['MFA_ENABLED', 'MFA_RECOVERY_CODE_USED']);
+    // Two wrong second factors were refused above (a replayed code and a spent recovery code).
+    expect(audit.map((a) => a.action).sort()).toEqual([
+      'MFA_ENABLED',
+      'MFA_LOGIN_FAILED',
+      'MFA_LOGIN_FAILED',
+      'MFA_RECOVERY_CODE_USED',
+    ]);
+  });
+
+  /** An admin with MFA enrolled; returns what the tests below need to sign in. */
+  async function enrolledAdmin() {
+    const email = await createUser([Role.ADMIN]);
+    const cookie = cookieOf(await login(email).expect(200));
+    const { secret } = (await http().post('/auth/mfa/setup').set('Cookie', cookie).expect(200)).body
+      .data;
+    await http()
+      .post('/auth/mfa/enable')
+      .set('Cookie', cookie)
+      .send({ code: codeIn(secret, 0) })
+      .expect(200);
+    const challenge = async () => (await login(email).expect(200)).body.data.challengeToken;
+    return { email, secret, challenge };
+  }
+  const wrongCode = (challengeToken: string) =>
+    http().post('/auth/login/mfa').send({ challengeToken, code: '000000' });
+
+  it('burns a sign-in challenge after five wrong codes, even for the right code afterwards', async () => {
+    const { secret, challenge } = await enrolledAdmin();
+    const token = await challenge();
+    for (let i = 0; i < 5; i++) await wrongCode(token).expect(401);
+
+    const right = await http()
+      .post('/auth/login/mfa')
+      .send({ challengeToken: token, code: codeIn(secret, 1) })
+      .expect(400);
+    expect(right.body.error.name).toBe('INVALID_TOKEN');
+    expect(right.headers['set-cookie']).toBeUndefined();
+
+    // A fresh sign-in works again.
+    const fresh = await challenge();
+    await http()
+      .post('/auth/login/mfa')
+      .send({ challengeToken: fresh, code: codeIn(secret, 1) })
+      .expect(200);
+  });
+
+  it('spends guesses before checking them, so parallel requests cannot out-guess the limit', async () => {
+    const { secret, challenge } = await enrolledAdmin();
+    const token = await challenge();
+    const results = await Promise.all(Array.from({ length: 12 }, () => wrongCode(token)));
+    expect(results.filter((r) => r.status === 401)).toHaveLength(5);
+    expect(results.filter((r) => r.status === 400)).toHaveLength(7);
+    await http()
+      .post('/auth/login/mfa')
+      .send({ challengeToken: token, code: codeIn(secret, 1) })
+      .expect(400);
+  });
+
+  it('pauses two-step sign-in after ten wrong codes, emails the owner and audits it', async () => {
+    const { email, secret, challenge } = await enrolledAdmin();
+    for (let i = 0; i < 2; i++) {
+      const token = await challenge();
+      for (let j = 0; j < 5; j++) await wrongCode(token).expect(401);
+    }
+
+    // Even the right code is refused while paused, and it is not a challenge problem.
+    const pausedChallenge = await challenge();
+    const paused = await http()
+      .post('/auth/login/mfa')
+      .send({ challengeToken: pausedChallenge, code: codeIn(secret, 1) })
+      .expect(429);
+    expect(paused.body.error.name).toBe('RATE_LIMITED');
+    expect(paused.headers['set-cookie']).toBeUndefined();
+
+    const mail = mailbox(app).lastTo(email, 'MFA_LOCKED');
+    expect(mail?.subject).toContain('paused');
+    const actions = await app.get(PrismaService).auditLog.findMany({
+      where: { actor: { email }, action: { in: ['MFA_LOGIN_FAILED', 'MFA_LOCKED'] } },
+      select: { action: true },
+    });
+    expect(actions.filter((a) => a.action === 'MFA_LOGIN_FAILED')).toHaveLength(10);
+    expect(actions.filter((a) => a.action === 'MFA_LOCKED')).toHaveLength(1);
   });
 
   it('non-admins are not forced into MFA but may enable and disable it', async () => {

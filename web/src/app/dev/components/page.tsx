@@ -2,7 +2,11 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ComponentShowcase } from './ComponentShowcase';
 
-export const metadata: Metadata = { title: 'Components', robots: { index: false } };
+// Not in production: the page 404s there, so its title must not leak the page's existence.
+export const metadata: Metadata =
+  process.env.NODE_ENV === 'production'
+    ? { title: 'Page not found', robots: { index: false } }
+    : { title: 'Components', robots: { index: false } };
 
 /** #7: the base primitives in both densities. Development only: 404 in production builds. */
 export default function DevComponentsPage() {

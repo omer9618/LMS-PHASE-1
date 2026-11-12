@@ -52,6 +52,17 @@ export interface MeView extends UserView {
   availableContexts: ContextRole[];
 }
 
+/** One of the caller's own signed-in devices, as the account page lists it. */
+export interface SessionView {
+  id: string;
+  createdAt: Date;
+  lastSeenAt: Date;
+  ipAddress: string | null;
+  userAgent: string | null;
+  /** The session making this request. */
+  current: boolean;
+}
+
 export interface ClientContext {
   ipAddress?: string;
   userAgent?: string;
@@ -176,6 +187,51 @@ export class AuthService {
   /** Signs a user out everywhere (password reset #13, suspension #15). */
   async revokeAllSessions(userId: string, tx?: TransactionClient): Promise<void> {
     await this.sessionDao.revokeSessionsBy({ userId }, new Date(), tx);
+  }
+
+  /** The caller's own live sessions, most recently used first. */
+  async listSessions(user: AuthUser): Promise<SessionView[]> {
+    const now = new Date();
+    const rows = await this.sessionDao.listSessionsBy(user.id, now);
+    return rows
+      .filter((row) => rejectSession({ ...row, userStatus: 'ACTIVE' }, now, this.policy) === null)
+      .map((row) => ({
+        id: row.id,
+        createdAt: row.createdAt,
+        lastSeenAt: row.lastSeenAt,
+        ipAddress: row.ipAddress,
+        userAgent: row.userAgent,
+        current: row.id === user.sessionId,
+      }));
+  }
+
+  /** Signs one of the caller's other devices out. Someone else's session is simply not found. */
+  async revokeOwnSession(user: AuthUser, sessionId: string): Promise<void> {
+    if (sessionId === user.sessionId) {
+      throw new AppException(ErrorCode.CONFLICT, undefined, undefined, {
+        message: 'This is the session you are using. Use sign out to end it.',
+      });
+    }
+    const ended = await this.sessionDao.revokeSessionsBy(
+      { id: sessionId, userId: user.id },
+      new Date(),
+    );
+    if (ended === 0) throw new AppException(ErrorCode.NOT_FOUND);
+    await this.audit.record({
+      actorUserId: user.id,
+      action: 'SESSION_REVOKED',
+      entityType: 'user',
+      entityId: user.id,
+    });
+  }
+
+  /** Signs every device out except the one making the request. Returns how many were ended. */
+  async revokeOtherSessions(user: AuthUser, tx?: TransactionClient): Promise<number> {
+    return this.sessionDao.revokeSessionsBy(
+      { userId: user.id, id: { not: user.sessionId } },
+      new Date(),
+      tx,
+    );
   }
 
   /** Resolves a session cookie to the caller, or null if it is missing, dead or revoked. */

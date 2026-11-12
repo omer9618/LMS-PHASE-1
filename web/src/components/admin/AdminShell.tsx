@@ -125,6 +125,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </>
         ) : (
           <div className={styles.gate}>
+            <h1 className="visually-hidden">Admin area</h1>
             <Gate access={access} user={user} />
           </div>
         )}

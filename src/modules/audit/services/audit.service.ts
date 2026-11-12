@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { RequestContext } from '../../../common/context/request-context';
+import { containsText } from '../../../common/like';
 import type { TransactionClient } from '../../../prisma/prisma.types';
 import { AuditEntryRecord, AuditLogDao } from '../dao/audit-log.dao';
 import type { AuditLogQuery } from '../schemas/audit.schema';
@@ -47,6 +48,11 @@ export class AuditService {
     );
   }
 
+  /** How many `action` entries exist for one entity since `since`. */
+  countSince(action: string, entityId: string, since: Date): Promise<number> {
+    return this.auditLogDao.countAuditEntriesBy({ action, entityId, createdAt: { gte: since } });
+  }
+
   /**
    * The newest `action` entry for each of the given entities.
    * Callers must already be authorised for every id they pass.
@@ -73,9 +79,7 @@ export class AuditService {
       entityType: query.entityType,
       entityId: query.entityId,
       createdAt: query.from || query.to ? { gte: query.from, lt: query.to } : undefined,
-      actor: query.actorEmail
-        ? { email: { contains: query.actorEmail, mode: 'insensitive' } }
-        : undefined,
+      actor: query.actorEmail ? { email: containsText(query.actorEmail) } : undefined,
     };
     const [items, total] = await Promise.all([
       this.auditLogDao.getAuditEntriesBy(where, query),

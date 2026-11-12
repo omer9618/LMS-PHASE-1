@@ -1,12 +1,12 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { RequestError } from '@/lib/api/errors';
 import type { CourseDetail } from '@/lib/api/schemas/catalogue';
+import { RequestError } from '@/lib/api/errors';
 import { COURSE_ID, courseDetail } from '@/test/fixtures';
 import { apiMock, resetMocks } from '@/test/mocks';
 import { renderWithSession, STUDENT } from '@/test/render';
-import { CourseDetailView } from './CourseDetailView';
+import { CourseDetailContent } from './CourseDetailView';
 import * as catalogueSchema from '@/lib/api/schemas/catalogue';
 
 vi.mock('next/navigation', async () => (await import('@/test/mocks')).navigationMock);
@@ -14,16 +14,13 @@ vi.mock('@/lib/api/client', async () => (await import('@/test/mocks')).apiClient
 
 const EMBED = 'https://iframe.mediadelivery.net/embed/1/abc?token=t&expires=1';
 
+/** The course page loads the course on the server and hands it to the content component. */
 function renderCourse(
-  course: CourseDetail | Error,
+  course: CourseDetail,
   me: typeof STUDENT | null = null,
   enrollments: unknown[] = [],
 ) {
-  return renderWithSession(<CourseDetailView courseId={COURSE_ID} />, me, (path) => {
-    if (path === `/catalogue/courses/${COURSE_ID}`) {
-      if (course instanceof Error) throw course;
-      return course;
-    }
+  return renderWithSession(<CourseDetailContent course={course} />, me, (path) => {
     if (path === `/courses/${COURSE_ID}/lessons/l-1/playback`) {
       return { embedUrl: EMBED, expiresAt: '2026-11-02T10:00:00Z', durationSeconds: 300 };
     }
@@ -36,7 +33,7 @@ beforeEach(() => {
   resetMocks();
 });
 
-describe('CourseDetailView', () => {
+describe('CourseDetailContent', () => {
   it('shows the course, its syllabus coverage, pricing and teacher (#43)', async () => {
     renderCourse(courseDetail());
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(
@@ -142,15 +139,6 @@ describe('CourseDetailView', () => {
     expect(await screen.findByText(/Enrollment for this course is closed/)).toBeVisible();
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Enroll for free' })).not.toBeInTheDocument(),
-    );
-  });
-
-  it('says when a course is not available', async () => {
-    renderCourse(new RequestError('NOT_FOUND', { message: 'Resource not found', status: 404 }));
-    expect(await screen.findByRole('heading', { name: 'Course not found' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Browse all courses' })).toHaveAttribute(
-      'href',
-      '/courses',
     );
   });
 });

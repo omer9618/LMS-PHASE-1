@@ -167,7 +167,6 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
                 orderId={o.id}
                 totalMinor={o.totalMinor}
                 currency={o.currency}
-                suggestedMinor={o.totalMinor}
                 onDecided={() => void order.refetch()}
               />
             </Section>

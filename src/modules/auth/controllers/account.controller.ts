@@ -45,6 +45,7 @@ export class AccountController {
   }
 
   @Public()
+  @RateLimit('ACCOUNT_EMAIL')
   @Post('verify-email')
   @HttpCode(200)
   verifyEmail(

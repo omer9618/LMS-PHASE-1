@@ -50,6 +50,8 @@ services:
       NODE_ENV: production
       # The /api rewrite target (web/Dockerfile). http://api:3000 is the API's address here.
       API_URL: http://api:3000
+      # The public address, for the sitemap (absolute links). Empty: no sitemap.
+      SITE_URL: ${SITE_URL:-}
     depends_on:
       - api
     stop_grace_period: 30s

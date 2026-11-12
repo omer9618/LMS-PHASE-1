@@ -8,6 +8,7 @@ import styles from '@/components/ui/Form.module.css';
 import { authApi } from '@/lib/api/auth';
 import { isRequestError } from '@/lib/api/errors';
 import { safeNextPath } from '@/lib/format';
+import { homePathFor } from '@/lib/home-path';
 import { needsMfaSetup, useSession } from '@/lib/session';
 import { loginForm, mfaCodeForm } from '@/lib/forms/auth';
 import { useMutation } from '@/lib/use-mutation';
@@ -22,7 +23,8 @@ type Step = { kind: 'password' } | { kind: 'mfa'; challengeToken: string };
  */
 export function LoginForm() {
   const router = useRouter();
-  const next = safeNextPath(useSearchParams().get('next'));
+  // A page that asked for sign-in comes first; otherwise staff land in their own area.
+  const requestedNext = safeNextPath(useSearchParams().get('next'), '');
   const { refresh } = useSession();
 
   const [step, setStep] = useState<Step>({ kind: 'password' });
@@ -37,6 +39,7 @@ export function LoginForm() {
 
   async function finish() {
     const me = await refresh();
+    const next = requestedNext || homePathFor(me);
     // An admin who has not enrolled MFA can do nothing else until they do (#16).
     router.replace(needsMfaSetup(me) ? `/account/mfa?next=${encodeURIComponent(next)}` : next);
     router.refresh();
@@ -193,7 +196,13 @@ export function LoginForm() {
         <Link href="/forgot-password">Forgot your password?</Link>
         <p>
           New here?{' '}
-          <Link href={`/register?next=${encodeURIComponent(next)}`}>Create an account</Link>
+          <Link
+            href={
+              requestedNext ? `/register?next=${encodeURIComponent(requestedNext)}` : '/register'
+            }
+          >
+            Create an account
+          </Link>
         </p>
       </div>
     </form>

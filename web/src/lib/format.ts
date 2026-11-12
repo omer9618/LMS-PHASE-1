@@ -23,12 +23,25 @@ export const PACING_HINTS: Record<Pacing, string> = {
 /**
  * Where to go after signing in. Only same-site paths are accepted, so a crafted `?next=` link
  * cannot send someone to another site.
+ *
+ * Browsers delete tab and newline characters from a URL before parsing it, so "/<tab>/evil.example"
+ * becomes "//evil.example" and leaves the site. The text is therefore refused if it holds any
+ * control character or backslash, and then resolved the way a browser would, to prove it stays here.
  */
+const SAME_SITE_BASE = 'https://same-site.invalid';
+
 export function safeNextPath(raw: string | null | undefined, fallback = '/courses'): string {
-  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\')) {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return fallback;
+  for (const char of raw) {
+    const code = char.codePointAt(0) ?? 0;
+    if (code <= 0x20 || code === 0x7f || char === '\\') return fallback;
+  }
+  try {
+    const resolved = new URL(raw, SAME_SITE_BASE);
+    return resolved.origin === SAME_SITE_BASE ? raw : fallback;
+  } catch {
     return fallback;
   }
-  return raw;
 }
 
 /** 5242880 → "5 MB", 1536 → "1.5 KB". For file sizes shown to people. */

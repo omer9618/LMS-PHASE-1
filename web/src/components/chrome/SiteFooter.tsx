@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PLATFORM_NAME } from './BrandMark';
+import { FooterAccountLink } from './FooterAccountLink';
 import styles from './Chrome.module.css';
 
 const COLUMNS = [
@@ -12,10 +13,7 @@ const COLUMNS = [
   },
   {
     label: 'Teaching',
-    links: [
-      ['Teach with us', '/teach-with-us'],
-      ['Sign in', '/login'],
-    ],
+    links: [['Teach with us', '/teach-with-us']],
   },
 ] as const;
 
@@ -29,13 +27,18 @@ export function SiteFooter() {
           <p>Courses from independent teachers for Cambridge and Edexcel students.</p>
         </div>
         {COLUMNS.map((column) => (
-          <nav key={column.label} aria-label={column.label} className={styles.footerColumn}>
+          <nav
+            key={column.label}
+            aria-label={`Footer: ${column.label}`}
+            className={styles.footerColumn}
+          >
             <span className="eyebrow">{column.label}</span>
             {column.links.map(([label, href]) => (
               <Link key={href} href={href}>
                 {label}
               </Link>
             ))}
+            {column.label === 'Teaching' && <FooterAccountLink />}
           </nav>
         ))}
       </div>

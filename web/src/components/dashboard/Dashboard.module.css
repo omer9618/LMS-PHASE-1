@@ -63,8 +63,23 @@
   padding-top: var(--space-2);
 }
 
+/* A link on its own needs room to tap: at least 24px tall (WCAG 2.5.8), a comfortable size. */
 .detailsLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height-sm);
   font-size: var(--text-sm);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.controls > * {
+  flex: 1 1 12rem;
+  max-width: 16rem;
 }
 
 .empty {

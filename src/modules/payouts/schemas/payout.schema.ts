@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { uuidParams } from '../../../common/schemas';
+import { paging, uuidParams } from '../../../common/schemas';
 
 const positiveMoneyMinor = z
   .string()
@@ -61,3 +61,7 @@ export const resolvePayoutConcernSchema = z.strictObject({
     .optional(),
 });
 export type ResolvePayoutConcernInput = z.infer<typeof resolvePayoutConcernSchema>;
+
+/** The payout run: every active teacher with what is owed, most owed first, a page at a time. */
+export const payoutRunQuerySchema = z.strictObject({ ...paging({ max: 100, default: 50 }) });
+export type PayoutRunQuery = z.infer<typeof payoutRunQuerySchema>;

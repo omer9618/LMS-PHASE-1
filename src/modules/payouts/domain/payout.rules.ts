@@ -321,3 +321,17 @@ export function summariseOpenConcerns<T extends OpenConcernCandidate>(
     items,
   };
 }
+
+export type PayoutRunStatus = 'DUE' | 'DISPUTED' | 'CLEAR';
+
+/**
+ * Where a teacher stands in the payout run: a payout in dispute comes first, then money owed,
+ * otherwise nothing to do. Owed means a positive balance in any currency.
+ */
+export function payoutRunStatus(input: {
+  balances: ReadonlyArray<{ balanceMinor: bigint }>;
+  hasDisputedPayout: boolean;
+}): PayoutRunStatus {
+  if (input.hasDisputedPayout) return 'DISPUTED';
+  return input.balances.some((balance) => balance.balanceMinor > 0n) ? 'DUE' : 'CLEAR';
+}

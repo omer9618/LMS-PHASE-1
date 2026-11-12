@@ -28,6 +28,33 @@ export const me = user.extend({
 });
 export type Me = z.infer<typeof me>;
 
+/** GET /auth/session: the signed-in user, or null for a visitor (always 200). */
+export const session = z.object({ user: me.nullable() });
+export type SessionResponse = z.infer<typeof session>;
+
+/** One device the account is signed in on (GET /account/sessions). */
+export const accountSession = z.object({
+  id,
+  createdAt: isoDateTime,
+  lastSeenAt: isoDateTime,
+  ipAddress: z.string().nullable(),
+  userAgent: z.string().nullable(),
+  /** The device making this request. */
+  current: z.boolean(),
+});
+export type AccountSession = z.infer<typeof accountSession>;
+
+export const accountSessions = z.array(accountSession);
+
+/** POST /account/password */
+export const passwordChanged = z.object({
+  changed: z.literal(true),
+  otherSessionsEnded: z.number().int().nonnegative(),
+});
+
+/** POST /account/sessions/sign-out-others */
+export const signedOutOthers = z.object({ ended: z.number().int().nonnegative() });
+
 /** POST /auth/login: signed in, or an admin's MFA challenge. */
 export const loginResult = z.union([
   z.object({
