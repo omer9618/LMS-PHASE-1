@@ -108,12 +108,15 @@ a:hover {
   border-radius: var(--radius-sm);
 }
 
+/* Reduced motion means no motion: no near-zero loops, no transitions. A spinner becomes a static
+   ring (Button.module.css) and a skeleton a still placeholder; both keep their text label. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
   }
 }
 

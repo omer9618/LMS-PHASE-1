@@ -419,7 +419,7 @@ export class CourseService {
     const course = await this.loadCourse(scope, courseId);
     if (open && course.status === CourseStatus.ARCHIVED) {
       throw new AppException(ErrorCode.COURSE_LOCKED, { status: course.status }, undefined, {
-        message: 'An archived course cannot reopen enrollment',
+        message: 'An archived course cannot reopen enrolment',
       });
     }
     if (course.isEnrollmentOpen === open) return this.toView(course);

@@ -73,7 +73,8 @@ export function StatTile({
 }) {
   return (
     <div className={cx(styles.stat, styles[`stat-${tone}`])}>
-      <dt className="eyebrow">{label}</dt>
+      {/* statLabel carries the tone's colour (warning, danger, primary); plain eyebrows are muted. */}
+      <dt className={cx('eyebrow', styles.statLabel)}>{label}</dt>
       <dd className={styles.statValue}>{value}</dd>
       {note && <dd className={styles.statNote}>{note}</dd>}
       {action && (

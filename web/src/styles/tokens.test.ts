@@ -70,6 +70,33 @@ describe('colour tokens meet WCAG 2.2 AA', () => {
   });
 });
 
+describe('placeholders and outlined controls', () => {
+  const fieldCss = readFileSync(join(SRC, 'components/ui/Field.module.css'), 'utf8');
+  const buttonCss = readFileSync(join(SRC, 'components/ui/Button.module.css'), 'utf8');
+
+  it('placeholder text uses muted text, at least 4.5:1 on the field background', () => {
+    expect(fieldCss).toMatch(/\.control::placeholder\s*{[^}]*color:\s*var\(--color-text-muted\)/);
+    expect(contrast('--color-text-muted', '--color-bg')).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('the secondary button outline uses the strong border (3:1)', () => {
+    expect(buttonCss).toMatch(/\.secondary\s*{[^}]*border-color:\s*var\(--color-border-strong\)/);
+  });
+});
+
+describe('reduced motion', () => {
+  const globalsCss = readFileSync(join(__dirname, 'globals.css'), 'utf8');
+
+  it('turns animation and transition off instead of running them at 0.01ms', () => {
+    const start = globalsCss.indexOf('@media (prefers-reduced-motion: reduce)');
+    expect(start).toBeGreaterThan(-1);
+    const rule = globalsCss.slice(start, globalsCss.indexOf('\n}', start));
+    expect(rule).toMatch(/animation:\s*none/);
+    expect(rule).toMatch(/transition:\s*none/);
+    expect(globalsCss).not.toMatch(/0\.01ms/);
+  });
+});
+
 describe('density', () => {
   it('compact overrides only density tokens, and every one of them', () => {
     const densityTokens = Object.keys(root).filter((name) =>

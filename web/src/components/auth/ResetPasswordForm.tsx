@@ -64,10 +64,12 @@ export function ResetPasswordForm() {
         <Alert tone="danger" title="This link is invalid or has expired">
           {welcome
             ? 'Ask an administrator to send you a new invitation, or request a reset link below.'
-            : 'Reset links work once and expire after a while.'}
+            : 'Reset links work once and expire after 30 minutes.'}
         </Alert>
         <p>
-          <Link href="/forgot-password">Request a new link</Link>
+          <Link href="/forgot-password" className={styles.standaloneLink}>
+            Request a new link
+          </Link>
         </p>
       </div>
     );

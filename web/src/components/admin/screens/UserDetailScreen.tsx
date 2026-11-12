@@ -227,7 +227,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
                   variant="secondary"
                   href={`/admin/enrollments?studentId=${user.id}`}
                 >
-                  All enrollments
+                  All enrolments
                 </ButtonLink>
               }
             >

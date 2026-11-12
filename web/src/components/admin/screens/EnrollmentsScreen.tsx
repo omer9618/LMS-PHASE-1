@@ -88,7 +88,7 @@ export function EnrollmentsScreen() {
         {(page) => (
           <>
             <Table<AdminEnrollment>
-              caption={`${page.total} enrollment${page.total === 1 ? '' : 's'}`}
+              caption={`${page.total} enrolment${page.total === 1 ? '' : 's'}`}
               rows={page.items}
               rowKey={(e) => e.id}
               empty="No enrolments match."

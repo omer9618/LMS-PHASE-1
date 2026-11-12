@@ -9,9 +9,12 @@ import {
   Checkbox,
   ConfirmButton,
   Input,
+  LoadError,
   ProgressBar,
   RadioGroup,
   Select,
+  StatGrid,
+  StatTile,
   Table,
   type Column,
 } from './index';
@@ -152,6 +155,40 @@ const columns: Array<Column<Row>> = [
   { key: 'name', header: 'Name', cell: (r) => r.name, rowHeader: true },
   { key: 'amount', header: 'Amount', cell: (r) => r.amount, numeric: true },
 ];
+
+describe('StatTile', () => {
+  it('gives the label the tone class, so a warning label is not muted grey', () => {
+    render(
+      <StatGrid>
+        <StatTile label="Waiting" value="3" tone="warning" />
+      </StatGrid>,
+    );
+    expect(screen.getByText('Waiting')).toHaveClass('eyebrow', 'statLabel');
+    expect(screen.getByText('Waiting').parentElement).toHaveClass('stat-warning');
+  });
+});
+
+describe('LoadError', () => {
+  it('is a paragraph-titled alert inside a page', () => {
+    render(<LoadError title="Could not load your orders">Try again later.</LoadError>);
+    expect(screen.queryByRole('heading')).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not load your orders');
+  });
+
+  it('becomes the h1 and the tab title when it is the whole page', () => {
+    const { unmount } = render(
+      <LoadError title="The order could not be loaded" page>
+        Try again later.
+      </LoadError>,
+    );
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'The order could not be loaded' }),
+    ).toBeInTheDocument();
+    expect(document.title).toBe('The order could not be loaded · Paperlane');
+    unmount();
+    expect(document.title).not.toContain('could not be loaded');
+  });
+});
 
 describe('Table', () => {
   it('is a captioned table with column and row headers', () => {

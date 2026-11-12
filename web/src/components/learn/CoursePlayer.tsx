@@ -317,16 +317,21 @@ function PlayerError({
   onRetry: () => void;
 }) {
   const name = error instanceof RequestError ? error.name : null;
+  const notEnrolled = name === 'ENROLLMENT_REQUIRED' || name === 'ENROLLMENT_EXPIRED';
+  // Each of these replaces the whole player, so its title is the page's h1 and the tab's name.
+  usePageTitle(
+    name === 'UNAUTHENTICATED' ? 'Sign in to continue' : notEnrolled ? errorMessage(error) : null,
+  );
   if (name === 'UNAUTHENTICATED') {
     return (
-      <Alert tone="info" title="Sign in to continue">
+      <Alert tone="info" title="Sign in to continue" titleAs="h1">
         <ButtonLink href={`/login?next=${encodeURIComponent(pathname)}`}>Sign in</ButtonLink>
       </Alert>
     );
   }
-  if (name === 'ENROLLMENT_REQUIRED' || name === 'ENROLLMENT_EXPIRED') {
+  if (notEnrolled) {
     return (
-      <Alert tone="warning" title={errorMessage(error)}>
+      <Alert tone="warning" title={errorMessage(error)} titleAs="h1">
         <Link href={`/courses/${encodeURIComponent(courseId)}`}>See the course details</Link>
       </Alert>
     );
@@ -334,6 +339,7 @@ function PlayerError({
   return (
     <LoadError
       title="The course could not be opened"
+      page
       onRetry={onRetry}
       backHref="/dashboard"
       backLabel="My learning"

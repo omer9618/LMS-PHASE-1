@@ -148,6 +148,7 @@ export function ConfirmButton({
   onConfirm,
   variant = 'danger',
   size = 'sm',
+  disabled = false,
 }: {
   children: ReactNode;
   question: ReactNode;
@@ -155,6 +156,8 @@ export function ConfirmButton({
   onConfirm: () => Promise<void>;
   variant?: ButtonProps['variant'];
   size?: ButtonProps['size'];
+  /** Not available yet; say why next to it. */
+  disabled?: boolean;
 }) {
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -170,7 +173,13 @@ export function ConfirmButton({
 
   if (!asking) {
     return (
-      <Button ref={trigger} variant={variant} size={size} onClick={() => setAsking(true)}>
+      <Button
+        ref={trigger}
+        variant={variant}
+        size={size}
+        disabled={disabled}
+        onClick={() => setAsking(true)}
+      >
         {children}
         <Ellipsis />
       </Button>

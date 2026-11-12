@@ -232,13 +232,13 @@ export function ComponentShowcase({ density }: { density: 'comfortable' | 'compa
 
       <div className={styles.group}>
         <h3>Table</h3>
-        <Table caption="Recent enrollments" columns={COLUMNS} rows={ROWS} rowKey={(r) => r.id} />
+        <Table caption="Recent enrolments" columns={COLUMNS} rows={ROWS} rowKey={(r) => r.id} />
         <Table
           caption="Empty table"
           columns={COLUMNS}
           rows={[]}
           rowKey={(r) => r.id}
-          empty="No enrollments yet."
+          empty="No enrolments yet."
         />
       </div>
     </section>

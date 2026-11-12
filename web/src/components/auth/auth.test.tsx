@@ -20,6 +20,13 @@ beforeEach(() => {
 });
 
 describe('LoginForm', () => {
+  it('gives the standalone "Forgot your password?" link a full touch target', () => {
+    renderWithSession(<LoginForm />);
+    expect(screen.getByRole('link', { name: 'Forgot your password?' })).toHaveClass(
+      'standaloneLink',
+    );
+  });
+
   it('asks for missing fields without calling the API', async () => {
     renderWithSession(<LoginForm />);
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -259,7 +266,7 @@ describe('VerifyEmail', () => {
   it('handles a missing token without calling the API', async () => {
     renderWithSession(<VerifyEmail />);
     expect(await screen.findByText('Open the link from your email')).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Sign in' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveClass('standaloneLink');
     expect(apiMock.post).not.toHaveBeenCalled();
   });
 });
@@ -325,9 +332,9 @@ describe('ResetPasswordForm', () => {
     await userEvent.type(screen.getByLabelText(/^Confirm new password/), 'a brand new phrase');
     await userEvent.click(screen.getByRole('button', { name: 'Change password' }));
     expect(await screen.findByText('This link is invalid or has expired')).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Request a new link' })).toHaveAttribute(
-      'href',
-      '/forgot-password',
-    );
+    const again = screen.getByRole('link', { name: 'Request a new link' });
+    expect(again).toHaveAttribute('href', '/forgot-password');
+    expect(again).toHaveClass('standaloneLink');
+    expect(screen.getByText(/expire after 30 minutes/)).toBeVisible();
   });
 });

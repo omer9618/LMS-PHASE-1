@@ -66,7 +66,8 @@
 
 .secondary {
   background: var(--color-bg);
-  border-color: var(--color-border);
+  /* Strong border: the outline is the control's boundary, so it needs 3:1 (WCAG 1.4.11). */
+  border-color: var(--color-border-strong);
   color: var(--color-text);
 }
 
@@ -111,5 +112,14 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* No spinning when motion is reduced: a still dotted ring says "busy" (with aria-busy and, where
+   given, the loading text). */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    border-style: dotted;
+    border-right-color: currentColor;
   }
 }

@@ -21,6 +21,14 @@ describe('BrandMark', () => {
     render(<BrandMark area="Admin" href="/admin" tone="dark" />);
     expect(screen.getByRole('link', { name: 'Paperlane Admin' })).toHaveAttribute('href', '/admin');
   });
+
+  it('keeps the tagline out of the link, so its visible text matches its name (WCAG 2.5.3)', () => {
+    render(<BrandMark />);
+    const link = screen.getByRole('link', { name: 'Paperlane' });
+    expect(link).toHaveTextContent(/^paperlane$/);
+    expect(screen.getByText('Cambridge & Edexcel courses')).toBeVisible();
+    expect(link).not.toContainElement(screen.getByText('Cambridge & Edexcel courses'));
+  });
 });
 
 describe('SiteHeader', () => {
