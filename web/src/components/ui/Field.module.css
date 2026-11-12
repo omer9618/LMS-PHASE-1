@@ -196,3 +196,28 @@
   min-height: var(--target-min);
   cursor: pointer;
 }
+
+/* The Show/Hide button sits inside the right end of a password box. */
+.revealWrap {
+  position: relative;
+}
+
+.withReveal {
+  padding-right: 4.5rem;
+}
+
+.reveal {
+  position: absolute;
+  inset-block: 0;
+  right: 0;
+  min-width: var(--target-min);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}

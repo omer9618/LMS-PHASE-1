@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { LearnerLesson, LearnerOutline } from '../api/learn';
-import { flattenLessons, lessonStatusLabel, lessonTypeLabel, pickLesson } from './outline';
+import {
+  curlyQuotes,
+  flattenLessons,
+  lessonStatusLabel,
+  lessonTypeLabel,
+  lessonsExplainingLock,
+  pickLesson,
+} from './outline';
 
 function lesson(id: string, overrides: Partial<LearnerLesson> = {}): LearnerLesson {
   return {
@@ -67,5 +74,29 @@ describe('learner outline helpers', () => {
     expect(lessonStatusLabel(a!)).toBe('completed');
     expect(lessonStatusLabel(b!)).toBe('not started');
     expect(lessonStatusLabel(c!)).toBe('locked');
+  });
+
+  it('says why a lesson is locked once per blocking lesson, not on every row', () => {
+    const locked = (id: string, blocker: string) =>
+      lesson(id, {
+        state: 'LOCKED',
+        lock: {
+          cause: 'PREVIOUS_LESSON_INCOMPLETE',
+          blockingLessonId: blocker,
+          blockingLessonTitle: blocker,
+          message: `Complete "${blocker}"`,
+        },
+      });
+    const many = {
+      ...outline,
+      sections: [
+        { id: 's', title: 'S', lessons: [locked('x1', 'q'), locked('x2', 'q'), locked('x3', 'r')] },
+      ],
+    };
+    expect([...lessonsExplainingLock(many)]).toEqual(['x1', 'x3']);
+  });
+
+  it('writes straight quotes as curly ones', () => {
+    expect(curlyQuotes('Complete "Topic 1.1" to unlock')).toBe('Complete “Topic 1.1” to unlock');
   });
 });

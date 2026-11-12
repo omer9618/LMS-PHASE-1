@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { addToCart, CART_MAX_ITEMS, parseCart, removeFromCart } from './cart';
 import { validateProofForm } from '../forms/orders';
-import { groupByTeacher, humaniseGuidance, timeUntil } from './display';
+import {
+  bankDetailsReady,
+  groupByTeacher,
+  humaniseGuidance,
+  orderStatusLabel,
+  timeUntil,
+} from './display';
 
 describe('humaniseGuidance', () => {
   it('reformats minor units and ISO instants in the API guidance', () => {
@@ -78,5 +84,26 @@ describe('order display', () => {
     expect(bad.ok).toBe(false);
     if (!bad.ok) expect(Object.keys(bad.errors).sort()).toEqual(['amount', 'transactionId']);
     expect(validateProofForm({ transactionId: 'TX1', amount: '1.234' }, 'PKR').ok).toBe(false);
+  });
+});
+
+describe('payment details and order words', () => {
+  it('treats the shipped placeholders as "bank details not set"', () => {
+    expect(bankDetailsReady('Bank: [to be confirmed] Account title: [To Be Confirmed]')).toBe(
+      false,
+    );
+    expect(bankDetailsReady('   ')).toBe(false);
+    expect(bankDetailsReady(null)).toBe(false);
+    expect(bankDetailsReady('Bank: Example IBAN: PK00 0000')).toBe(true);
+  });
+
+  it('uses one word per order state, whatever role is looking', () => {
+    expect(orderStatusLabel({ status: 'PENDING' })).toBe('Awaiting payment');
+    expect(orderStatusLabel({ status: 'PROOF_SUBMITTED' })).toBe('Proof submitted');
+    expect(orderStatusLabel({ status: 'VERIFIED' })).toBe('Confirmed');
+    expect(orderStatusLabel({ status: 'LAPSED' })).toBe('Expired');
+    expect(
+      orderStatusLabel({ status: 'PENDING', lastDecision: { kind: 'TOP_UP_REQUESTED' } }),
+    ).toBe('Awaiting top-up');
   });
 });
